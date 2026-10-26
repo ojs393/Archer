@@ -55,11 +55,56 @@ export function markGroup(markSvg) {
   return match[0];
 }
 
+const FEATHER_THICKEN = 1.08;
+
+function pathBox(d) {
+  const nums = (d.match(/-?\d+(?:\.\d+)?/g) ?? []).map(Number);
+  const xs = nums.filter((_, i) => i % 2 === 0);
+  const ys = nums.filter((_, i) => i % 2 === 1);
+  return { minX: Math.min(...xs), maxX: Math.max(...xs), minY: Math.min(...ys), maxY: Math.max(...ys) };
+}
+
+function parsePaths(group) {
+  return [...group.matchAll(/<path\b[^>]*\/>/g)].map(([el]) => {
+    const d = /\sd="([^"]+)"/.exec(el);
+    if (!d) throw new Error(`mark path without d: ${el}`);
+    return { el, box: pathBox(d[1]) };
+  });
+}
+
+/**
+ * Small-size mark, chosen by geometry (not colour): drops the details inside the dome (highlight, band)
+ * and every other feather, and thickens the kept feathers about each wing's base.
+ */
 export function simplifyMarkGroup(group) {
-  return group
-    .split("\n")
-    .filter((line) => !line.includes('fill="#52525b"') && !line.includes("stroke="))
-    .join("\n");
+  const paths = parsePaths(group);
+  const spansCentre = (p) => p.box.minX < CENTER && p.box.maxX > CENTER;
+  const central = paths.filter(spansCentre);
+  if (central.length === 0) throw new Error("mark has no shape across the centre");
+  const height = (p) => p.box.maxY - p.box.minY;
+  const dome = central.reduce((a, b) => (height(b) > height(a) ? b : a));
+  const insideDome = (p) =>
+    p !== dome && p.box.minX >= dome.box.minX && p.box.maxX <= dome.box.maxX && p.box.minY >= dome.box.minY && p.box.maxY <= dome.box.maxY;
+  const brims = central.filter((p) => p !== dome && !insideDome(p));
+
+  const wing = (left) => {
+    const shapes = paths.filter((p) => !spansCentre(p) && !insideDome(p) && (left ? p.box.maxX <= CENTER : p.box.minX >= CENTER));
+    if (shapes.length === 0) return [];
+    const width = (p) => p.box.maxX - p.box.minX;
+    const shoulder = shapes.reduce((a, b) => (width(b) < width(a) ? b : a));
+    const feathers = shapes.filter((p) => p !== shoulder).sort((a, b) => a.box.minY - b.box.minY);
+    const kept = feathers.filter((_, i) => i % 2 === 0);
+    const baseX = left ? Math.max(...kept.map((p) => p.box.maxX)) : Math.min(...kept.map((p) => p.box.minX));
+    const baseY = Math.max(...kept.map((p) => p.box.maxY));
+    return [
+      `    <g transform="translate(${baseX} ${baseY}) scale(${FEATHER_THICKEN}) translate(-${baseX} -${baseY})">`,
+      ...kept.map((p) => `      ${p.el}`),
+      `    </g>`,
+      `    ${shoulder.el}`,
+    ];
+  };
+
+  return ["<g>", ...wing(true), ...wing(false), `    ${dome.el}`, ...brims.map((p) => `    ${p.el}`), "  </g>"].join("\n");
 }
 
 function placed(group, { translateY = 0, scale = 1 }) {
@@ -84,8 +129,8 @@ export function appIconSvg(group, placement) {
   );
 }
 
-export const MASKABLE_SCALE = 0.75;
-export const MARK_OPTICAL_OFFSET_Y = 19;
+export const MASKABLE_SCALE = 0.85;
+export const MARK_OPTICAL_OFFSET_Y = 34;
 
 export function fullBleedIconSvg(group, placement) {
   return svgDocument([`  <rect width="512" height="512" fill="#ffffff"/>`, `  ${placed(group, placement)}`].join("\n"));

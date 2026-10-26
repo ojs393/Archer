@@ -8,11 +8,10 @@ const markSvg = fs.readFileSync(path.resolve(__dirname, "../../public/brand/mark
 
 describe("BrandMark", () => {
   it("inlines exactly the paths and colours of mark.svg", () => {
-    const fromFile = [...markSvg.matchAll(/<path d="([^"]+)" fill="([^"]+)"(?: stroke="([^"]+)")?/g)].map(([, d, fill, stroke]) => ({
-      d,
-      fill: fill === "none" ? stroke : fill,
-    }));
-    expect(MARK_PATHS.map(({ d, fill }) => ({ d, fill }))).toEqual(fromFile);
+    const fromFile = [...markSvg.matchAll(/<path d="([^"]+)" fill="([^"]+)"\/>/g)].map(([, d, fill]) => ({ d, fill }));
+    expect(fromFile).toHaveLength(14);
+    expect(markSvg.match(/<path /g)).toHaveLength(fromFile.length);
+    expect(MARK_PATHS).toEqual(fromFile);
   });
 
   it("is decorative without a title and labelled with one", () => {
@@ -22,6 +21,6 @@ describe("BrandMark", () => {
     expect(svg).toHaveAttribute("width", "28");
     rerender(<BrandMark size={40} title="MamaDirect" />);
     expect(container.querySelector("svg")).toHaveAttribute("aria-label", "MamaDirect");
-    expect(container.querySelectorAll("path")).toHaveLength(10);
+    expect(container.querySelectorAll("path")).toHaveLength(14);
   });
 });

@@ -1,4 +1,7 @@
+import fs from "node:fs";
+import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { projectRoot } from "../../../scripts/lib/paths.mjs";
 import {
   appIconSvg,
   encodeIcns,
@@ -101,11 +104,45 @@ describe("mark svg helpers", () => {
     expect(g).toContain('fill="#3f3f46"');
   });
 
-  it("drops the highlight and brim stroke from the simplified mark", () => {
-    const simple = simplifyMarkGroup(markGroup(MARK));
-    expect(simple).toContain('fill="#3f3f46"');
-    expect(simple).not.toContain("#52525b");
-    expect(simple).not.toContain("stroke=");
+  describe("simplifyMarkGroup on the real v2 mark", () => {
+    const full = markGroup(fs.readFileSync(path.join(projectRoot(), "web", "public", "brand", "mark.svg"), "utf8"));
+    const simple = simplifyMarkGroup(full);
+    const ds = (g: string) => [...g.matchAll(/<path d="([^"]+)"/g)].map((m) => m[1]);
+    const fullDs = ds(full);
+
+    it("keeps fewer paths than the full mark", () => {
+      expect(fullDs).toHaveLength(14);
+      expect(ds(simple).length).toBeLessThan(fullDs.length);
+    });
+
+    it("keeps feathers 1 and 3 of each wing, both shoulders, the dome and the brim", () => {
+      const kept = new Set(ds(simple));
+      const [l1, l2, l3, l4, lShoulder, r1, r2, r3, r4, rShoulder, dome, highlight, band, brim] = fullDs;
+      for (const d of [l1, l3, lShoulder, r1, r3, rShoulder, dome, brim]) expect(kept.has(d), d).toBe(true);
+      for (const d of [l2, l4, r2, r4, highlight, band]) expect(kept.has(d), d).toBe(false);
+      expect(kept.size).toBe(8);
+    });
+
+    it("thickens each wing's feathers by scaling 1.08 from the wing base", () => {
+      const scaled = [...simple.matchAll(/<g transform="translate\(([\d.]+) ([\d.]+)\) scale\(1\.08\) translate\(-([\d.]+) -([\d.]+)\)">/g)];
+      expect(scaled).toHaveLength(2);
+      const [left, right] = scaled.map((m) => Number(m[1]));
+      expect(left).toBeLessThan(256);
+      expect(right).toBeGreaterThan(256);
+    });
+
+    it("paints feathers under the shoulder, dome and brim", () => {
+      const order = ds(simple);
+      expect(order.indexOf(fullDs[0])).toBeLessThan(order.indexOf(fullDs[4]));
+      expect(order.at(-2)).toBe(fullDs[10]);
+      expect(order.at(-1)).toBe(fullDs[13]);
+      expect(simple.startsWith("<g>")).toBe(true);
+    });
+
+    it("ignores colours: recoloured paths simplify the same way", () => {
+      const recoloured = full.replace(/fill="#[0-9a-f]{6}"/g, 'fill="#123456"');
+      expect(ds(simplifyMarkGroup(recoloured))).toEqual(ds(simple));
+    });
   });
 
   it("wraps the mark in a white rounded square with a hairline for the app icon", () => {

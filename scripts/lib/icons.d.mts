@@ -15,7 +15,10 @@ export function encodeIcns(entries: { type: string; png: Buffer }[]): Buffer;
 
 export function markGroup(markSvg: string): string;
 
-/** The mark without the dome highlight and the brim stroke, for sizes where they muddy. */
+/**
+ * Small-size mark chosen by geometry: drops the shapes inside the dome (highlight, band) and every other
+ * feather, keeps shoulders, dome and brim, and scales each wing's kept feathers 1.08 from its base.
+ */
 export function simplifyMarkGroup(group: string): string;
 
 export function appIconSvg(group: string, placement: MarkPlacement): string;
@@ -23,7 +26,7 @@ export function appIconSvg(group: string, placement: MarkPlacement): string;
 /** White square without rounded corners, for launchers that apply their own mask. */
 export function fullBleedIconSvg(group: string, placement: MarkPlacement): string;
 
-/** Full-bleed icon with the mark inside the central 60% (maskable safe zone). */
+/** Full-bleed icon with the mark inside the 80% maskable safe-zone circle. */
 export function maskableIconSvg(group: string): string;
 
 export const MASKABLE_SCALE: number;
