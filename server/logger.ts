@@ -1,0 +1,72 @@
+import fs from "node:fs";
+import path from "node:path";
+import { inspect } from "node:util";
+import { config } from "./config.ts";
+
+export type Level = "info" | "warn" | "error";
+
+export interface Logger {
+  info(...args: unknown[]): void;
+  warn(...args: unknown[]): void;
+  error(...args: unknown[]): void;
+}
+
+const REDACTED = "***";
+const secrets = new Set<string>();
+
+export function registerSecret(value: string | undefined): void {
+  if (value) secrets.add(value);
+}
+
+export function redact(text: string): string {
+  // Longest first, so a secret that contains another is not left half-masked.
+  const ordered = [...secrets].sort((a, b) => b.length - a.length);
+  return ordered.reduce((out, secret) => out.split(secret).join(REDACTED), text);
+}
+
+function formatArg(arg: unknown): string {
+  if (typeof arg === "string") return arg;
+  if (arg instanceof Error) return arg.stack ?? `${arg.name}: ${arg.message}`;
+  try {
+    return JSON.stringify(arg) ?? String(arg);
+  } catch {
+    return inspect(arg, { depth: 4 });
+  }
+}
+
+function defaultWrite(line: string, level: Level): void {
+  (level === "error" ? process.stderr : process.stdout).write(`${line}\n`);
+}
+
+export function createLogger({
+  logFile,
+  write = defaultWrite,
+}: {
+  logFile?: string;
+  write?: (line: string, level: Level) => void;
+}): Logger {
+  let dirReady = false;
+
+  const emit = (level: Level, args: unknown[]) => {
+    const line = redact(`${new Date().toISOString()} ${level.toUpperCase()} ${args.map(formatArg).join(" ")}`);
+    write(line, level);
+    if (!logFile) return;
+    try {
+      if (!dirReady) {
+        fs.mkdirSync(path.dirname(logFile), { recursive: true });
+        dirReady = true;
+      }
+      fs.appendFileSync(logFile, `${line}\n`);
+    } catch {
+      // A full disk or locked log file must never take the server down; stdout still has the line.
+    }
+  };
+
+  return {
+    info: (...args) => emit("info", args),
+    warn: (...args) => emit("warn", args),
+    error: (...args) => emit("error", args),
+  };
+}
+
+export const logger = createLogger({ logFile: path.join(config.logsDir, "app.log") });

@@ -1,0 +1,44 @@
+{
+  "name": "mamadirect",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "setup": "node --disable-warning=ExperimentalWarning scripts/setup.mjs",
+    "doctor": "node --disable-warning=ExperimentalWarning scripts/doctor.mjs",
+    "start": "node --disable-warning=ExperimentalWarning scripts/doctor.mjs --quick && node --disable-warning=ExperimentalWarning --import tsx server/supervisor.ts",
+    "dev": "node --disable-warning=ExperimentalWarning --import tsx server/index.ts",
+    "build:web": "vite build",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run tests/unit tests/integration",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test"
+  },
+  "dependencies": {
+    "@fastify/cookie": "11.1.3",
+    "@fastify/multipart": "10.1.6",
+    "@fastify/static": "10.1.7",
+    "csv-parse": "7.0.3",
+    "fastify": "5.12.7",
+    "html-to-text": "10.0.1",
+    "nodemailer": "10.2.1",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.63.0",
+    "@types/html-to-text": "9.0.4",
+    "@types/node": "22.16.5",
+    "@types/nodemailer": "8.0.2",
+    "@types/smtp-server": "3.5.13",
+    "smtp-server": "3.21.1",
+    "tsx": "4.23.15",
+    "typescript": "5.9.3",
+    "vite": "7.3.7",
+    "vitest": "4.1.12"
+  },
+  "overrides": {
+    "vite": "$vite"
+  }
+}
