@@ -57,6 +57,7 @@ export interface WorkerActivity {
   inFlightSince: number | null;
   expectedWakeAt: number | null;
   delaySeconds: number | null;
+  loopRunning: boolean;
 }
 
 type EventInput = { type: WorkerEventType; message: string; contactId?: number; email?: string };
@@ -118,7 +119,7 @@ export class SendWorker extends EventEmitter {
   private expectedWakeAt: number | null = null;
   private delaySeconds: number | null = null;
   private loop: Promise<void> | null = null;
-  private wake = new AbortController();
+  private napCtl = new AbortController();
   private iteration = new AbortController();
   private transport: MailTransport | null = null;
   private transportKey = "";
@@ -175,7 +176,7 @@ export class SendWorker extends EventEmitter {
     const id = this.campaignId;
     if (id === null) return;
     if (this.isActive(id)) this.setStatus(id, "paused", reason);
-    this.wake.abort();
+    this.napCtl.abort();
   }
 
   resume(): void {
@@ -190,7 +191,7 @@ export class SendWorker extends EventEmitter {
     if (id === null) return;
     const status = this.store.campaign(id)?.status;
     if (status !== undefined && status !== "completed" && status !== "stopped") this.setStatus(id, "stopped", null);
-    this.wake.abort();
+    this.napCtl.abort();
   }
 
   requeueUncertain(campaignId: number, contactIds?: number[]): number {
@@ -205,6 +206,7 @@ export class SendWorker extends EventEmitter {
       inFlightSince: this.inFlightSince,
       expectedWakeAt: this.expectedWakeAt,
       delaySeconds: this.delaySeconds,
+      loopRunning: this.loop !== null,
     };
   }
 
@@ -213,8 +215,12 @@ export class SendWorker extends EventEmitter {
     if (id !== null) this.safely(() => this.apply(id, () => [{ type: "error", message: `Send loop restarted: ${reason}` }]));
     this.rebuildTransport();
     this.iteration.abort();
-    this.wake.abort();
+    this.napCtl.abort();
     if (id !== null && this.isActiveSafe(id)) this.launch(id);
+  }
+
+  wake(_reason: string): void {
+    if (this.expectedWakeAt !== null) this.napCtl.abort();
   }
 
   rebuildTransport(): void {
@@ -226,7 +232,7 @@ export class SendWorker extends EventEmitter {
 
   async shutdown(timeoutMs: number): Promise<void> {
     this.shuttingDown = true;
-    this.wake.abort();
+    this.napCtl.abort();
     const loop = this.loop;
     if (loop && !(await settlesWithin(loop, timeoutMs))) {
       this.iteration.abort();
@@ -323,9 +329,16 @@ export class SendWorker extends EventEmitter {
       this.beat();
     }
     if (outcome !== "delay") return outcome;
-    if (this.shuttingDown || !this.isActive(id)) return "continue";
-    await this.napFor(schedule.delaySeconds * 1000 * this.jitter());
+    await this.pace(id, this.now().getTime() + schedule.delaySeconds * 1000 * this.jitter(), signal);
     return "continue";
+  }
+
+  private async pace(id: number, until: number, signal: AbortSignal): Promise<void> {
+    while (!signal.aborted && !this.shuttingDown && this.isActive(id)) {
+      const left = until - this.now().getTime();
+      if (left <= 0) return;
+      await this.nap(left, until);
+    }
   }
 
   private windowWait(id: number, s: Schedule, now: Date): Date | null {
@@ -386,6 +399,7 @@ export class SendWorker extends EventEmitter {
   private async deliver(id: number, s: Schedule, row: SendRow, p: Prepared, signal: AbortSignal): Promise<AttemptOutcome> {
     const { sender } = p;
     const result = await this.sendCapped(p.transport, p.message, signal);
+    this.inFlightSince = null;
     this.beat();
     switch (result.kind) {
       case "ok":
@@ -583,7 +597,7 @@ export class SendWorker extends EventEmitter {
   }
 
   private async nap(ms: number, wakeAt: number): Promise<void> {
-    const ctl = this.wake;
+    const ctl = this.napCtl;
     if (!ctl.signal.aborted && ms > 0) {
       this.expectedWakeAt = wakeAt;
       try {
@@ -594,7 +608,7 @@ export class SendWorker extends EventEmitter {
         this.expectedWakeAt = null;
       }
     }
-    if (ctl.signal.aborted && this.wake === ctl) this.wake = new AbortController();
+    if (ctl.signal.aborted && this.napCtl === ctl) this.napCtl = new AbortController();
     this.beat();
   }
 
