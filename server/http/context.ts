@@ -32,8 +32,10 @@ export interface ServerDeps {
   linkChecker?: CheckLinksOptions;
   registerSecret?: (value: string) => void;
   log?: Logger;
+  /** Where the desktop launcher is written; defaults to the user's desktop folder. */
+  desktopDir?: string;
 }
 
-type OptionalInContext = "dnsResolver" | "smtpTestTimeoutMs" | "uploadLimitBytes" | "linkChecker";
+type OptionalInContext = "dnsResolver" | "smtpTestTimeoutMs" | "uploadLimitBytes" | "linkChecker" | "desktopDir";
 
 export type AppContext = Required<Omit<ServerDeps, OptionalInContext>> & Pick<ServerDeps, OptionalInContext>;

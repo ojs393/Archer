@@ -463,3 +463,8 @@ export const analyticsErrorsQuerySchema = z.strictObject({
   campaignId: analyticsCampaignId,
   limit: z.coerce.number().int().min(1).max(50).default(10),
 });
+
+export interface DesktopLauncherResult {
+  ok: true;
+  path: string;
+}

@@ -17,6 +17,7 @@ import { sessionRoutes } from "./routes/session.ts";
 import { settingsRoutes } from "./routes/settings.ts";
 import { setupRoutes } from "./routes/setup.ts";
 import { suppressionRoutes } from "./routes/suppression.ts";
+import { systemRoutes } from "./routes/system.ts";
 import { templateRoutes } from "./routes/templates.ts";
 import { unsubscribePlugin } from "./routes/unsubscribe.ts";
 import { securityHook } from "./security.ts";
@@ -92,6 +93,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   templateRoutes(app, ctx);
   campaignRoutes(app, ctx);
   analyticsRoutes(app, ctx);
+  systemRoutes(app, ctx);
   estimateRoutes(app);
   app.register(unsubscribePlugin, { db: ctx.db, env: ctx.env, log: ctx.log });
   registerWeb(app, { webDir: ctx.webDir, sessionToken: ctx.sessionToken });
