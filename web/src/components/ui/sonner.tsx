@@ -17,7 +17,7 @@ function Toaster(props: ToasterProps) {
           description: "text-secondary-foreground",
           actionButton: "!bg-primary !text-primary-foreground",
           cancelButton: "!bg-zinc-100 !text-zinc-900",
-          closeButton: "!border-border !bg-background !text-zinc-600 hover:!text-zinc-900",
+          closeButton: "!border-0 !bg-background !text-zinc-600 hover:!text-zinc-900",
         },
       }}
       {...props}
