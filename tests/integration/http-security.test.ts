@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import type { InjectOptions } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 import { ORIGIN, PORT, TOKEN, authed, makeHarness, mutating, type Harness } from "./httpHarness.ts";
 
@@ -130,6 +131,28 @@ describe("HTTP security", () => {
     const missing = await h.app.inject({ method: "GET", url: "/api/nope", headers: authed });
     expect(missing.statusCode).toBe(404);
     expect(missing.json().error.code).toBe("not_found");
+  });
+
+  it("never returns the SMTP password, the unsubscribe secret, or the session token in a body", async () => {
+    const pass = "Very-Secret-SMTP-Pass-42";
+    h = await makeHarness({ verifySmtp: async () => Promise.reject(new Error(`535 auth failed for ${pass}`)) });
+    const bodies: string[] = [];
+    const record = async (opts: InjectOptions) => {
+      const res = await h.app.inject(opts);
+      bodies.push(res.body);
+      return res;
+    };
+    await record({ method: "PUT", url: "/api/settings", headers: mutating, payload: { smtp: { host: "smtp.example.com", user: "u", pass } } });
+    await record({ method: "GET", url: "/api/settings", headers: authed });
+    await record({ method: "POST", url: "/api/settings/smtp/test", headers: mutating });
+    await record({ method: "GET", url: "/api/health", headers: authed });
+    await record({ method: "GET", url: "/api/status", headers: authed });
+    await record({ method: "PUT", url: "/api/settings", headers: mutating, payload: { smtp: { pass, port: 0 } } });
+    await record({ method: "GET", url: "/", headers: authed });
+    const all = bodies.join("\n");
+    expect(all).not.toContain(pass);
+    expect(all).not.toContain(h.env.UNSUB_SECRET!);
+    expect(all).not.toContain(TOKEN);
   });
 
   it("rejects an oversized JSON body", async () => {

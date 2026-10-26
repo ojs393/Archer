@@ -10,6 +10,7 @@ import { errorHandler } from "./errors.ts";
 import { ImportJobs } from "./importJobs.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { sessionRoutes } from "./routes/session.ts";
+import { settingsRoutes } from "./routes/settings.ts";
 import { suppressionRoutes } from "./routes/suppression.ts";
 import { securityHook } from "./security.ts";
 import { registerWeb } from "./web.ts";
@@ -67,6 +68,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
 
   sessionRoutes(app, ctx);
   healthRoutes(app, ctx);
+  settingsRoutes(app, ctx);
   suppressionRoutes(app, ctx);
   registerWeb(app, { webDir: ctx.webDir, sessionToken: ctx.sessionToken });
   return app;

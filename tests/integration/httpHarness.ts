@@ -45,6 +45,7 @@ export interface HarnessOptions {
   verifySmtp?: (cfg: SmtpConfig) => Promise<void>;
   createDomainChecker?: () => (d: string) => Promise<DomainStatus>;
   probeNetwork?: (host: string) => Promise<boolean>;
+  registerSecret?: (value: string) => void;
   extend?: (app: FastifyInstance) => void;
   build?: (deps: ServerDeps) => FastifyInstance;
 }
@@ -77,6 +78,7 @@ export async function makeHarness(opts: HarnessOptions = {}): Promise<Harness> {
     dnsResolver: opts.dnsResolver,
     verifySmtp: opts.verifySmtp,
     createDomainChecker: opts.createDomainChecker,
+    registerSecret: opts.registerSecret ?? (() => {}),
     log: { info() {}, warn() {}, error() {} },
   };
   const app = (opts.build ?? buildServer)(deps);

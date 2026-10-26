@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { isValidEmail, normalizeEmail } from "../domain/email.ts";
 import { isValidTimezone } from "../domain/zonedTime.ts";
+import { isStorableEnvValue } from "../settings/envFile.ts";
 
 const LINE_BREAK = /[\r\n]/;
 const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f]/;
@@ -95,7 +96,8 @@ export const smtpPassword = z
   .string()
   .min(1)
   .max(1024)
-  .refine((v) => !/[\r\n\u0000]/.test(v), "The password must not contain line breaks");
+  .refine((v) => !/[\r\n\u0000]/.test(v), "The password must not contain line breaks")
+  .refine(isStorableEnvValue, "This password mixes quote characters in a way the .env file cannot store; change it");
 
 export const formBoolean = (fallback: boolean) =>
   z

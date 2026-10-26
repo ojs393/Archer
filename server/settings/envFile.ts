@@ -9,12 +9,23 @@ function assignmentOf(key: string): RegExp {
   return new RegExp(`^[ \\t]*(?:export[ \\t]+)?${key}[ \\t]*=`);
 }
 
-function encode(key: string, value: string): string {
+function tryEncode(key: string, value: string): string | null {
+  if (UNSTORABLE.test(value)) return null;
   for (const quote of ["'", "`", '"', ""]) {
     const line = `${key}=${quote}${value}${quote}`;
     if (parseEnv(line)[key] === value) return line;
   }
-  throw new Error(`${key} contains a combination of quotes that cannot be stored in .env`);
+  return null;
+}
+
+function encode(key: string, value: string): string {
+  const line = tryEncode(key, value);
+  if (line === null) throw new Error(`${key} contains a combination of quotes that cannot be stored in .env`);
+  return line;
+}
+
+export function isStorableEnvValue(value: string): boolean {
+  return tryEncode("K", value) !== null;
 }
 
 function writeAtomically(envPath: string, text: string): void {
