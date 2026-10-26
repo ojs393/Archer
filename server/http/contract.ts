@@ -1,6 +1,8 @@
 import { z } from "zod";
 import type { SuppressionRow } from "../db/suppression.ts";
-import type { Estimate, Schedule } from "../domain/schedule.ts";
+import { validateSchedule, type Estimate, type Schedule } from "../domain/schedule.ts";
+import { BUILTIN_KEYS, type TemplatePart, type TemplateVariable, type VariableMap } from "../domain/template.ts";
+import type { LinkCheck } from "../templates/linkCheck.ts";
 import type { ImportCounts } from "../import/csv.ts";
 import type { ListRow } from "../import/lists.ts";
 import type { CampaignStatus } from "../send/sendState.ts";
@@ -25,6 +27,8 @@ export type { ListRow } from "../import/lists.ts";
 export type { SuppressionRow } from "../db/suppression.ts";
 export type { WorkerEvent } from "../send/worker.ts";
 export type { Estimate, Schedule } from "../domain/schedule.ts";
+export type { TemplatePart, TemplateVariable, VariableMap, VariableSource } from "../domain/template.ts";
+export type { LinkCheck, LinkResult } from "../templates/linkCheck.ts";
 
 export interface ApiErrorBody {
   error: { code: string; message: string; details?: unknown };
@@ -208,3 +212,140 @@ export const suppressionAddSchema = z.strictObject({
 });
 
 export const suppressionParamSchema = z.strictObject({ email: z.string().min(1).max(320) });
+
+export interface TemplateSummary {
+  id: number;
+  name: string;
+  version: number;
+  updatedAt: string;
+}
+
+export interface TemplateAnalysis {
+  variables: TemplateVariable[];
+  malformed: { part: TemplatePart; problems: { index: number; snippet: string }[] }[];
+  validation: { ok: boolean; unresolved: string[]; needsFallback: string[] };
+  hasComplianceTags: boolean;
+}
+
+export interface TemplateView {
+  id: number;
+  name: string;
+  version: number;
+  subject: string;
+  html: string;
+  text: string | null;
+  createdAt: string;
+  updatedAt: string;
+  variableMap: VariableMap;
+  analysis: TemplateAnalysis;
+  linkCheck: LinkCheck | null;
+  testedOk: boolean;
+}
+
+export interface TemplatePreview {
+  contactId: number | null;
+  email: string;
+  subject: string;
+  html: string;
+  text: string;
+}
+
+export interface TestSendResult {
+  results: { to: string; ok: boolean; messageId: string | null; error: string | null }[];
+}
+
+export interface GatesResult {
+  ok: boolean;
+  gates: Gate[];
+}
+
+export interface UncertainPage {
+  rows: { contactId: number; email: string; lastError: string | null; updatedAt: string }[];
+  total: number;
+}
+
+export interface CampaignEventsPage {
+  rows: { id: number; type: string; message: string; createdAt: string }[];
+}
+
+export const TEMPLATE_MAX_BYTES = 2 * 1024 * 1024;
+
+const templateName = singleLine({ min: 1, max: 200 });
+const templateSubject = singleLine({ min: 1, max: 998 });
+const templateBody = z.string().min(1, "Must not be empty").max(TEMPLATE_MAX_BYTES, "Must be 2 MB or smaller");
+const positiveId = z.number().int().positive();
+
+export const variableSourceSchema = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("column"), column: z.string().min(1).max(200) }),
+  z.strictObject({ kind: z.literal("builtin"), key: z.enum(BUILTIN_KEYS) }),
+  z.strictObject({ kind: z.literal("fixed"), value: z.string().max(1000) }),
+]);
+
+export const variableMapSchema = z
+  .record(z.string().regex(/^[a-zA-Z0-9_]{1,100}$/, "Variable names use letters, digits and _"), variableSourceSchema)
+  .refine((m) => Object.keys(m).length <= 500, "At most 500 variables");
+
+export const templateCreateSchema = z
+  .strictObject({ name: templateName, subject: templateSubject, html: templateBody.optional(), text: templateBody.optional() })
+  .refine((t) => t.html !== undefined || t.text !== undefined, { message: "Provide html or text", path: ["html"] });
+
+export const templateUploadFieldsSchema = z.strictObject({ name: templateName, subject: templateSubject });
+
+export const templateUpdateSchema = z.strictObject({
+  name: templateName.optional(),
+  subject: templateSubject.optional(),
+  html: templateBody.optional(),
+  text: templateBody.nullable().optional(),
+  variableMap: variableMapSchema.optional(),
+});
+
+export type TemplateUpdate = z.output<typeof templateUpdateSchema>;
+
+export const templatePreviewSchema = z.strictObject({
+  listId: positiveId.optional(),
+  pick: z.enum(["first", "next", "random"]).default("first"),
+  afterContactId: z.number().int().nonnegative().optional(),
+});
+
+export const linkAckSchema = z.strictObject({ url: z.string().min(1).max(4096) });
+
+export const testSendSchema = z.strictObject({
+  to: z.array(email).min(1).max(10).optional(),
+  listId: positiveId.optional(),
+});
+
+export const scheduleSchema = z
+  .strictObject({
+    timezone: z.string().max(100),
+    sendDays: z.array(z.number().int()).max(7),
+    startTime: z.string().max(5),
+    endTime: z.string().max(5),
+    dailyCap: z.number().int(),
+    warmup: z.boolean(),
+    delaySeconds: z.number().int(),
+  })
+  .superRefine((s, ctx) => {
+    for (const message of validateSchedule(s)) ctx.addIssue({ code: "custom", message });
+  });
+
+export const estimateSchema = z.strictObject({
+  remaining: z.number().int().min(0).max(100_000_000),
+  schedule: scheduleSchema,
+});
+
+export const campaignCreateSchema = z.strictObject({ listId: positiveId, templateId: positiveId, schedule: scheduleSchema });
+
+export const scheduleUpdateSchema = z.strictObject({ schedule: scheduleSchema });
+
+export const pageQuerySchema = z.strictObject({
+  limit: z.coerce.number().int().min(0).max(1000).default(100),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export const requeueSchema = z.strictObject({ contactIds: z.array(positiveId).min(1).max(10_000).optional() });
+
+export const campaignEventsQuerySchema = z.strictObject({
+  type: z.string().max(40).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+  beforeId: z.coerce.number().int().positive().optional(),
+});

@@ -4,8 +4,9 @@ import type { AuthResolver } from "../dns/check.ts";
 import type { HealthMonitor } from "../health/monitor.ts";
 import type { DomainStatus } from "../import/mx.ts";
 import type { Logger } from "../logger.ts";
-import type { SmtpConfig } from "../send/transport.ts";
+import type { MailTransport, SmtpConfig } from "../send/transport.ts";
 import type { SendWorker } from "../send/worker.ts";
+import type { CheckLinksOptions } from "../templates/linkCheck.ts";
 import type { EventHub } from "./events.ts";
 import type { ImportJobs } from "./importJobs.ts";
 
@@ -27,10 +28,12 @@ export interface ServerDeps {
   smtpTestTimeoutMs?: number;
   uploadLimitBytes?: number;
   createDomainChecker?: () => (domain: string) => Promise<DomainStatus>;
+  createTransport?: (cfg: SmtpConfig) => MailTransport;
+  linkChecker?: CheckLinksOptions;
   registerSecret?: (value: string) => void;
   log?: Logger;
 }
 
-type OptionalInContext = "dnsResolver" | "smtpTestTimeoutMs" | "uploadLimitBytes";
+type OptionalInContext = "dnsResolver" | "smtpTestTimeoutMs" | "uploadLimitBytes" | "linkChecker";
 
 export type AppContext = Required<Omit<ServerDeps, OptionalInContext>> & Pick<ServerDeps, OptionalInContext>;

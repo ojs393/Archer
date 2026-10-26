@@ -2,6 +2,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { deleteSetting, getSetting, setSetting } from "../db/settings.ts";
 import { transaction } from "../db/transaction.ts";
 import type { SettingsUpdate, SettingsView } from "../http/contract.ts";
+import { isSafeEmail } from "../http/fields.ts";
 import type { SmtpConfig } from "../send/transport.ts";
 import type { SenderConfig } from "../send/worker.ts";
 
@@ -99,6 +100,16 @@ export function updateSettings(db: DatabaseSync, patch: SettingsUpdate): Setting
     }
   });
   return change;
+}
+
+export type SenderField = "from_email" | "postal_address" | "unsub_mailbox";
+
+export function senderGaps(s: SettingsView): SenderField[] {
+  const gaps: SenderField[] = [];
+  if (!isSafeEmail(s.fromEmail)) gaps.push("from_email");
+  if (!s.postalAddress.trim()) gaps.push("postal_address");
+  if (!isSafeEmail(s.unsubMailbox)) gaps.push("unsub_mailbox");
+  return gaps;
 }
 
 export function getSmtpConfig(db: DatabaseSync, env: Env): SmtpConfig {

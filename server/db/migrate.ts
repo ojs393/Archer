@@ -106,6 +106,9 @@ const MIGRATIONS: readonly string[] = [
   );
   CREATE INDEX sends_campaign_state_contact ON sends (campaign_id, state, contact_id);
   `,
+  `
+  CREATE INDEX contacts_list_id ON contacts (list_id, id);
+  `,
 ];
 
 export function runMigrations(db: DatabaseSync): void {

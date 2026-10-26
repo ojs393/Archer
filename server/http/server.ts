@@ -4,7 +4,7 @@ import fastifyMultipart from "@fastify/multipart";
 import Fastify, { type FastifyInstance } from "fastify";
 import { createDomainChecker } from "../import/mx.ts";
 import { logger, registerSecret } from "../logger.ts";
-import { verifyTransport } from "../send/transport.ts";
+import { buildTransport, verifyTransport } from "../send/transport.ts";
 import type { AppContext, ServerDeps } from "./context.ts";
 import { errorHandler } from "./errors.ts";
 import { ImportJobs } from "./importJobs.ts";
@@ -13,6 +13,7 @@ import { listRoutes } from "./routes/lists.ts";
 import { sessionRoutes } from "./routes/session.ts";
 import { settingsRoutes } from "./routes/settings.ts";
 import { suppressionRoutes } from "./routes/suppression.ts";
+import { templateRoutes } from "./routes/templates.ts";
 import { unsubscribePlugin } from "./routes/unsubscribe.ts";
 import { securityHook } from "./security.ts";
 import { registerWeb } from "./web.ts";
@@ -31,6 +32,7 @@ export function resolveContext(deps: ServerDeps): AppContext {
     ...deps,
     webDir: deps.webDir ?? path.join(deps.paths.root, "dist", "web"),
     verifySmtp: deps.verifySmtp ?? verifyTransport,
+    createTransport: deps.createTransport ?? buildTransport,
     createDomainChecker: createChecker,
     registerSecret: deps.registerSecret ?? registerSecret,
     log,
@@ -82,6 +84,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   settingsRoutes(app, ctx);
   listRoutes(app, ctx);
   suppressionRoutes(app, ctx);
+  templateRoutes(app, ctx);
   app.register(unsubscribePlugin, { db: ctx.db, env: ctx.env, log: ctx.log });
   registerWeb(app, { webDir: ctx.webDir, sessionToken: ctx.sessionToken });
   return app;

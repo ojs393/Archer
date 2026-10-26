@@ -30,8 +30,9 @@ export function composeMessage(
   row: Pick<SendRow, "email" | "fields_json">,
   sender: ComposeSender,
   today: string,
+  unsubscribeEmail: string = row.email,
 ): OutgoingMessage {
-  const link = { mailbox: sender.unsubMailbox, publicBaseUrl: sender.publicBaseUrl, token: signToken(row.email, sender.unsubSecret) };
+  const link = { mailbox: sender.unsubMailbox, publicBaseUrl: sender.publicBaseUrl, token: signToken(unsubscribeEmail, sender.unsubSecret) };
   const rendered = renderEmail(
     { subject: tpl.subject, html: tpl.html, text: tpl.text, variableMap: JSON.parse(tpl.variable_map_json) as VariableMap },
     { email: row.email, fields: JSON.parse(row.fields_json) as Record<string, string> },
