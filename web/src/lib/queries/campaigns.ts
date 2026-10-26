@@ -11,10 +11,6 @@ export function campaignKey(id: number) {
   return [...queryKeys.campaigns, id] as const;
 }
 
-export function campaignGatesKey(id: number) {
-  return [...queryKeys.campaigns, id, "gates"] as const;
-}
-
 export function useCampaigns(enabled = true) {
   return useQuery({
     queryKey: campaignsKey(),
@@ -27,14 +23,6 @@ export function useCampaign(id: number | null, enabled = true) {
   return useQuery({
     queryKey: campaignKey(id ?? 0),
     queryFn: ({ signal }) => api.get<CampaignView>(`/api/campaigns/${id}`, { signal }),
-    enabled: enabled && id !== null,
-  });
-}
-
-export function useCampaignGates(id: number | null, enabled = true) {
-  return useQuery({
-    queryKey: campaignGatesKey(id ?? 0),
-    queryFn: ({ signal }) => api.get<GatesResult>(`/api/campaigns/${id}/gates`, { signal }),
     enabled: enabled && id !== null,
   });
 }
@@ -98,3 +86,5 @@ export function useStopCampaign() {
     onSuccess: () => invalidateCampaigns(client),
   });
 }
+
+export type { GatesResult };

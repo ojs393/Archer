@@ -13,9 +13,7 @@ function scheduleSummary(c: CampaignView): string {
 }
 
 export function RunDetails({
-  campaign,
-  lists,
-  templates,
+  campaign, lists, templates,
 }: {
   campaign: CampaignView;
   lists: Map<number, string>;

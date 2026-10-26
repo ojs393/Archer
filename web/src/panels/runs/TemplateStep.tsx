@@ -7,10 +7,7 @@ import type { TemplateSummary } from "@/lib/types";
 const PREVIEW_CHARS = 500;
 
 export function TemplateStep({
-  templates,
-  templateId,
-  listId,
-  onTemplateIdChange,
+  templates, templateId, listId, onTemplateIdChange,
 }: {
   templates: TemplateSummary[];
   templateId: number | null;
@@ -31,10 +28,7 @@ export function TemplateStep({
         {templates.length === 0 ? (
           <p className="text-sm text-secondary-foreground">No templates yet. Create one under Templates.</p>
         ) : (
-          <Select
-            value={templateId !== null ? String(templateId) : undefined}
-            onValueChange={(v) => onTemplateIdChange(Number(v))}
-          >
+          <Select value={templateId !== null ? String(templateId) : ""} onValueChange={(v) => onTemplateIdChange(Number(v))}>
             <SelectTrigger id="run-template" aria-label="Template">
               <SelectValue placeholder="Select a template" />
             </SelectTrigger>
@@ -60,7 +54,7 @@ export function TemplateStep({
               </p>
               {/* XSS: operator-authored HTML on localhost; not sanitised. */}
               <div
-                className="max-h-48 overflow-auto rounded-md bg-zinc-50 p-3 text-sm prose-sm"
+                className="max-h-48 overflow-auto rounded-md bg-zinc-50 p-3 text-sm"
                 dangerouslySetInnerHTML={{ __html: snippet || "<p class='text-muted-foreground'>No HTML body</p>" }}
               />
             </>

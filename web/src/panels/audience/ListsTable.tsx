@@ -6,10 +6,7 @@ import { formatDateTime, formatNumber } from "@/lib/format";
 import type { ListRow } from "@/lib/types";
 
 export function ListsTable({
-  rows,
-  selectedId,
-  onSelect,
-  onDelete,
+  rows, selectedId, onSelect, onDelete,
 }: {
   rows: ListRow[];
   selectedId: number | null;
@@ -45,7 +42,7 @@ export function ListsTable({
             <TableCell className="font-medium">
               <span className="mr-2">{row.name}</span>
               {row.status !== "ready" ? (
-                <Badge variant={row.status === "failed" ? "destructive" : "secondary"}>{row.status}</Badge>
+                <Badge variant={row.status === "failed" ? "solid" : "info"}>{row.status}</Badge>
               ) : null}
             </TableCell>
             <TableCell className="tabular">{formatNumber(row.valid_count)}</TableCell>

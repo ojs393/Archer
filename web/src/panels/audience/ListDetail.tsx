@@ -7,9 +7,8 @@ import { useList } from "@/lib/queries/lists";
 
 /**
  * List detail. The HTTP API exposes list totals and extra columns, but not a
- * paginated contacts endpoint — so the “recipients” table here shows import
- * summary rows (counts / status), with a client-side filter on the labels.
- * Full per-contact browsing needs a future GET /api/lists/:id/contacts.
+ * paginated contacts endpoint — so the recipients table shows import summary
+ * rows. Full per-contact browsing needs GET /api/lists/:id/contacts.
  */
 export function ListDetail({ listId }: { listId: number }) {
   const detail = useList(listId);

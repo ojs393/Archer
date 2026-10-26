@@ -19,7 +19,6 @@ export default function AudiencePanel() {
   const [importOpen, setImportOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [deleteId, setDeleteId] = useState<number | null>(null);
-
   const rows = lists.data ?? [];
 
   async function confirmDelete() {
@@ -60,12 +59,7 @@ export default function AudiencePanel() {
           />
         ) : (
           <>
-            <ListsTable
-              rows={rows}
-              selectedId={selectedId}
-              onSelect={setSelectedId}
-              onDelete={setDeleteId}
-            />
+            <ListsTable rows={rows} selectedId={selectedId} onSelect={setSelectedId} onDelete={setDeleteId} />
             {selectedId !== null ? <ListDetail listId={selectedId} /> : null}
           </>
         )}

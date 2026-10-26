@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
-import { api, isApiError } from "@/lib/api";
+import { isApiError } from "@/lib/api";
 import { useHealth, useSettings } from "@/lib/queries";
 import { useCreateCampaign, useStartCampaign } from "@/lib/queries/campaigns";
 import { useLists } from "@/lib/queries/lists";
@@ -24,7 +24,6 @@ import { buildSchedule, defaultLocalTimezone, type ScheduleMode } from "./schedu
 
 const TABS = ["audience", "template", "schedule", "review"] as const;
 type TabId = (typeof TABS)[number];
-
 const DRAFT_KEY = "mamadirect:run-draft";
 
 type Draft = {
@@ -71,7 +70,7 @@ function saveDraft(draft: Draft): void {
   try {
     sessionStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
   } catch {
-    // sessionStorage may be unavailable
+    // ignore
   }
 }
 
@@ -96,23 +95,25 @@ export function NewRunWizard({ open, onOpenChange }: { open: boolean; onOpenChan
   const [launchGates, setLaunchGates] = useState<Gate[] | null>(null);
   const [startError, setStartError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setHydrated(false);
+      return;
+    }
     setDraft(loadDraft());
     setTab("audience");
     setLaunchGates(null);
     setStartError(null);
+    setHydrated(true);
   }, [open]);
 
   useEffect(() => {
-    if (open) saveDraft(draft);
-  }, [draft, open]);
+    if (open && hydrated) saveDraft(draft);
+  }, [draft, open, hydrated]);
 
-  const list = useMemo(
-    () => lists.data?.find((l) => l.id === draft.listId) ?? null,
-    [lists.data, draft.listId],
-  );
+  const list = useMemo(() => lists.data?.find((l) => l.id === draft.listId) ?? null, [lists.data, draft.listId]);
   const template = useMemo(
     () => templates.data?.find((t) => t.id === draft.templateId) ?? null,
     [templates.data, draft.templateId],
@@ -182,11 +183,8 @@ export function NewRunWizard({ open, onOpenChange }: { open: boolean; onOpenChan
       onOpenChange(false);
       toast.success("Run started");
     } catch (err) {
-      const message = isApiError(err) ? err.message : "Could not start the run";
-      setStartError(message);
+      setStartError(isApiError(err) ? err.message : "Could not start the run");
       setTab("review");
-      // Touch api so unused-import lint stays quiet if tree-shaken elsewhere
-      void api;
     } finally {
       setSubmitting(false);
     }
@@ -225,11 +223,7 @@ export function NewRunWizard({ open, onOpenChange }: { open: boolean; onOpenChan
           </TabsList>
 
           <TabsContent value="audience">
-            <AudienceStep
-              lists={lists.data ?? []}
-              listId={draft.listId}
-              onListIdChange={(listId) => patchDraft({ listId })}
-            />
+            <AudienceStep lists={lists.data ?? []} listId={draft.listId} onListIdChange={(listId) => patchDraft({ listId })} />
           </TabsContent>
           <TabsContent value="template">
             <TemplateStep

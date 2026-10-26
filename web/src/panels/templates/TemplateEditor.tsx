@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FieldRow } from "@/components/FieldRow";
 import { Button } from "@/components/ui/button";
 import {
@@ -20,13 +20,10 @@ const VARS_HINT =
   "Built-in: email, first_name, company (via columns), domain, unsubscribe_url, postal_address, today. Use {{var}} in subject and HTML.";
 
 export function TemplateEditor({
-  open,
-  onOpenChange,
-  templateId,
+  open, onOpenChange, templateId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** null = create */
   templateId: number | null;
 }) {
   const existing = useTemplate(templateId, open && templateId !== null);
@@ -37,22 +34,28 @@ export function TemplateEditor({
   const [subject, setSubject] = useState("");
   const [html, setHtml] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const seededFor = useRef<number | "new" | null>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      seededFor.current = null;
+      return;
+    }
     if (templateId === null) {
+      if (seededFor.current === "new") return;
       setName("");
       setSubject("");
       setHtml("<p>Hello {{first_name}},</p>\n<p>{{unsubscribe_url}}</p>\n<p>{{postal_address}}</p>");
       setError(null);
+      seededFor.current = "new";
       return;
     }
-    if (existing.data) {
-      setName(existing.data.name);
-      setSubject(existing.data.subject);
-      setHtml(existing.data.html);
-      setError(null);
-    }
+    if (!existing.data || seededFor.current === templateId) return;
+    setName(existing.data.name);
+    setSubject(existing.data.subject);
+    setHtml(existing.data.html);
+    setError(null);
+    seededFor.current = templateId;
   }, [open, templateId, existing.data]);
 
   const saving = create.isPending || update.isPending;
@@ -69,10 +72,7 @@ export function TemplateEditor({
         await create.mutateAsync({ name: name.trim(), subject: subject.trim(), html });
         toast.success("Template created");
       } else {
-        await update.mutateAsync({
-          id: templateId,
-          body: { name: name.trim(), subject: subject.trim(), html },
-        });
+        await update.mutateAsync({ id: templateId, body: { name: name.trim(), subject: subject.trim(), html } });
         toast.success("Template saved");
       }
       onOpenChange(false);
@@ -103,12 +103,7 @@ export function TemplateEditor({
               <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
             </FieldRow>
             <FieldRow id="tpl-html" label="HTML body">
-              <Textarea
-                className="min-h-[18rem] font-mono text-[13px]"
-                value={html}
-                onChange={(e) => setHtml(e.target.value)}
-                spellCheck={false}
-              />
+              <Textarea className="min-h-[18rem] font-mono text-[13px]" value={html} onChange={(e) => setHtml(e.target.value)} spellCheck={false} />
             </FieldRow>
             {error ? (
               <p role="alert" className="text-sm text-destructive">

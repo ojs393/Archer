@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { FieldRow } from "@/components/FieldRow";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -15,26 +16,34 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
-import { isApiError } from "@/lib/api";
-import { importList, previewListCsv, useLists } from "@/lib/queries/lists";
-import { useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "@/lib/queryKeys";
-import type { ListPreview } from "@/lib/types";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { api, isApiError } from "@/lib/api";
+import { importList, previewListCsv } from "@/lib/queries/lists";
+import { queryKeys } from "@/lib/queryKeys";
+import type { ListDetail, ListPreview } from "@/lib/types";
+
+type ImportResult = {
+  listId: number;
+  valid_count: number;
+  invalid_count: number;
+  duplicate_count: number;
+  suppressed_count: number;
+  role_count: number;
+  status: string;
+};
 
 export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const client = useQueryClient();
-  const lists = useLists(open);
   const [file, setFile] = useState<File | null>(null);
   const [name, setName] = useState("");
   const [sourceLabel, setSourceLabel] = useState("");
   const [consentText, setConsentText] = useState("");
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [excludeRoles, setExcludeRoles] = useState(true);
-  const [emailColumn, setEmailColumn] = useState<string>("");
+  const [emailColumn, setEmailColumn] = useState("");
   const [preview, setPreview] = useState<ListPreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ listId: number } | null>(null);
+  const [result, setResult] = useState<ImportResult | null>(null);
   const [busy, setBusy] = useState(false);
 
   function reset() {
@@ -80,8 +89,22 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         excludeRoles,
         emailColumn: emailColumn || undefined,
       });
-      setResult(res);
       void client.invalidateQueries({ queryKey: queryKeys.lists });
+      let detail: ListDetail | null = null;
+      try {
+        detail = await api.get<ListDetail>(`/api/lists/${res.listId}`);
+      } catch {
+        detail = null;
+      }
+      setResult({
+        listId: res.listId,
+        valid_count: detail?.valid_count ?? 0,
+        invalid_count: detail?.invalid_count ?? 0,
+        duplicate_count: detail?.duplicate_count ?? 0,
+        suppressed_count: detail?.suppressed_count ?? 0,
+        role_count: detail?.role_count ?? 0,
+        status: detail?.status ?? "importing",
+      });
       toast.success("Import started");
     } catch (err) {
       toast.error(isApiError(err) ? err.message : "Import failed");
@@ -89,8 +112,6 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       setBusy(false);
     }
   }
-
-  const importedList = result ? lists.data?.find((l) => l.id === result.listId) : null;
 
   return (
     <Dialog
@@ -108,11 +129,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
         <div className="flex flex-col gap-4">
           <FieldRow id="import-file" label="CSV file">
-            <Input
-              type="file"
-              accept=".csv,text/csv"
-              onChange={(e) => void onFile(e.target.files?.[0] ?? null)}
-            />
+            <Input type="file" accept=".csv,text/csv" data-testid="import-file" onChange={(e) => void onFile(e.target.files?.[0] ?? null)} />
           </FieldRow>
           <FieldRow id="import-name" label="List name">
             <Input value={name} onChange={(e) => setName(e.target.value)} />
@@ -170,11 +187,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
           ) : null}
 
           <div className="flex items-start gap-2">
-            <Checkbox
-              id="import-consent-ok"
-              checked={consentConfirmed}
-              onCheckedChange={(v) => setConsentConfirmed(v === true)}
-            />
+            <Checkbox id="import-consent-ok" checked={consentConfirmed} onCheckedChange={(v) => setConsentConfirmed(v === true)} />
             <Label htmlFor="import-consent-ok" className="text-sm font-normal leading-snug">
               Every address on this list consented to receive email from me.
             </Label>
@@ -189,18 +202,14 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
           {result ? (
             <div className="rounded-md border border-border p-3 text-sm" data-testid="import-result">
               <p className="font-medium text-foreground">Import queued (list #{result.listId})</p>
-              {importedList ? (
-                <ul className="mt-2 grid grid-cols-2 gap-1 text-secondary-foreground sm:grid-cols-3">
-                  <li>Imported: {importedList.valid_count}</li>
-                  <li>Invalid: {importedList.invalid_count}</li>
-                  <li>Duplicates: {importedList.duplicate_count}</li>
-                  <li>Suppressed: {importedList.suppressed_count}</li>
-                  <li>Roles: {importedList.role_count}</li>
-                  <li>Status: {importedList.status}</li>
-                </ul>
-              ) : (
-                <p className="mt-1 text-secondary-foreground">Counts appear when parsing finishes.</p>
-              )}
+              <ul className="mt-2 grid grid-cols-2 gap-1 text-secondary-foreground sm:grid-cols-3">
+                <li>Imported: {result.valid_count}</li>
+                <li>Invalid: {result.invalid_count}</li>
+                <li>Duplicates: {result.duplicate_count}</li>
+                <li>Suppressed: {result.suppressed_count}</li>
+                <li>Roles: {result.role_count}</li>
+                <li>Status: {result.status}</li>
+              </ul>
             </div>
           ) : null}
         </div>

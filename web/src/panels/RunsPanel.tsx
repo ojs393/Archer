@@ -8,12 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { isApiError } from "@/lib/api";
 import { NEW_RUN_EVENT } from "@/lib/newRunEvent";
-import {
-  useCampaigns,
-  usePauseCampaign,
-  useResumeCampaign,
-  useStopCampaign,
-} from "@/lib/queries/campaigns";
+import { useCampaigns, usePauseCampaign, useResumeCampaign, useStopCampaign } from "@/lib/queries/campaigns";
 import { useLists } from "@/lib/queries/lists";
 import { useTemplates } from "@/lib/queries/templates";
 import { NewRunWizard } from "./runs/NewRunWizard";
@@ -102,11 +97,7 @@ export default function RunsPanel() {
         ) : campaigns.isError ? (
           <EmptyState icon={Send} title="Could not load runs" />
         ) : rows.length === 0 ? (
-          <EmptyState
-            icon={Send}
-            title="No runs yet"
-            action={{ label: "New run", onClick: () => setWizardOpen(true), icon: Play }}
-          />
+          <EmptyState icon={Send} title="No runs yet" action={{ label: "New run", onClick: () => setWizardOpen(true), icon: Play }} />
         ) : (
           <>
             <RunsTable

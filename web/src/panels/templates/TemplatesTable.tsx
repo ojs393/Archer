@@ -6,11 +6,7 @@ import type { TemplateSummary } from "@/lib/types";
 
 /** Subject is not on TemplateSummary; the editor loads the full view. */
 export function TemplatesTable({
-  rows,
-  subjects,
-  onEdit,
-  onDuplicate,
-  onDelete,
+  rows, subjects, onEdit, onDuplicate, onDelete,
 }: {
   rows: TemplateSummary[];
   subjects: Map<number, string>;
@@ -32,9 +28,7 @@ export function TemplatesTable({
         {rows.map((row) => (
           <TableRow key={row.id}>
             <TableCell className="font-medium">{row.name}</TableCell>
-            <TableCell className="max-w-[18rem] truncate text-secondary-foreground">
-              {subjects.get(row.id) ?? "—"}
-            </TableCell>
+            <TableCell className="max-w-[18rem] truncate text-secondary-foreground">{subjects.get(row.id) ?? "—"}</TableCell>
             <TableCell>{formatDateTime(row.updatedAt)}</TableCell>
             <TableCell>
               <div className="flex justify-end gap-0.5">

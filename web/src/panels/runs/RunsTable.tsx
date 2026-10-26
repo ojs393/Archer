@@ -16,15 +16,7 @@ export function campaignLabel(c: CampaignView, lists: Map<number, string>, templ
 }
 
 export function RunsTable({
-  rows,
-  lists,
-  templates,
-  selectedId,
-  busyId,
-  onSelect,
-  onPause,
-  onResume,
-  onCancel,
+  rows, lists, templates, selectedId, busyId, onSelect, onPause, onResume, onCancel,
 }: {
   rows: CampaignView[];
   lists: Map<number, string>;
@@ -86,13 +78,7 @@ export function RunsTable({
                 <div className="flex justify-end gap-0.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
                   <IconButton label="Pause" icon={Pause} disabled={!canPause || busy} onClick={() => onPause(row.id)} />
                   <IconButton label="Resume" icon={Play} disabled={!canResume || busy} onClick={() => onResume(row.id)} />
-                  <IconButton
-                    label="Cancel"
-                    icon={Square}
-                    destructive
-                    disabled={!canCancel || busy}
-                    onClick={() => onCancel(row.id)}
-                  />
+                  <IconButton label="Cancel" icon={Square} destructive disabled={!canCancel || busy} onClick={() => onCancel(row.id)} />
                   <IconButton label="Open details" icon={Eye} onClick={() => onSelect(row.id)} />
                 </div>
               </TableCell>

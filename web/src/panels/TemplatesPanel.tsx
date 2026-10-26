@@ -7,11 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { api, isApiError } from "@/lib/api";
-import {
-  useDeleteTemplate,
-  useDuplicateTemplate,
-  useTemplates,
-} from "@/lib/queries/templates";
+import { useDeleteTemplate, useDuplicateTemplate, useTemplates } from "@/lib/queries/templates";
 import type { TemplateView } from "@/lib/types";
 import { PanelShell } from "./PanelShell";
 import { TemplateEditor } from "./templates/TemplateEditor";
@@ -104,11 +100,7 @@ export default function TemplatesPanel() {
         ) : templates.isError ? (
           <EmptyState icon={FileText} title="Could not load templates" />
         ) : !rows || rows.length === 0 ? (
-          <EmptyState
-            icon={FileText}
-            title="No templates yet"
-            action={{ label: "New template", onClick: openNew, icon: Plus }}
-          />
+          <EmptyState icon={FileText} title="No templates yet" action={{ label: "New template", onClick: openNew, icon: Plus }} />
         ) : (
           <TemplatesTable
             rows={rows}

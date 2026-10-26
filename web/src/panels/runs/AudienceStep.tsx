@@ -6,9 +6,7 @@ import { navigateToTab } from "@/lib/tabs";
 import type { ListRow } from "@/lib/types";
 
 export function AudienceStep({
-  lists,
-  listId,
-  onListIdChange,
+  lists, listId, onListIdChange,
 }: {
   lists: ListRow[];
   listId: number | null;
@@ -33,10 +31,7 @@ export function AudienceStep({
             first.
           </p>
         ) : (
-          <Select
-            value={listId !== null ? String(listId) : undefined}
-            onValueChange={(v) => onListIdChange(Number(v))}
-          >
+          <Select value={listId !== null ? String(listId) : ""} onValueChange={(v) => onListIdChange(Number(v))}>
             <SelectTrigger id="run-audience" aria-label="Audience list">
               <SelectValue placeholder="Select a list" />
             </SelectTrigger>

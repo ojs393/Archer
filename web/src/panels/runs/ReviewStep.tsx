@@ -1,10 +1,9 @@
 import { formatNumber } from "@/lib/format";
-import type { Gate, ListRow, Schedule, SettingsView, TemplateSummary } from "@/lib/types";
-import type { Health } from "@/lib/types";
+import type { Gate, Health, ListRow, Schedule, SettingsView, TemplateSummary } from "@/lib/types";
 import type { ScheduleMode } from "./scheduleMode";
 
 function gateFromSettings(settings: SettingsView | undefined, health: Health | undefined): Gate[] {
-  const gates: Gate[] = [
+  return [
     {
       key: "from_email",
       ok: Boolean(settings?.fromEmail),
@@ -31,18 +30,10 @@ function gateFromSettings(settings: SettingsView | undefined, health: Health | u
           : "Configure SMTP in Settings",
     },
   ];
-  return gates;
 }
 
 export function ReviewStep({
-  list,
-  template,
-  mode,
-  schedule,
-  settings,
-  health,
-  launchGates,
-  startError,
+  list, template, mode, schedule, settings, health, launchGates, startError,
 }: {
   list: ListRow | null;
   template: TemplateSummary | null;
@@ -61,9 +52,7 @@ export function ReviewStep({
       <dl className="grid gap-3 text-sm sm:grid-cols-2">
         <div>
           <dt className="text-xs text-muted-foreground">Audience</dt>
-          <dd className="font-medium">
-            {list ? `${list.name} (${formatNumber(list.valid_count)})` : "—"}
-          </dd>
+          <dd className="font-medium">{list ? `${list.name} (${formatNumber(list.valid_count)})` : "—"}</dd>
         </div>
         <div>
           <dt className="text-xs text-muted-foreground">Template</dt>
@@ -82,7 +71,7 @@ export function ReviewStep({
         <ul className="flex flex-col gap-1.5 text-sm">
           {checklist.map((g) => (
             <li key={g.key} className={g.ok ? "text-foreground" : "text-destructive"}>
-              <span aria-hidden="true">{g.ok ? "✓" : "×"} </span>
+              <span className="mr-1 font-medium">{g.ok ? "Pass" : "Fail"}</span>
               {g.message}
             </li>
           ))}

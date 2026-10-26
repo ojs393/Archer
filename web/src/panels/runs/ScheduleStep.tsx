@@ -9,11 +9,7 @@ import type { Schedule } from "@/lib/types";
 import { type ScheduleMode } from "./scheduleMode";
 
 export function ScheduleStep({
-  mode,
-  onModeChange,
-  schedule,
-  onScheduleChange,
-  remaining,
+  mode, onModeChange, schedule, onScheduleChange, remaining,
 }: {
   mode: ScheduleMode;
   onModeChange: (mode: ScheduleMode) => void;
@@ -48,18 +44,10 @@ export function ScheduleStep({
       {mode !== "asap" ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <FieldRow id="run-start" label="Start time">
-            <Input
-              type="time"
-              value={schedule.startTime}
-              onChange={(e) => onScheduleChange({ startTime: e.target.value || "09:00" })}
-            />
+            <Input type="time" value={schedule.startTime} onChange={(e) => onScheduleChange({ startTime: e.target.value || "09:00" })} />
           </FieldRow>
           <FieldRow id="run-end" label="End time">
-            <Input
-              type="time"
-              value={schedule.endTime}
-              onChange={(e) => onScheduleChange({ endTime: e.target.value || "17:00" })}
-            />
+            <Input type="time" value={schedule.endTime} onChange={(e) => onScheduleChange({ endTime: e.target.value || "17:00" })} />
           </FieldRow>
         </div>
       ) : null}
