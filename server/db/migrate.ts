@@ -109,6 +109,11 @@ const MIGRATIONS: readonly string[] = [
   `
   CREATE INDEX contacts_list_id ON contacts (list_id, id);
   `,
+  // The provider setting defaults to Amazon SES; an install that already configured a generic SMTP host keeps it.
+  `
+  INSERT OR IGNORE INTO settings (key, value)
+  SELECT 'provider', 'smtp' WHERE EXISTS (SELECT 1 FROM settings WHERE key = 'smtp_host' AND value <> '');
+  `,
 ];
 
 export function runMigrations(db: DatabaseSync): void {

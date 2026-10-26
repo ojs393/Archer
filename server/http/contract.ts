@@ -3,6 +3,7 @@ import type { SuppressionRow } from "../db/suppression.ts";
 import { validateSchedule, type Estimate, type Schedule } from "../domain/schedule.ts";
 import { BUILTIN_KEYS, type TemplatePart, type TemplateVariable, type VariableMap } from "../domain/template.ts";
 import type { LinkCheck } from "../templates/linkCheck.ts";
+import type { SesRegion } from "../settings/sesRegions.ts";
 import type { ImportCounts } from "../import/csv.ts";
 import type { ListRow } from "../import/lists.ts";
 import type { CampaignStatus } from "../send/sendState.ts";
@@ -15,6 +16,7 @@ import {
   multiLine,
   nullableEmail,
   port,
+  sesRegion,
   singleLine,
   smtpHost,
   smtpPassword,
@@ -29,6 +31,7 @@ export type { WorkerEvent } from "../send/worker.ts";
 export type { Estimate, Schedule } from "../domain/schedule.ts";
 export type { TemplatePart, TemplateVariable, VariableMap, VariableSource } from "../domain/template.ts";
 export type { LinkCheck, LinkResult } from "../templates/linkCheck.ts";
+export type { SesRegion } from "../settings/sesRegions.ts";
 
 export interface ApiErrorBody {
   error: { code: string; message: string; details?: unknown };
@@ -47,7 +50,16 @@ export interface Health {
   worker: HealthItem & { heartbeatAgeMs: number | null; loopRunning: boolean };
 }
 
+export const PROVIDERS = ["ses", "smtp"] as const;
+export type Provider = (typeof PROVIDERS)[number];
+
 export interface SettingsView {
+  provider: Provider;
+  /** Used only when provider is "ses": the SMTP endpoint is then email-smtp.<region>.amazonaws.com:587 (STARTTLS). */
+  sesRegion: string | null;
+  operatorName: string;
+  organization: string;
+  setupCompletedAt: string | null;
   fromName: string;
   fromEmail: string;
   replyTo: string | null;
@@ -129,6 +141,21 @@ export interface SmtpTestResult {
   message: string;
 }
 
+export interface SetupSteps {
+  operator: boolean;
+  provider: boolean;
+  domain: boolean;
+  addresses: boolean;
+  testInboxes: boolean;
+}
+
+export interface SetupView {
+  complete: boolean;
+  completedAt: string | null;
+  steps: SetupSteps;
+  regions: readonly SesRegion[];
+}
+
 export interface ListPreview {
   delimiter: string;
   headers: string[];
@@ -146,6 +173,11 @@ export interface SuppressionPage {
 
 export const settingsUpdateSchema = z
   .strictObject({
+    provider: z.enum(PROVIDERS).optional(),
+    sesRegion: sesRegion.optional(),
+    operatorName: singleLine({ max: 120 }).optional(),
+    organization: singleLine({ max: 120 }).optional(),
+    setupCompletedAt: z.union([z.null(), z.string().max(64)]).optional(),
     fromName: singleLine().optional(),
     fromEmail: emailOrEmpty.optional(),
     replyTo: nullableEmail.optional(),

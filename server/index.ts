@@ -17,7 +17,7 @@ import { installShutdownHandlers } from "./lifecycle.ts";
 import { logger, registerSecret } from "./logger.ts";
 import { Watchdog } from "./send/watchdog.ts";
 import { DEFAULT_SEND_TIMEOUT_MS, SendWorker } from "./send/worker.ts";
-import { getSenderConfig, getSettingsView } from "./settings/store.ts";
+import { getSenderConfig, getSmtpConfig } from "./settings/store.ts";
 
 const HOST = "127.0.0.1";
 const BACKUP_EVERY_MS = 24 * 60 * 60 * 1000;
@@ -116,7 +116,7 @@ async function main(): Promise<number | null> {
   const health = new HealthMonitor({
     db,
     worker,
-    getSmtpHost: () => getSettingsView(db, process.env).smtp.host,
+    getSmtpHost: () => getSmtpConfig(db, process.env).host,
     sendTimeoutMs: DEFAULT_SEND_TIMEOUT_MS,
     onChange: (h) => events.publish("health", h),
   });

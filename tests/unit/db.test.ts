@@ -157,6 +157,18 @@ describe("runMigrations", () => {
     runMigrations(db);
     expect(db.prepare("SELECT COUNT(*) AS n FROM schema_migrations").get()).toEqual(before);
   });
+
+  it("keeps an install that already has an SMTP host on the generic SMTP provider", () => {
+    const configured = memDb();
+    const fresh = memDb();
+    for (const db of [configured, fresh]) db.prepare("DELETE FROM schema_migrations WHERE version = 4").run();
+    setSetting(configured, "smtp_host", "smtp.example.com");
+    setSetting(fresh, "smtp_host", "");
+    runMigrations(configured);
+    runMigrations(fresh);
+    expect(getSetting(configured, "provider")).toBe("smtp");
+    expect(getSetting(fresh, "provider")).toBeUndefined();
+  });
 });
 
 describe("openDb", () => {

@@ -30,6 +30,11 @@ describe("GET/PUT /api/settings", () => {
   it("returns defaults", async () => {
     h = await makeHarness();
     expect((await get()).json()).toEqual({
+      provider: "ses",
+      sesRegion: null,
+      operatorName: "",
+      organization: "",
+      setupCompletedAt: null,
       fromName: "",
       fromEmail: "",
       replyTo: null,
@@ -46,6 +51,10 @@ describe("GET/PUT /api/settings", () => {
   it("round-trips every field, normalizing emails and trimming text", async () => {
     h = await makeHarness();
     const res = await put({
+      provider: "smtp",
+      sesRegion: "eu-west-1",
+      operatorName: " Olive ",
+      organization: "Mama Co",
       fromName: "  Mama Direct ",
       fromEmail: "News@Mail.Example.com",
       replyTo: "reply@example.com",
@@ -59,6 +68,11 @@ describe("GET/PUT /api/settings", () => {
     });
     expect(res.statusCode).toBe(200);
     const expected = {
+      provider: "smtp",
+      sesRegion: "eu-west-1",
+      operatorName: "Olive",
+      organization: "Mama Co",
+      setupCompletedAt: null,
       fromName: "Mama Direct",
       fromEmail: "news@mail.example.com",
       replyTo: "reply@example.com",
@@ -163,7 +177,7 @@ describe("POST /api/settings/smtp/test", () => {
   it("passes against the fake SMTP server and records SMTP health", async () => {
     smtp = await startFakeSmtp({ user: "mama", pass: "right-password" });
     h = await makeHarness();
-    await put({ smtp: { host: "127.0.0.1", port: smtp.port, secure: false, user: "mama", pass: "right-password" } });
+    await put({ provider: "smtp", smtp: { host: "127.0.0.1", port: smtp.port, secure: false, user: "mama", pass: "right-password" } });
     const res = await h.app.inject({ method: "POST", url: "/api/settings/smtp/test", headers: mutating });
     expect(res.statusCode).toBe(200);
     expect(res.json()).toEqual({ ok: true, message: expect.any(String) });
@@ -174,7 +188,7 @@ describe("POST /api/settings/smtp/test", () => {
     smtp = await startFakeSmtp({ user: "mama", pass: "right-password" });
     h = await makeHarness();
     const wrong = "Wrong-Password-123";
-    await put({ smtp: { host: "127.0.0.1", port: smtp.port, secure: false, user: "mama", pass: wrong } });
+    await put({ provider: "smtp", smtp: { host: "127.0.0.1", port: smtp.port, secure: false, user: "mama", pass: wrong } });
     const res = await h.app.inject({ method: "POST", url: "/api/settings/smtp/test", headers: mutating });
     expect(res.statusCode).toBe(200);
     expect(res.json().ok).toBe(false);
@@ -188,6 +202,7 @@ describe("POST /api/settings/smtp/test", () => {
   it("explains what is missing before trying to connect", async () => {
     let called = false;
     h = await makeHarness({ verifySmtp: async () => void (called = true) });
+    await put({ provider: "smtp" });
     const res = await h.app.inject({ method: "POST", url: "/api/settings/smtp/test", headers: mutating });
     expect(res.json()).toEqual({ ok: false, message: expect.stringMatching(/host/i) });
     expect(called).toBe(false);
@@ -198,7 +213,7 @@ describe("POST /api/settings/smtp/test", () => {
       verifySmtp: () => new Promise(() => {}),
       build: (deps) => buildServer({ ...deps, smtpTestTimeoutMs: 100 }),
     });
-    await put({ smtp: { host: "smtp.example.com", user: "u", pass: "p" } });
+    await put({ provider: "smtp", smtp: { host: "smtp.example.com", user: "u", pass: "p" } });
     const started = Date.now();
     const res = await h.app.inject({ method: "POST", url: "/api/settings/smtp/test", headers: mutating });
     expect(res.json()).toEqual({ ok: false, message: expect.stringMatching(/did not answer|timed out/i) });

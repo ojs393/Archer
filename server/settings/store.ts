@@ -1,10 +1,11 @@
 import type { DatabaseSync } from "node:sqlite";
 import { deleteSetting, getSetting, setSetting } from "../db/settings.ts";
 import { transaction } from "../db/transaction.ts";
-import type { SettingsUpdate, SettingsView } from "../http/contract.ts";
+import type { Provider, SettingsUpdate, SettingsView } from "../http/contract.ts";
 import { isSafeEmail } from "../http/fields.ts";
 import type { SmtpConfig } from "../send/transport.ts";
 import type { SenderConfig } from "../send/worker.ts";
+import { isSesRegion, SES_SMTP_PORT, sesSmtpHost } from "./sesRegions.ts";
 
 type Env = Record<string, string | undefined>;
 
@@ -12,6 +13,8 @@ const DEFAULT_TIMEZONE = "UTC";
 const DEFAULT_SMTP_PORT = 587;
 
 const TEXT_KEYS = {
+  operatorName: "operator_name",
+  organization: "organization",
   fromName: "from_name",
   fromEmail: "from_email",
   postalAddress: "postal_address",
@@ -26,6 +29,17 @@ const NULLABLE_KEYS = {
 } as const;
 
 const SMTP_KEYS = { host: "smtp_host", port: "smtp_port", secure: "smtp_secure", user: "smtp_user" } as const;
+const PROVIDER_KEY = "provider";
+const SES_REGION_KEY = "ses_region";
+const SETUP_COMPLETED_KEY = "setup_completed_at";
+
+function parseProvider(value: string | undefined): Provider {
+  return value === "smtp" ? "smtp" : "ses";
+}
+
+function parseRegion(value: string | undefined): string | null {
+  return value && isSesRegion(value) ? value : null;
+}
 
 function parseInboxes(json: string | undefined): string[] {
   if (!json) return [];
@@ -45,6 +59,11 @@ function parsePort(value: string | undefined): number {
 export function getSettingsView(db: DatabaseSync, env: Env): SettingsView {
   const get = (key: string) => getSetting(db, key);
   return {
+    provider: parseProvider(get(PROVIDER_KEY)),
+    sesRegion: parseRegion(get(SES_REGION_KEY)),
+    operatorName: get(TEXT_KEYS.operatorName) ?? "",
+    organization: get(TEXT_KEYS.organization) ?? "",
+    setupCompletedAt: get(SETUP_COMPLETED_KEY) || null,
     fromName: get(TEXT_KEYS.fromName) ?? "",
     fromEmail: get(TEXT_KEYS.fromEmail) ?? "",
     replyTo: get(NULLABLE_KEYS.replyTo) || null,
@@ -88,6 +107,8 @@ export function updateSettings(db: DatabaseSync, patch: SettingsUpdate): Setting
       if (value !== undefined && write(key, value) && field === "dkimSelector") change.dnsChanged = true;
     }
     if (patch.testInboxes !== undefined) write("test_inboxes", JSON.stringify(patch.testInboxes));
+    if (patch.provider !== undefined && write(PROVIDER_KEY, patch.provider)) change.smtpChanged = true;
+    if (patch.sesRegion !== undefined && write(SES_REGION_KEY, patch.sesRegion)) change.smtpChanged = true;
     const smtp = patch.smtp;
     if (smtp) {
       const wrote = [
@@ -112,15 +133,29 @@ export function senderGaps(s: SettingsView): SenderField[] {
   return gaps;
 }
 
+export function setSetupCompletedAt(db: DatabaseSync, at: string | null): void {
+  if (at === null) deleteSetting(db, SETUP_COMPLETED_KEY);
+  else setSetting(db, SETUP_COMPLETED_KEY, at);
+}
+
+export function smtpConfigFor(s: SettingsView, env: Env): SmtpConfig {
+  const pass = env.SMTP_PASS ?? "";
+  if (s.provider === "ses") {
+    // Stored host/port/secure belong to the generic SMTP provider; with no region there is no endpoint yet.
+    const host = s.sesRegion ? sesSmtpHost(s.sesRegion) : "";
+    return { host, port: SES_SMTP_PORT, secure: false, user: s.smtp.user, pass };
+  }
+  return { host: s.smtp.host, port: s.smtp.port, secure: s.smtp.secure, user: s.smtp.user, pass };
+}
+
 export function getSmtpConfig(db: DatabaseSync, env: Env): SmtpConfig {
-  const { smtp } = getSettingsView(db, env);
-  return { host: smtp.host, port: smtp.port, secure: smtp.secure, user: smtp.user, pass: env.SMTP_PASS ?? "" };
+  return smtpConfigFor(getSettingsView(db, env), env);
 }
 
 export function getSenderConfig(db: DatabaseSync, env: Env): SenderConfig {
   const s = getSettingsView(db, env);
   return {
-    smtp: getSmtpConfig(db, env),
+    smtp: smtpConfigFor(s, env),
     fromName: s.fromName,
     fromEmail: s.fromEmail,
     replyTo: s.replyTo,

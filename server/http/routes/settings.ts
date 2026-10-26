@@ -4,9 +4,9 @@ import { emailDomain } from "../../domain/email.ts";
 import { redact } from "../../logger.ts";
 import type { SmtpConfig } from "../../send/transport.ts";
 import { setEnvValue } from "../../settings/envFile.ts";
-import { getSettingsView, getSmtpConfig, updateSettings } from "../../settings/store.ts";
+import { getSettingsView, smtpConfigFor, updateSettings } from "../../settings/store.ts";
 import type { AppContext } from "../context.ts";
-import { settingsUpdateSchema, type SmtpTestResult } from "../contract.ts";
+import { settingsUpdateSchema, type Provider, type SmtpTestResult } from "../contract.ts";
 import { HttpError } from "../errors.ts";
 
 export const SMTP_TEST_TIMEOUT_MS = 45_000;
@@ -37,8 +37,8 @@ function describeSmtpFailure(err: unknown, cfg: SmtpConfig): string {
   return message.slice(0, MAX_MESSAGE);
 }
 
-function missingSmtpField(cfg: SmtpConfig): string | null {
-  if (!cfg.host) return "Enter the SMTP host first";
+function missingSmtpField(cfg: SmtpConfig, provider: Provider): string | null {
+  if (!cfg.host) return provider === "ses" ? "Choose the Amazon SES region first" : "Enter the SMTP host first";
   if (!cfg.user) return "Enter the SMTP username first";
   if (!cfg.pass) return "Enter the SMTP password first";
   return null;
@@ -93,8 +93,9 @@ export function settingsRoutes(app: FastifyInstance, ctx: AppContext): void {
   });
 
   app.post("/api/settings/smtp/test", async (): Promise<SmtpTestResult> => {
-    const cfg = getSmtpConfig(ctx.db, ctx.env);
-    const missing = missingSmtpField(cfg);
+    const settings = getSettingsView(ctx.db, ctx.env);
+    const cfg = smtpConfigFor(settings, ctx.env);
+    const missing = missingSmtpField(cfg, settings.provider);
     if (missing) return { ok: false, message: missing };
     let result: SmtpTestResult;
     try {

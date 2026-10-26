@@ -14,6 +14,7 @@ import { healthRoutes } from "./routes/health.ts";
 import { listRoutes } from "./routes/lists.ts";
 import { sessionRoutes } from "./routes/session.ts";
 import { settingsRoutes } from "./routes/settings.ts";
+import { setupRoutes } from "./routes/setup.ts";
 import { suppressionRoutes } from "./routes/suppression.ts";
 import { templateRoutes } from "./routes/templates.ts";
 import { unsubscribePlugin } from "./routes/unsubscribe.ts";
@@ -84,6 +85,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   sessionRoutes(app, ctx);
   healthRoutes(app, ctx);
   settingsRoutes(app, ctx);
+  setupRoutes(app, ctx);
   listRoutes(app, ctx);
   suppressionRoutes(app, ctx);
   templateRoutes(app, ctx);

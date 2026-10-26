@@ -11,7 +11,7 @@ import { EventHub } from "../../server/http/events.ts";
 import { ImportJobs } from "../../server/http/importJobs.ts";
 import { buildServer, type ServerDeps } from "../../server/http/server.ts";
 import type { DomainStatus } from "../../server/import/mx.ts";
-import { getSenderConfig, getSettingsView } from "../../server/settings/store.ts";
+import { getSenderConfig, getSmtpConfig } from "../../server/settings/store.ts";
 import type { MailTransport, SmtpConfig } from "../../server/send/transport.ts";
 import { SendWorker, type WorkerDeps } from "../../server/send/worker.ts";
 import type { CheckLinksOptions } from "../../server/templates/linkCheck.ts";
@@ -76,7 +76,7 @@ export async function makeHarness(opts: HarnessOptions = {}): Promise<Harness> {
   const health = new HealthMonitor({
     db,
     worker,
-    getSmtpHost: () => getSettingsView(db, env).smtp.host,
+    getSmtpHost: () => getSmtpConfig(db, env).host,
     probeNetwork: opts.probeNetwork ?? (async () => true),
     onChange: (h) => events.publish("health", h),
   });
@@ -170,6 +170,7 @@ export async function configureSender(h: Harness, smtpPort: number, overrides: R
     url: "/api/settings",
     headers: mutating,
     payload: {
+      provider: "smtp",
       fromName: "Mama Direct",
       fromEmail: "hello@mama.example",
       postalAddress: "PO Box 1, Springfield",

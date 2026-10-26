@@ -54,6 +54,7 @@ describe("GET /api/health", () => {
   it("probes the SMTP host at most once per minute", async () => {
     const asked: string[] = [];
     h = await makeHarness({ probeNetwork: async (host) => (asked.push(host), true) });
+    setSetting(h.db, "provider", "smtp");
     setSetting(h.db, "smtp_host", "smtp.example.com");
     const first = await h.app.inject({ method: "GET", url: "/api/health", headers: authed });
     const second = await h.app.inject({ method: "GET", url: "/api/health", headers: authed });
@@ -64,6 +65,7 @@ describe("GET /api/health", () => {
 
   it("reports a failed network probe", async () => {
     h = await makeHarness({ probeNetwork: async () => false });
+    setSetting(h.db, "provider", "smtp");
     setSetting(h.db, "smtp_host", "smtp.example.com");
     const res = await h.app.inject({ method: "GET", url: "/api/health", headers: authed });
     expect(res.json().network.status).toBe("fail");

@@ -2,6 +2,7 @@ import { z } from "zod";
 import { isValidEmail, normalizeEmail } from "../domain/email.ts";
 import { isValidTimezone } from "../domain/zonedTime.ts";
 import { isStorableEnvValue } from "../settings/envFile.ts";
+import { isSesRegion } from "../settings/sesRegions.ts";
 
 const LINE_BREAK = /[\r\n]/;
 const CONTROL = /[\u0000-\u0008\u000b-\u001f\u007f]/;
@@ -91,6 +92,11 @@ export const smtpHost = z
   .refine((v) => v === "" || HOSTNAME.test(v), "Enter a host name like smtp.example.com");
 
 export const port = z.number().int().min(1).max(65535);
+
+export const sesRegion = z
+  .union([z.null(), z.string().trim().max(40)])
+  .transform((v) => (v ? v : null))
+  .refine((v) => v === null || isSesRegion(v), "Choose one of the listed Amazon SES regions, like us-east-1");
 
 export const smtpPassword = z
   .string()
