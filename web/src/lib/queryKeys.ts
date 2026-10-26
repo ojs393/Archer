@@ -4,4 +4,6 @@ export const queryKeys = {
   campaigns: ["campaigns"],
   analytics: ["analytics"],
   lists: ["lists"],
+  templates: ["templates"],
+  setup: ["setup"],
 } as const;
