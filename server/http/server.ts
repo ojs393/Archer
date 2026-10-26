@@ -13,6 +13,7 @@ import { listRoutes } from "./routes/lists.ts";
 import { sessionRoutes } from "./routes/session.ts";
 import { settingsRoutes } from "./routes/settings.ts";
 import { suppressionRoutes } from "./routes/suppression.ts";
+import { unsubscribePlugin } from "./routes/unsubscribe.ts";
 import { securityHook } from "./security.ts";
 import { registerWeb } from "./web.ts";
 
@@ -20,6 +21,8 @@ export type { ServerDeps } from "./context.ts";
 
 export const JSON_BODY_LIMIT = 1024 * 1024;
 export const UPLOAD_LIMIT = 2 * 1024 * 1024 * 1024;
+// Unsubscribe tokens embed the whole address; find-my-way's default (100) would 404 long ones.
+export const MAX_PARAM_LENGTH = 2048;
 
 export function resolveContext(deps: ServerDeps): AppContext {
   const log = deps.log ?? logger;
@@ -58,7 +61,12 @@ export function installJsonParser(app: FastifyInstance): void {
 
 export function buildServer(deps: ServerDeps): FastifyInstance {
   const ctx = resolveContext(deps);
-  const app = Fastify({ logger: false, bodyLimit: JSON_BODY_LIMIT, return503OnClosing: true });
+  const app = Fastify({
+    logger: false,
+    bodyLimit: JSON_BODY_LIMIT,
+    return503OnClosing: true,
+    routerOptions: { maxParamLength: MAX_PARAM_LENGTH },
+  });
 
   installJsonParser(app);
   app.register(fastifyCookie);
@@ -74,6 +82,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   settingsRoutes(app, ctx);
   listRoutes(app, ctx);
   suppressionRoutes(app, ctx);
+  app.register(unsubscribePlugin, { db: ctx.db, env: ctx.env, log: ctx.log });
   registerWeb(app, { webDir: ctx.webDir, sessionToken: ctx.sessionToken });
   return app;
 }
