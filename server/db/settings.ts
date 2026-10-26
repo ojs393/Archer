@@ -12,6 +12,10 @@ export function setSetting(db: DatabaseSync, key: string, value: string): void {
   );
 }
 
+export function deleteSetting(db: DatabaseSync, key: string): void {
+  db.prepare("DELETE FROM settings WHERE key = ?").run(key);
+}
+
 export function getAllSettings(db: DatabaseSync): Record<string, string> {
   const rows = db.prepare("SELECT key, value FROM settings ORDER BY key").all() as { key: string; value: string }[];
   return Object.fromEntries(rows.map((r) => [r.key, r.value]));

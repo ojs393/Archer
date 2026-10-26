@@ -67,6 +67,8 @@ type AttemptOutcome = Step | "delay";
 type StatusOptions = { message?: string; onlyFrom?: ReadonlySet<CampaignStatus> };
 type Prepared = { sender: SenderConfig; message: OutgoingMessage; transport: MailTransport };
 
+export const DEFAULT_SEND_TIMEOUT_MS = 120_000;
+
 const DEFAULT_RETRY_DELAYS_MS = [30_000, 120_000, 600_000, 1_800_000, 7_200_000];
 const UNEXPECTED_BACKOFF_MS = 5_000;
 const MAX_CONSECUTIVE_LOOP_ERRORS = 5;
@@ -140,7 +142,7 @@ export class SendWorker extends EventEmitter {
     this.retryDelaysMs = deps.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
     this.maxAttempts = deps.maxAttempts ?? 5;
     this.networkProbeIntervalMs = deps.networkProbeIntervalMs ?? 15_000;
-    this.sendTimeoutMs = deps.sendTimeoutMs ?? 120_000;
+    this.sendTimeoutMs = deps.sendTimeoutMs ?? DEFAULT_SEND_TIMEOUT_MS;
     this.safety = deps.safety ?? { window: 200, minSample: 50, threshold: 0.05 };
     this.heartbeatAt = this.now().getTime();
   }
