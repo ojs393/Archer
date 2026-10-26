@@ -2,14 +2,16 @@ import fs from "node:fs";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { addSuppression } from "../../server/db/suppression.ts";
+import { UPLOAD_LIMIT } from "../../server/http/server.ts";
 import { failInterruptedImports, getList } from "../../server/import/lists.ts";
 import type { DomainStatus } from "../../server/import/mx.ts";
 import { authed, makeHarness, multipart, mutating, waitFor, type Harness } from "./httpHarness.ts";
 
-let h: Harness;
+let h: Harness | undefined;
 
 afterEach(async () => {
   await h?.close();
+  h = undefined;
 });
 
 const CSV = "email,first_name\r\nann@example.com,Ann\r\nnot-an-email,X\r\nANN@example.com,Dupe\r\ninfo@example.com,Role\r\nbob@dead.example,Bob\r\n";
@@ -23,15 +25,15 @@ const listFields = {
 
 function upload(fields: Record<string, string>, file?: Parameters<typeof multipart>[1]) {
   const body = multipart(fields, file);
-  return h.app.inject({ method: "POST", url: "/api/lists", headers: { ...mutating, ...body.headers }, payload: body.payload });
+  return h!.app.inject({ method: "POST", url: "/api/lists", headers: { ...mutating, ...body.headers }, payload: body.payload });
 }
 
 function preview(content: string | Buffer) {
   const body = multipart({}, { content });
-  return h.app.inject({ method: "POST", url: "/api/lists/preview", headers: { ...mutating, ...body.headers }, payload: body.payload });
+  return h!.app.inject({ method: "POST", url: "/api/lists/preview", headers: { ...mutating, ...body.headers }, payload: body.payload });
 }
 
-const uploads = () => fs.readdirSync(h.paths.uploadsDir);
+const uploads = () => fs.readdirSync(h!.paths.uploadsDir);
 
 describe("POST /api/lists/preview", () => {
   it("previews a file with a header row", async () => {
@@ -187,7 +189,12 @@ describe("POST /api/lists", () => {
     expect(res.json().error.code).toBe("file_missing");
   });
 
+  it("pins production multipart upload cap at 200 MiB", () => {
+    expect(UPLOAD_LIMIT).toBe(200 * 1024 * 1024);
+  });
+
   it("refuses a file over the size limit and removes the partial upload", async () => {
+    // Harness override (1024) exercises the 413 path cheaply; production cap is UPLOAD_LIMIT above.
     h = await makeHarness({ uploadLimitBytes: 1024 });
     const res = await upload(listFields, { content: "email\n" + "a@example.com\n".repeat(200) });
     expect(res.statusCode).toBe(413);

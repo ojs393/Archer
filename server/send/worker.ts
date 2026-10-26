@@ -48,6 +48,8 @@ export interface WorkerDeps {
   networkProbeIntervalMs?: number;
   sendTimeoutMs?: number;
   safety?: SafetyConfig;
+  /** Test-only: override EventLog ring size / trim cadence. */
+  eventLog?: { keep?: number; trimEvery?: number };
 }
 
 export interface WorkerActivity {
@@ -132,7 +134,7 @@ export class SendWorker extends EventEmitter {
     super();
     this.db = deps.db;
     this.store = new SendStore(deps.db);
-    this.log = new EventLog(deps.db);
+    this.log = new EventLog(deps.db, deps.eventLog);
     this.getSenderConfig = deps.getSenderConfig;
     this.createTransport = deps.createTransport ?? buildTransport;
     this.now = deps.now ?? (() => new Date());

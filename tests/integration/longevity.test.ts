@@ -8,9 +8,10 @@ import { BACKUPS_KEPT, backup, openDb, pruneBackups } from "../../server/db/inde
 import { analyticsSummary } from "../../server/analytics/summary.ts";
 import { eventCoverageFrom } from "../../server/analytics/coverage.ts";
 import { createList, getList } from "../../server/import/lists.ts";
-import { streamImport } from "../../server/import/csv.ts";
+import { EventHub } from "../../server/http/events.ts";
+import { ImportJobs } from "../../server/http/importJobs.ts";
 import { createLogger } from "../../server/logger.ts";
-import { EventLog, KEEP_EVENTS } from "../../server/send/events.ts";
+import { EventLog } from "../../server/send/events.ts";
 import { SendWorker, type SenderConfig, type WorkerDeps } from "../../server/send/worker.ts";
 import type { Schedule } from "../../server/domain/schedule.ts";
 import { startFakeSmtp, type FakeSmtp } from "../fakeSmtp.ts";
@@ -34,55 +35,56 @@ describe("longevity invariants", () => {
       fs.rmSync(dir, { recursive: true, force: true });
     });
 
-    it(
-      "keeps ≤ KEEP_EVENTS after 3× inserts; coverageFrom advances; summary matches sends",
-      () => {
-        const listId = Number(
-          db
-            .prepare("INSERT INTO lists (name, source_label, consent_text, consent_at, status) VALUES ('L','s','ok','2026-10-01','ready')")
-            .run().lastInsertRowid,
-        );
-        const contactId = Number(
-          db.prepare("INSERT INTO contacts (list_id, email, domain) VALUES (?, 'a@x.com', 'x.com')").run(listId).lastInsertRowid,
-        );
-        const templateId = Number(
-          db.prepare("INSERT INTO templates (name, subject, html) VALUES ('T', 'S', '<p>x</p>')").run().lastInsertRowid,
-        );
-        const campaignId = Number(
-          db
-            .prepare("INSERT INTO campaigns (list_id, template_id, template_version, status, schedule_json) VALUES (?, ?, 1, 'completed', '{}')")
-            .run(listId, templateId).lastInsertRowid,
-        );
-        db.prepare("INSERT INTO sends (campaign_id, contact_id, state, attempts) VALUES (?, ?, 'sent', 1)").run(campaignId, contactId);
+    // Production KEEP_EVENTS trim is covered in eventLog unit tests; longevity uses a
+    // small injectable keep so insert+trimIfDue stays fast (<30s) while still exercising the path.
+    it("keeps ≤ keep after 3× insert+trimIfDue; coverageFrom advances; summary matches sends", () => {
+      const keep = 200;
+      const trimEvery = 50;
+      const listId = Number(
+        db
+          .prepare("INSERT INTO lists (name, source_label, consent_text, consent_at, status) VALUES ('L','s','ok','2026-10-01','ready')")
+          .run().lastInsertRowid,
+      );
+      const contactId = Number(
+        db.prepare("INSERT INTO contacts (list_id, email, domain) VALUES (?, 'a@x.com', 'x.com')").run(listId).lastInsertRowid,
+      );
+      const templateId = Number(
+        db.prepare("INSERT INTO templates (name, subject, html) VALUES ('T', 'S', '<p>x</p>')").run().lastInsertRowid,
+      );
+      const campaignId = Number(
+        db
+          .prepare("INSERT INTO campaigns (list_id, template_id, template_version, status, schedule_json) VALUES (?, ?, 1, 'completed', '{}')")
+          .run(listId, templateId).lastInsertRowid,
+      );
+      db.prepare("INSERT INTO sends (campaign_id, contact_id, state, attempts) VALUES (?, ?, 'sent', 1)").run(campaignId, contactId);
 
-        // Bulk insert then one trim (avoids 150× WAL checkpoints); still exercises KEEP_EVENTS.
-        const insert = db.prepare("INSERT INTO events (campaign_id, type, message, created_at) VALUES (?, ?, ?, ?)");
-        const total = KEEP_EVENTS * 3;
-        const firstAt = "2026-01-01T00:00:00.000Z";
-        db.exec("BEGIN");
-        for (let i = 0; i < total; i++) {
-          const at = i === 0 ? firstAt : new Date(Date.UTC(2026, 5, 1) + i * 1000).toISOString();
-          insert.run(campaignId, i % 10 === 0 ? "sent" : "status", `e${i}`, at);
-        }
-        db.exec("COMMIT");
-        expect((db.prepare("SELECT COUNT(*) AS n FROM events").get() as { n: number }).n).toBe(total);
+      const log = new EventLog(db, { keep, trimEvery });
+      const total = keep * 3;
+      const firstAt = "2026-01-01T00:00:00.000Z";
+      for (let i = 0; i < total; i++) {
+        const at = i === 0 ? firstAt : new Date(Date.UTC(2026, 5, 1) + i * 1000).toISOString();
+        log.insert({
+          type: i % 10 === 0 ? "sent" : "status",
+          campaignId,
+          message: `e${i}`,
+          at,
+        });
+        log.trimIfDue();
+      }
+      log.trimNow();
 
-        new EventLog(db).trimNow();
+      const count = (db.prepare("SELECT COUNT(*) AS n FROM events").get() as { n: number }).n;
+      expect(count).toBeLessThanOrEqual(keep);
+      expect(count).toBe(keep);
 
-        const count = (db.prepare("SELECT COUNT(*) AS n FROM events").get() as { n: number }).n;
-        expect(count).toBeLessThanOrEqual(KEEP_EVENTS);
-        expect(count).toBe(KEEP_EVENTS);
+      const coverage = eventCoverageFrom(db, null);
+      expect(coverage).not.toBeNull();
+      expect(coverage! > firstAt).toBe(true);
 
-        const coverage = eventCoverageFrom(db, null);
-        expect(coverage).not.toBeNull();
-        expect(coverage! > firstAt).toBe(true);
-
-        const summary = analyticsSummary(db, campaignId);
-        expect(summary.totals.sent).toBe(1);
-        expect(summary.totals.recipients).toBe(1);
-      },
-      60_000,
-    );
+      const summary = analyticsSummary(db, campaignId);
+      expect(summary.totals.sent).toBe(1);
+      expect(summary.totals.recipients).toBe(1);
+    });
   });
 
   describe("backup prune", () => {
@@ -180,6 +182,9 @@ describe("longevity invariants", () => {
           delaySeconds: 1,
         };
         const n = 500;
+        // Small injectable ring so burst can assert trim (≤ KEEP_EVENTS after 500 is vacuous).
+        const keep = 100;
+        const trimEvery = 50;
         const listId = Number(
           db
             .prepare("INSERT INTO lists (name, source_label, consent_text, consent_at, status) VALUES ('L','s','ok','2026-10-01','ready')")
@@ -241,6 +246,7 @@ describe("longevity invariants", () => {
           retryDelaysMs: [1, 1, 1, 1, 1],
           sendTimeoutMs: 3000,
           networkProbeIntervalMs: 10,
+          eventLog: { keep, trimEvery },
         } as WorkerDeps);
         workers.push(worker);
 
@@ -263,8 +269,11 @@ describe("longevity invariants", () => {
         ).map((r) => [r.state, r.n]);
         expect(states).toEqual([["sent", n]]);
 
+        // Between trims the ring can briefly hold keep + trimEvery − 1 rows.
         const eventCount = (db.prepare("SELECT COUNT(*) AS n FROM events").get() as { n: number }).n;
-        expect(eventCount).toBeLessThanOrEqual(KEEP_EVENTS);
+        expect(eventCount).toBeGreaterThan(0);
+        expect(eventCount).toBeLessThanOrEqual(keep + trimEvery);
+        expect(eventCount).toBeLessThan(n);
 
         global.gc?.();
         const delta = process.memoryUsage().heapUsed - before;
@@ -277,33 +286,37 @@ describe("longevity invariants", () => {
   });
 
   describe("import temp cleanup", () => {
-    it("leaves no incoming/partial orphans after streamImport when recycle runs", async () => {
+    it("ImportJobs deletes staged CSV; recycleUploads removes aged incoming orphans", async () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-longevity-imp-"));
       const db = openDb(path.join(dir, "app.db"));
       const uploads = path.join(dir, "uploads");
       fs.mkdirSync(uploads);
+      const events = new EventHub();
       try {
-        const csv = path.join(uploads, "list.csv");
-        fs.writeFileSync(csv, "email\na@example.com\nb@example.com\n");
+        const staged = path.join(uploads, "1-staged.csv");
+        fs.writeFileSync(staged, "email\na@example.com\nb@example.com\n");
         const orphan = path.join(uploads, "incoming-orphan.csv");
         fs.writeFileSync(orphan, "email\nz@example.com\n");
         fs.utimesSync(orphan, new Date(0), new Date(0));
 
         const listId = createList(db, { name: "imp", sourceLabel: "t", consentText: "ok", excludeRoles: true });
-        await streamImport({
-          filePath: csv,
+        const imports = new ImportJobs({
           db,
-          listId,
-          excludeRoles: true,
-          domainChecker: null,
+          events,
+          createDomainChecker: () => async () => "ok",
+          log: { info() {}, warn() {}, error() {} },
         });
-        expect(getList(db, listId)!.valid_count).toBe(2);
+        imports.start(listId, staged, { excludeRoles: true, checkDomains: false });
+        await imports.idle();
 
-        // Staged CSV remains until ImportJobs deletes it; recycle ages orphans.
-        fs.rmSync(csv, { force: true });
-        expect(recycleUploads(uploads, { now: new Date(), maxAgeMs: 1 })).toBeGreaterThanOrEqual(1);
+        expect(getList(db, listId)!.valid_count).toBe(2);
+        expect(fs.existsSync(staged)).toBe(false);
+        expect(fs.readdirSync(uploads).sort()).toEqual(["incoming-orphan.csv"]);
+
+        expect(recycleUploads(uploads, { now: new Date(), maxAgeMs: 1 })).toBe(1);
         expect(fs.readdirSync(uploads)).toEqual([]);
       } finally {
+        events.closeAll();
         db.close();
         fs.rmSync(dir, { recursive: true, force: true });
       }
