@@ -1,6 +1,6 @@
 # MamaDirect HTTP API
 
-Request schemas (zod 4) and response types live in `server/http/contract.ts`; import types from there rather than redeclaring them. The contract below is binding; "Implementation notes (10A)" at the end records what the implementation adds or clarifies. One contract change: `CampaignView.schedule` is nullable (see "Status and health").
+Request schemas (zod 4) and response types live in `server/http/contract.ts`; import types from there rather than redeclaring them. The contract below is binding; "Implementation notes (10A)" and "Implementation notes (10B)" at the end record what the implementation adds or clarifies. Contract changes: `CampaignView.schedule` is nullable (see "Status and health"); `POST /api/templates/:id/test-send` also accepts an optional `listId`; `resume` re-runs the launch gates (see "Campaigns").
 
 ## Conventions
 - All API routes are under `/api`, JSON in/out unless stated. Errors: HTTP 4xx/5xx with body `{ "error": { "code": string, "message": string, "details"?: unknown } }`. Validation errors: 400, code `invalid_request`, details = zod issues.
@@ -138,3 +138,36 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 - `data/mamadirect.lock` (`{ pid, port, startedAt }`): a second start prints `MamaDirect is already running at http://127.0.0.1:<port>` and exits 0 when the holder is alive and answers `GET /api/session`, or "already starting" (exit 0) during its first 60 s. A lock whose pid is dead, whose `startedAt` predates the last reboot, or that is unreadable is taken over. A live holder that does not answer after 60 s is not taken over (two senders on one database could duplicate mail): the second start prints how to recover and exits 1.
 - `data/server.json` (`{ pid, port, url }`) is written once listening and removed on exit.
 - Env: `PORT` (default 5199, next free port if busy), `MAMADIRECT_DATA_DIR`, `MAMADIRECT_ENV_FILE` (path to `.env`), `MAMADIRECT_NO_OPEN=1`, `MAMADIRECT_PUBLIC_PORT`, `MAMADIRECT_DEV_ORIGIN`.
+
+## Implementation notes (10B)
+
+### Templates
+- `TemplateView` fields are camelCase: `id, name, version, subject, html, text (null when the plain-text part is generated), createdAt, updatedAt, variableMap, analysis, linkCheck, testedOk`. `testedOk` is `last_test_ok_version === version`. `analysis.malformed` lists only parts with problems; `hasComplianceTags` is true when the HTML contains both `{{unsubscribe_url}}` and `{{postal_address}}`.
+- `POST /api/templates` answers 200 (the contract does not say 201). JSON needs `name` (1–200 chars), `subject` (1–998 chars, one line) and at least one of `html`/`text`; text-only templates store `html = textToHtml(text)`.
+- Uploads: multipart `file` (`.html`, `.htm` or `.txt`, ≤ 2 MiB, UTF-8; a BOM is dropped) plus `name` and `subject`. `.txt` becomes `text` with generated `html`. Errors: 400 `unsupported_file`, `not_utf8`, `empty_file`, `file_missing`; 413 `file_too_large`. JSON bodies stay capped at 1 MiB, so a template larger than that can be uploaded but not saved back through `PUT`.
+- `PUT` accepts `text: null` (go back to a generated plain-text part). The version goes up only when subject, html, text or the variable map actually change (a rename does not). Editing only the `text` of a text-only template regenerates its `html`. `variableMap` values: `{kind:"column",column}`, `{kind:"builtin",key}` (one of `email, first_name, domain, unsubscribe_url, postal_address, today`), `{kind:"fixed",value}`.
+- Preview: `pick` defaults to `first`; `next` without `afterContactId` is `first`; `next` wraps to the first contact; an empty list falls back to the synthetic contact. Settings that are not filled in render as `[postal address not set]` and `#unsubscribe`. 422 `render_failed` details: `{ variable }` or `{ part, problems }`. Unknown list → 404.
+
+### Link check
+- Links are taken from `href`/`src` attributes (HTML entities decoded) and bare `http(s)://` URLs in the text part, de-duplicated. `mailto:`, `tel:`, relative and `#` links are skipped, and so is an `href` that is exactly `{{unsubscribe_url}}` (MamaDirect builds that link itself). Any other link containing `{{` is listed with `ok: false`, `error: "contains a template variable; it cannot be checked"` and needs an acknowledgement.
+- Each link: HEAD, then GET (body discarded once headers arrive) after a network error or 403/405/501; up to 5 redirects followed by hand; 10 s per request; 4 links at a time. Hosts that are `localhost`/`*.localhost` or resolve to a loopback, private, link-local or unique-local address (checked for every resolved address, and again on every redirect hop) are never fetched: `error: "private address"`.
+- `POST /link-check` answers 409 `template_changed` if the template was edited while the check ran. Acknowledgements are kept when the same version is checked again and dropped for a new version. `POST /link-ack`: 409 `no_link_check` when there is no check for the current version; 404 for a URL that is not in it.
+
+### Test send
+- Optional body field `listId` renders the message for that list's first contact (the synthetic contact otherwise); the message still only goes to the test inboxes. The unsubscribe link and `List-Unsubscribe` header in a test copy carry a token for the test inbox, so clicking it can never suppress a real contact.
+- Errors: 400 `not_test_inbox` (details = the addresses that are not test inboxes), 422 `no_test_inboxes`, 422 `sender_incomplete` (details = missing `from_email` / `postal_address` / `unsub_mailbox`), 422 `smtp_incomplete` (host, user or password missing), 422 `render_failed`. Delivery uses the worker's `composeMessage` and SMTP transport; each message is capped at the worker's send timeout. A per-recipient SMTP failure is reported in `results` (200), and `testedOk` is only set when every recipient succeeded and the template was not edited meanwhile.
+
+### Campaigns
+- Create: 404 for an unknown list or template, 409 `list_not_ready` unless the list is `ready`; schedule problems are 400 `invalid_request` whose issue messages come from `validateSchedule`. Sends rows are inserted 1,000 per transaction, yielding to the event loop between batches.
+- Gates: `smtp_verified` / `dns_ok` read `Health.smtp` / `Health.dns`, which `PUT /api/settings` resets to `unknown` whenever the SMTP settings, from address or DKIM selector change. `links_ok` needs a link check for the current template version. `test_send_ok` also fails (asking to recreate the campaign) when the template changed after the campaign was created. `schedule_valid` fails when the daily cap is above 5,000 and no https `publicBaseUrl` is set (Gmail/Yahoo one-click unsubscribe rule).
+- `start`: 409 `invalid_state` when the campaign is already sending or was stopped; 409 `gates_failed` (details = all gates); 409 `conflict` with the worker's message (for example another campaign is active or paused). `start` is also how a `completed` campaign is sent again after a requeue.
+- `pause` (reason `user`): 409 `invalid_state` unless sending. `resume`: 409 `invalid_state` unless `paused`/`safety_stop`, and the gates run again (409 `gates_failed`) so a settings change since launch must be re-verified. `stop`: idempotent for `completed`/`stopped`; a campaign the worker is not running (for example a draft) is marked `stopped` directly.
+- `PUT /schedule`: 409 `invalid_state` unless `draft`/`paused`. `DELETE`: 409 `invalid_state` unless `draft`/`completed`/`stopped`; removes the campaign's sends, day counters and events.
+- `GET /uncertain`: `limit` 0–1000 (default 100), `offset`; rows ordered by contact id. `POST /requeue`: `contactIds` (1–10,000) or all; records a `requeue` event ("Requeued N uncertain send(s)") and wakes the worker if it is running this campaign. `GET /events`: newest first; `limit` 1–500 (default 100); `beforeId` pages backwards; `type` filters.
+- `POST /api/estimate`: `remaining` 0–100,000,000; schedule validated as above.
+
+### Database
+- Migration 3 adds `contacts (list_id, id)` so per-list walks in id order (preview `next`, campaign creation) do not scan or sort the whole table.
+
+### Self-test
+- `npm run selftest` (also run by `npm run setup`/`doctor`) uses a temporary directory and database, never `data/`, starts the in-process fake SMTP server (`server/testing/fakeSmtp.ts`, which needs the `smtp-server` dev dependency), imports a 3-row list, sends a campaign with a simulated clock, checks 3 `sent`, 3 messages received, personalised subjects, `List-Unsubscribe` and the compliance footer, prints PASS/FAIL lines and exits 0/1.

@@ -4,6 +4,7 @@ import type { FastifyInstance, FastifyRequest } from "fastify";
 import { MalformedTemplateError, MissingVariableError, textToHtml } from "../../domain/template.ts";
 import { getList } from "../../import/lists.ts";
 import { longDate } from "../../send/compose.ts";
+import type { OutgoingMessage } from "../../send/transport.ts";
 import { DEFAULT_SEND_TIMEOUT_MS } from "../../send/worker.ts";
 import { getSenderConfig, getSettingsView, getSmtpConfig, senderGaps } from "../../settings/store.ts";
 import { templateView } from "../../templates/analysis.ts";
@@ -200,7 +201,7 @@ export function templateRoutes(app: FastifyInstance, ctx: AppContext): void {
       throw new HttpError(422, "smtp_incomplete", "Enter the SMTP host, username and password first");
     }
     const contact = sampleContact(body.listId);
-    let messages;
+    let messages: OutgoingMessage[];
     try {
       messages = composeTestMessages(t, contact, [...new Set(body.to ?? settings.testInboxes)], getSenderConfig(ctx.db, ctx.env), today());
     } catch (err) {
