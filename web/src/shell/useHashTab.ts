@@ -1,16 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
-import { navigateToTab, parseTabHash, tabHash, type TabId } from "@/lib/tabs";
+import { canonicaliseTabHash, navigateToTab, parseTabHash, type TabId } from "@/lib/tabs";
+
+export type SelectTab = (tab: TabId, opts?: { replace?: boolean }) => void;
 
 /** The active tab, kept in `location.hash` (`#/runs`) so reload and back/forward work. */
-export function useHashTab(): [TabId, (tab: TabId) => void] {
+export function useHashTab(): [TabId, SelectTab] {
   const [tab, setTab] = useState<TabId>(() => parseTabHash(window.location.hash));
 
   useEffect(() => {
-    const sync = () => setTab(parseTabHash(window.location.hash));
-    const canonical = tabHash(parseTabHash(window.location.hash));
-    if (window.location.hash !== canonical) {
-      window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}${canonical}`);
-    }
+    const sync = () => setTab(canonicaliseTabHash());
     sync();
     window.addEventListener("hashchange", sync);
     window.addEventListener("popstate", sync);
@@ -20,8 +18,8 @@ export function useHashTab(): [TabId, (tab: TabId) => void] {
     };
   }, []);
 
-  const select = useCallback((next: TabId) => {
-    navigateToTab(next);
+  const select = useCallback<SelectTab>((next, opts) => {
+    navigateToTab(next, opts);
     setTab(next);
   }, []);
 

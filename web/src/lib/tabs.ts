@@ -17,7 +17,22 @@ export function tabHash(tab: TabId): string {
   return `#/${tab}`;
 }
 
-export function navigateToTab(tab: TabId): void {
+function replaceHash(hash: string): void {
+  const { pathname, search } = window.location;
+  window.history.replaceState(window.history.state, "", `${pathname}${search}${hash}`);
+}
+
+/** `replace` rewrites the current history entry (keyboard roving) instead of pushing one. */
+export function navigateToTab(tab: TabId, { replace = false }: { replace?: boolean } = {}): void {
   const hash = tabHash(tab);
-  if (window.location.hash !== hash) window.location.hash = hash;
+  if (window.location.hash === hash) return;
+  if (replace) replaceHash(hash);
+  else window.location.hash = hash;
+}
+
+/** Rewrites a missing, unknown or non-canonical hash in place and returns the tab it names. */
+export function canonicaliseTabHash(): TabId {
+  const tab = parseTabHash(window.location.hash);
+  if (window.location.hash !== tabHash(tab)) replaceHash(tabHash(tab));
+  return tab;
 }

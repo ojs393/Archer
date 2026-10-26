@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from "vitest";
-import { DEFAULT_TAB, navigateToTab, parseTabHash, tabHash, TAB_IDS } from "./tabs";
+import { canonicaliseTabHash, DEFAULT_TAB, navigateToTab, parseTabHash, tabHash, TAB_IDS } from "./tabs";
 
 afterEach(() => {
   window.history.replaceState(null, "", "/");
@@ -28,6 +28,22 @@ describe("tab hash routing", () => {
 
   it("builds the canonical hash", () => {
     expect(tabHash("audience")).toBe("#/audience");
+  });
+
+  it("can navigate without adding a history entry", () => {
+    const before = window.history.length;
+    navigateToTab("runs", { replace: true });
+    expect(window.location.hash).toBe("#/runs");
+    expect(window.history.length).toBe(before);
+  });
+
+  it("canonicalises an unknown hash to the dashboard in place", () => {
+    window.history.replaceState(null, "", "/?x=1#/bogus");
+    const before = window.history.length;
+    expect(canonicaliseTabHash()).toBe("dashboard");
+    expect(window.location.hash).toBe("#/dashboard");
+    expect(window.location.search).toBe("?x=1");
+    expect(window.history.length).toBe(before);
   });
 
   it("navigates by pushing a history entry", () => {

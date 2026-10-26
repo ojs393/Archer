@@ -119,6 +119,37 @@ describe("App shell", () => {
     expect(screen.getByRole("tab", { name: "Runs" })).toHaveAttribute("aria-selected", "true");
   });
 
+  it("replaces the history entry while roving with arrow keys; a click pushes one", async () => {
+    await renderApp();
+    const start = window.history.length;
+    const dashboard = screen.getByRole("tab", { name: "Dashboard" });
+    act(() => dashboard.focus());
+    fireEvent.keyDown(dashboard, { key: "ArrowRight" });
+    expect(await screen.findByRole("heading", { level: 1, name: "Runs" })).toBeInTheDocument();
+    expect(window.location.hash).toBe("#/runs");
+    fireEvent.keyDown(screen.getByRole("tab", { name: "Runs" }), { key: "ArrowRight" });
+    expect(await screen.findByRole("heading", { level: 1, name: "Audience" })).toBeInTheDocument();
+    expect(window.location.hash).toBe("#/audience");
+    expect(window.history.length).toBe(start);
+
+    selectTab("Templates");
+    expect(await screen.findByRole("heading", { level: 1, name: "Templates" })).toBeInTheDocument();
+    expect(window.location.hash).toBe("#/templates");
+    expect(window.history.length).toBe(start + 1);
+  });
+
+  it("canonicalises an unknown hash to the dashboard on every hashchange", async () => {
+    await renderApp("#/runs");
+    await screen.findByRole("heading", { level: 1, name: "Runs" });
+    act(() => {
+      window.history.replaceState(null, "", "/#/no-such-tab");
+      window.dispatchEvent(new HashChangeEvent("hashchange"));
+    });
+    expect(window.location.hash).toBe("#/dashboard");
+    expect(await screen.findByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Dashboard" })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("gives every button, including icon-only ones, an accessible name", async () => {
     await renderApp();
     await screen.findByRole("button", { name: "DNS: Failing" });

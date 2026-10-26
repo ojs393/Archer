@@ -1,6 +1,6 @@
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { RotateCw, Unplug } from "lucide-react";
-import { Suspense, useState, type ComponentType, type LazyExoticComponent } from "react";
+import { Suspense, useRef, useState, type ComponentType, type LazyExoticComponent } from "react";
 import { EmptyState } from "@/components/EmptyState";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,6 +24,9 @@ const PANELS: Record<TabId, LazyExoticComponent<ComponentType>> = {
   settings: lazyPanel(() => import("@/panels/SettingsPanel")),
 };
 
+/** Keys Radix uses to move focus between tabs; with automatic activation they also select. */
+const ROVING_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"]);
+
 function PanelFallback() {
   return (
     <div className="flex flex-col gap-5" aria-busy="true">
@@ -38,9 +41,23 @@ function Shell() {
   const session = useSession();
   const ready = session.isSuccess;
   const Panel = PANELS[tab];
+  const roving = useRef(false);
 
   return (
-    <Tabs value={tab} onValueChange={(value) => isTabId(value) && setTab(value)} className="flex min-h-screen flex-col">
+    <Tabs
+      value={tab}
+      onValueChange={(value) => isTabId(value) && setTab(value, { replace: roving.current })}
+      onKeyDownCapture={(event) => {
+        roving.current = ROVING_KEYS.has(event.key);
+      }}
+      onPointerDownCapture={() => {
+        roving.current = false;
+      }}
+      onMouseDownCapture={() => {
+        roving.current = false;
+      }}
+      className="flex min-h-screen flex-col"
+    >
       <AppHeader ready={ready} />
       {ready ? <ReconnectBanner /> : null}
       <main className="mx-auto w-full max-w-content flex-1 p-6">
