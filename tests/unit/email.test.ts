@@ -20,6 +20,12 @@ describe("normalizeEmail", () => {
     ['"a@b.co"', "a@b.co"],
     ["'a@b.co'", "a@b.co"],
     ['  " A@B.CO "  ', "a@b.co"],
+    ["mailto:A@B.co?subject=Hi", "a@b.co"],
+    ["mailto:a@b.co#frag", "a@b.co"],
+    ["mailto:a@b.co?subject=Hi#frag", "a@b.co"],
+    ["<mailto:a@b.co?subject=Hi>", "a@b.co"],
+    ["a@b.co?subject=x", "a@b.co?subject=x"],
+    ["a@b.co#x", "a@b.co#x"],
   ])("normalizes %j to %j", (raw, expected) => {
     expect(normalizeEmail(raw)).toBe(expected);
   });
@@ -50,6 +56,7 @@ describe("isValidEmail", () => {
     ["user@xn--mnchen-3ya.de"],
     ["user@münchen.de"],
     ["user@example.xn--p1ai"],
+    ["jösé@example.com"],
     [`${local64}@example.com`],
     [`a@${label63}.com`],
     [at254],
@@ -87,13 +94,38 @@ describe("isValidEmail", () => {
     [`a@${"b".repeat(64)}.com`, "64-char label"],
     [`${local65}@example.com`, "65-char local part"],
     [at255, "255-char address"],
+    ["a@b.co?subject=x", "query after domain"],
+    ["a@b.co#x", "fragment after domain"],
+    ["a@b.co/x", "path after domain"],
+    ["a@b.co\\x", "backslash after domain"],
+    ["a@ex%61mple.com", "percent-encoded domain"],
+    ["a@exa\u00admple.com", "soft hyphen in domain"],
+    ["a@exa\u200bmple.com", "zero-width space in domain"],
+    ["a@b.example\u3002com", "ideographic full stop in domain"],
+    ["a@\uff45xample.com", "fullwidth letter in domain"],
+    ["a@xn--a.com", "undecodable punycode label"],
+    ["a@münchen.xn--a", "IDN with undecodable punycode label"],
+    ["a@\ufffd.com", "domain with no ASCII form"],
+    ["a\u200b@example.com", "zero-width space in local part"],
+    ["a\u202e@example.com", "right-to-left override in local part"],
+    ["a\u00ad@example.com", "soft hyphen in local part"],
+    ["a\u0085@example.com", "C1 control in local part"],
+    ["a\u009f@example.com", "last C1 control"],
   ])("rejects %j (%s)", (email) => {
+    expect(isValidEmail(email)).toBe(false);
+  });
+
+  it("rejects an address that exceeds 254 characters only after IDN expansion", () => {
+    const email = `${local64}@${"ü.".repeat(24)}de`;
+    expect(email.length).toBeLessThanOrEqual(254);
     expect(isValidEmail(email)).toBe(false);
   });
 
   it("accepts every address that normalizes cleanly from messy input", () => {
     expect(isValidEmail(normalizeEmail(' "Jane" <Jane.Doe@Example.COM> '))).toBe(true);
     expect(isValidEmail(normalizeEmail("mailto:info@example.com"))).toBe(true);
+    expect(isValidEmail(normalizeEmail("mailto:A@B.co?subject=Hi"))).toBe(true);
+    expect(isValidEmail(normalizeEmail("a@b.co?subject=x"))).toBe(false);
   });
 });
 
