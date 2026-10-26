@@ -15,10 +15,10 @@ import {
 } from "./lib/icons.mjs";
 import { projectRoot } from "./lib/paths.mjs";
 
-const APP_ICON_PLACEMENT = { translateY: 16, scale: 1 };
-const SMALL_ICON_PLACEMENT = { translateY: MARK_OPTICAL_OFFSET_Y, scale: 1.2 };
+const APP_ICON_PLACEMENT = { translateY: 32, scale: 1 };
+const SMALL_ICON_PLACEMENT = { translateY: MARK_OPTICAL_OFFSET_Y, scale: 1.15 };
 const TOUCH_ICON_PLACEMENT = { translateY: MARK_OPTICAL_OFFSET_Y, scale: 0.9 };
-const SMALL_MAX_PX = 32;
+const SMALL_MAX_PX = 48;
 
 const root = projectRoot();
 const publicDir = path.join(root, "web", "public");
@@ -33,8 +33,9 @@ const smallIcon = appIconSvg(simplifyMarkGroup(mark), SMALL_ICON_PLACEMENT);
 const maskableIcon = maskableIconSvg(mark);
 const touchIcon = fullBleedIconSvg(mark, TOUCH_ICON_PLACEMENT);
 
-function render(svg, size) {
-  const resvg = new Resvg(svg, { fitTo: { mode: "width", value: size }, background: "#ffffff" });
+/** Rounded icons keep transparent corners; only full-bleed icons are rendered on opaque white. */
+function render(svg, size, { opaque = false } = {}) {
+  const resvg = new Resvg(svg, { fitTo: { mode: "width", value: size }, ...(opaque ? { background: "#ffffff" } : {}) });
   const image = resvg.render();
   const png = Buffer.from(image.asPng());
   image.free();
@@ -68,10 +69,10 @@ const outputs = [
   [path.join(publicDir, "favicon-16.png"), appPng(16)],
   [path.join(publicDir, "favicon-32.png"), appPng(32)],
   [path.join(publicDir, "favicon-48.png"), appPng(48)],
-  [path.join(publicDir, "apple-touch-icon.png"), render(touchIcon, 180)],
+  [path.join(publicDir, "apple-touch-icon.png"), render(touchIcon, 180, { opaque: true })],
   [path.join(publicDir, "icon-192.png"), appPng(192)],
   [path.join(publicDir, "icon-512.png"), appPng(512)],
-  [path.join(publicDir, "icon-maskable-512.png"), render(maskableIcon, 512)],
+  [path.join(publicDir, "icon-maskable-512.png"), render(maskableIcon, 512, { opaque: true })],
   [path.join(publicDir, "favicon.ico"), encodeIco([16, 32, 48].map(appPng))],
   [path.join(publicDir, "site.webmanifest"), `${JSON.stringify(manifest, null, 2)}\n`],
   [path.join(assetsDir, "mamadirect.ico"), encodeIco([16, 24, 32, 48, 64, 128, 256].map(appPng))],

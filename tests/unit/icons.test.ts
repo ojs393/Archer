@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { projectRoot } from "../../scripts/lib/paths.mjs";
+import { alphaAt, decodeRgba } from "./pngPixels.ts";
 
 const root = projectRoot();
 const pub = (...p: string[]) => path.join(root, "web", "public", ...p);
@@ -47,6 +48,22 @@ function icnsEntries(buf: Buffer): Record<string, number> {
   }
   expect(at).toBe(buf.length);
   return entries;
+}
+
+function icoImages(buf: Buffer): Buffer[] {
+  return Array.from({ length: buf.readUInt16LE(4) }, (_, i) => {
+    const entry = 6 + i * 16;
+    const offset = buf.readUInt32LE(entry + 12);
+    return buf.subarray(offset, offset + buf.readUInt32LE(entry + 8));
+  });
+}
+
+function icnsImages(buf: Buffer): [string, Buffer][] {
+  const images: [string, Buffer][] = [];
+  for (let at = 8; at < buf.length; at += buf.readUInt32BE(at + 4)) {
+    images.push([buf.toString("ascii", at, at + 4), buf.subarray(at + 8, at + buf.readUInt32BE(at + 4))]);
+  }
+  return images;
 }
 
 describe("committed icon set", () => {
@@ -96,7 +113,47 @@ describe("committed icon set", () => {
     expect(fs.readFileSync(pub("favicon.svg"), "utf8")).toBe(appIcon);
     expect(appIcon).toContain('<rect width="512" height="512" rx="112" fill="#ffffff"/>');
     for (const d of mark.match(/d="[^"]+"/g) ?? []) expect(appIcon).toContain(d);
-    expect(mark.match(/<path /g)).toHaveLength(10);
+    expect(mark.match(/<path /g)).toHaveLength(14);
+  });
+
+  describe("transparency", () => {
+    const expectRoundedTransparent = (png: Buffer, label: string) => {
+      const img = decodeRgba(png);
+      const last = img.width - 1;
+      for (const [x, y] of [[0, 0], [last, 0], [0, last], [last, last]]) {
+        expect(alphaAt(img, x, y), `${label} corner ${x},${y}`).toBe(0);
+      }
+      const c = Math.floor(img.width / 2);
+      const r = Math.max(1, Math.floor(img.width / 8));
+      for (let y = c - r; y <= c + r; y++) {
+        for (let x = c - r; x <= c + r; x++) expect(alphaAt(img, x, y), `${label} centre ${x},${y}`).toBe(255);
+      }
+    };
+
+    it.each(["icon-512.png", "icon-192.png", "favicon-16.png", "favicon-32.png", "favicon-48.png"])(
+      "web/public/%s has transparent corners and an opaque centre",
+      (name) => expectRoundedTransparent(fs.readFileSync(pub(name)), name),
+    );
+
+    it.each(["mamadirect-512.png", "mamadirect-1024.png"])("assets/icons/%s has transparent corners", (name) =>
+      expectRoundedTransparent(fs.readFileSync(asset(name)), name),
+    );
+
+    it("every ICO and ICNS entry has transparent corners and an opaque centre", () => {
+      const entries = [
+        ...icoImages(fs.readFileSync(pub("favicon.ico"))).map((png, i) => [`favicon.ico #${i}`, png] as const),
+        ...icoImages(fs.readFileSync(asset("mamadirect.ico"))).map((png, i) => [`mamadirect.ico #${i}`, png] as const),
+        ...icnsImages(fs.readFileSync(asset("mamadirect.icns"))).map(([type, png]) => [`mamadirect.icns ${type}`, png] as const),
+      ];
+      expect(entries).toHaveLength(3 + 7 + 8);
+      for (const [label, png] of entries) expectRoundedTransparent(png, label);
+    });
+
+    it.each(["icon-maskable-512.png", "apple-touch-icon.png"])("full-bleed %s stays opaque white in the corners", (name) => {
+      const img = decodeRgba(fs.readFileSync(pub(name)));
+      expect(alphaAt(img, 0, 0)).toBe(255);
+      expect([...img.data.subarray(0, 4)]).toEqual([255, 255, 255, 255]);
+    });
   });
 
   it("site.webmanifest lists the 192, 512 and maskable icons on white", () => {
