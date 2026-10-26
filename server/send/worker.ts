@@ -63,12 +63,25 @@ type EventInput = { type: WorkerEventType; message: string; contactId?: number; 
 type SendResult = CappedResult<{ messageId: string; response: string }> | { kind: "not_sent" };
 type Step = "continue" | "exit";
 type AttemptOutcome = Step | "delay";
+type StatusOptions = { message?: string; onlyFrom?: ReadonlySet<CampaignStatus> };
+type Prepared = { sender: SenderConfig; message: OutgoingMessage; transport: MailTransport };
 
 const DEFAULT_RETRY_DELAYS_MS = [30_000, 120_000, 600_000, 1_800_000, 7_200_000];
 const UNEXPECTED_BACKOFF_MS = 5_000;
+const MAX_CONSECUTIVE_LOOP_ERRORS = 5;
 const SHUTDOWN_GRACE_MS = 1_000;
 const MAX_TIMER_MS = 2_147_483_647;
 const SAFETY_RESET_MESSAGE = "Status: running (rejection sample reset after safety stop)";
+const WAITING_NETWORK: ReadonlySet<CampaignStatus> = new Set(["waiting_network"]);
+const COMPLIANCE_FIELDS = [
+  ["postalAddress", "postal address"],
+  ["unsubMailbox", "unsubscribe mailbox"],
+  ["fromEmail", "from address"],
+] as const;
+
+function missingComplianceFields(sender: SenderConfig): string[] {
+  return COMPLIANCE_FIELDS.filter(([key]) => !sender[key]?.trim()).map(([, label]) => label);
+}
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
@@ -136,7 +149,13 @@ export class SendWorker extends EventEmitter {
     for (const row of this.store.sendingRows()) {
       if (this.markUncertain(row.campaign_id, row, "interrupted mid-send by a restart")) uncertain += 1;
     }
-    return { uncertain, resumeCampaignId: this.store.latestActiveCampaign() };
+    const resumeCampaignId = this.store.latestActiveCampaign();
+    const adopt = resumeCampaignId ?? this.store.latestHeldCampaign();
+    if (adopt !== null && this.campaignId === null) {
+      this.campaignId = adopt;
+      this.status = this.store.campaign(adopt)?.status ?? null;
+    }
+    return { uncertain, resumeCampaignId };
   }
 
   start(campaignId: number): void {
@@ -217,7 +236,7 @@ export class SendWorker extends EventEmitter {
   }
 
   private activate(c: CampaignRow): void {
-    this.setStatus(c.id, "running", null, c.status === "safety_stop" ? SAFETY_RESET_MESSAGE : undefined);
+    this.setStatus(c.id, "running", null, c.status === "safety_stop" ? { message: SAFETY_RESET_MESSAGE } : {});
     this.safetyFloor = this.log.lastIdOf(c.id, "status", SAFETY_RESET_MESSAGE);
     this.launch(c.id);
   }
@@ -225,7 +244,7 @@ export class SendWorker extends EventEmitter {
   private launch(id: number): void {
     if (this.loop || this.shuttingDown) return;
     this.loop = this.runLoop(id)
-      .catch(() => {})
+      .catch((err: unknown) => this.recordLoopError(id, err))
       .finally(() => {
         this.loop = null;
         const next = this.campaignId;
@@ -234,17 +253,29 @@ export class SendWorker extends EventEmitter {
   }
 
   private async runLoop(id: number): Promise<void> {
+    let consecutiveErrors = 0;
     while (!this.shuttingDown && this.campaignId === id) {
       await nextTurn();
       if (this.shuttingDown || this.campaignId !== id) break;
       this.iteration = new AbortController();
       try {
-        if ((await this.step(id, this.iteration.signal)) === "exit") break;
+        const step = await this.step(id, this.iteration.signal);
+        consecutiveErrors = 0;
+        if (step === "exit") break;
       } catch (err) {
-        this.safely(() => this.apply(id, () => [{ type: "error", message: `Unexpected error in send loop: ${errorText(err)}` }]));
+        consecutiveErrors += 1;
+        this.recordLoopError(id, err);
+        if (consecutiveErrors >= MAX_CONSECUTIVE_LOOP_ERRORS) {
+          this.safely(() => this.setLoopStatus(id, "paused", "unexpected_error"));
+          if (!this.isActiveSafe(id)) break;
+        }
         await this.napFor(UNEXPECTED_BACKOFF_MS);
       }
     }
+  }
+
+  private recordLoopError(id: number, err: unknown): void {
+    this.safely(() => this.apply(id, () => [{ type: "error", message: `Unexpected error in send loop: ${errorText(err)}` }]));
   }
 
   private async step(id: number, signal: AbortSignal): Promise<Step> {
@@ -261,15 +292,15 @@ export class SendWorker extends EventEmitter {
       wakeAt = this.windowWait(id, schedule, now);
     } catch (err) {
       if (!(err instanceof NoSendWindowError)) throw err;
-      this.setStatus(id, "paused", "no_send_window");
+      this.setLoopStatus(id, "paused", "no_send_window");
       return "exit";
     }
     if (wakeAt) {
-      this.setStatus(id, "waiting_window", null);
+      this.setLoopStatus(id, "waiting_window", null);
       await this.napUntil(wakeAt);
       return "continue";
     }
-    if (c.status !== "running") this.setStatus(id, "running", null);
+    if (c.status !== "running") this.setLoopStatus(id, "running", null);
 
     const row = this.store.nextDue(id, now.toISOString());
     if (!row) return this.idle(id, schedule, now);
@@ -282,15 +313,11 @@ export class SendWorker extends EventEmitter {
       return "continue";
     }
 
-    const sender = this.getSenderConfig();
     if (!this.store.markSending(id, row.contact_id, this.now().toISOString())) return "continue";
     this.inFlightSince = this.now().getTime();
     let outcome: AttemptOutcome;
     try {
-      outcome = await this.attempt(c, schedule, row, sender, signal);
-    } catch (err) {
-      this.safely(() => this.markUncertain(id, row, `unexpected error during send: ${errorText(err)}`));
-      throw err;
+      outcome = await this.attempt(c, schedule, row, signal);
     } finally {
       this.inFlightSince = null;
       this.beat();
@@ -319,24 +346,46 @@ export class SendWorker extends EventEmitter {
     const stale = this.store.sendingRows(id);
     for (const row of stale) this.markUncertain(id, row, "found mid-send with nothing in flight");
     if (stale.length > 0 || this.store.hasOpenRows(id)) return "continue";
-    this.setStatus(id, "completed", null);
+    this.setLoopStatus(id, "completed", null);
     return "exit";
   }
 
-  private async attempt(c: CampaignRow, s: Schedule, row: SendRow, sender: SenderConfig, signal: AbortSignal): Promise<AttemptOutcome> {
-    const id = c.id;
+  private async attempt(c: CampaignRow, s: Schedule, row: SendRow, signal: AbortSignal): Promise<AttemptOutcome> {
+    let prepared: Prepared | AttemptOutcome;
+    try {
+      prepared = this.prepare(c, s, row);
+    } catch (err) {
+      return this.holdRow(c.id, row, "internal_error", `Internal error before sending to ${row.email}: ${errorText(err)}`);
+    }
+    if (typeof prepared === "string") return prepared;
+    try {
+      return await this.deliver(c.id, s, row, prepared, signal);
+    } catch (err) {
+      this.safely(() => this.markUncertain(c.id, row, `unexpected error during send: ${errorText(err)}`));
+      throw err;
+    }
+  }
+
+  private prepare(c: CampaignRow, s: Schedule, row: SendRow): Prepared | AttemptOutcome {
+    const sender = this.getSenderConfig();
+    const missing = missingComplianceFields(sender);
+    if (missing.length > 0) return this.holdRow(c.id, row, "compliance_config", `Sending blocked: ${missing.join(", ")} not set`);
     const tpl = this.store.template(c.template_id);
-    if (!tpl || tpl.version !== c.template_version) return this.holdRow(id, row, "template_changed");
+    if (!tpl || tpl.version !== c.template_version) return this.holdRow(c.id, row, "template_changed");
     let message: OutgoingMessage;
     try {
       message = composeMessage(tpl, row, sender, longDate(this.now(), s.timezone));
     } catch (err) {
-      if (err instanceof MalformedTemplateError) return this.holdRow(id, row, "template_error");
+      if (err instanceof MalformedTemplateError) return this.holdRow(c.id, row, "template_error");
       if (!(err instanceof MissingVariableError)) throw err;
-      return this.recordFailure(id, row, "failed", err.message, null) === "exit" ? "exit" : "continue";
+      return this.recordFailure(c.id, row, "failed", err.message, null) === "exit" ? "exit" : "continue";
     }
+    return { sender, message, transport: this.transportFor(sender.smtp) };
+  }
 
-    const result = await this.sendCapped(this.transportFor(sender.smtp), message, signal);
+  private async deliver(id: number, s: Schedule, row: SendRow, p: Prepared, signal: AbortSignal): Promise<AttemptOutcome> {
+    const { sender } = p;
+    const result = await this.sendCapped(p.transport, p.message, signal);
     this.beat();
     switch (result.kind) {
       case "ok":
@@ -384,7 +433,7 @@ export class SendWorker extends EventEmitter {
           this.store.revertToPending(id, row.contact_id, at);
           return [{ type: "error", contactId: row.contact_id, email: row.email, message: `${what}: ${cls.message}` }];
         });
-        this.setStatus(id, "paused", cls.kind === "auth" ? "auth_failed" : "config_error");
+        this.setLoopStatus(id, "paused", cls.kind === "auth" ? "auth_failed" : "config_error");
         return "exit";
       }
     }
@@ -425,20 +474,20 @@ export class SendWorker extends EventEmitter {
 
   private afterOutcome(id: number): AttemptOutcome {
     if (!this.log.rejectionRateExceeded(id, this.safetyFloor, this.safety)) return "delay";
-    this.setStatus(id, "safety_stop", "rejection_rate");
+    this.setLoopStatus(id, "safety_stop", "rejection_rate");
     return "exit";
   }
 
-  private holdRow(id: number, row: SendRow, reason: string): Step {
-    this.revertRow(id, row);
-    this.setStatus(id, "paused", reason);
+  private holdRow(id: number, row: SendRow, reason: string, error?: string): Step {
+    this.revertRow(id, row, error);
+    this.setLoopStatus(id, "paused", reason);
     return "exit";
   }
 
-  private revertRow(id: number, row: SendRow): void {
+  private revertRow(id: number, row: SendRow, error?: string): void {
     this.apply(id, (at) => {
       this.store.revertToPending(id, row.contact_id, at);
-      return [];
+      return error === undefined ? [] : [{ type: "error", contactId: row.contact_id, email: row.email, message: error }];
     });
   }
 
@@ -452,14 +501,16 @@ export class SendWorker extends EventEmitter {
   }
 
   private async waitForNetwork(id: number, host: string, signal: AbortSignal): Promise<void> {
-    if ((await this.probe(host, signal)) || signal.aborted || !this.isActive(id)) return;
-    this.setStatus(id, "waiting_network", null);
+    if ((await this.probe(host, signal)) || signal.aborted) return;
+    if (!this.setLoopStatus(id, "waiting_network", null)) return;
     while (!signal.aborted && !this.shuttingDown && this.store.campaign(id)?.status === "waiting_network") {
       await this.napFor(this.networkProbeIntervalMs);
       if (signal.aborted || this.store.campaign(id)?.status !== "waiting_network") return;
-      if (await this.probe(host, signal)) {
+      const ok = await this.probe(host, signal);
+      if (signal.aborted || this.shuttingDown) return;
+      if (ok) {
         this.rebuildTransport();
-        this.setStatus(id, "running", null);
+        this.setStatus(id, "running", null, { onlyFrom: WAITING_NETWORK });
         return;
       }
     }
@@ -489,15 +540,22 @@ export class SendWorker extends EventEmitter {
     return this.transport;
   }
 
-  private setStatus(id: number, status: CampaignStatus, reason: string | null, message?: string): void {
-    const current = this.store.campaign(id);
-    if (!current) return;
-    if (this.campaignId === id) this.status = status;
-    if (current.status === status && current.pause_reason === reason && message === undefined) return;
+  private setStatus(id: number, status: CampaignStatus, reason: string | null, opts: StatusOptions = {}): boolean {
+    let changed = false;
     this.apply(id, (at) => {
+      const current = this.store.campaign(id);
+      if (!current || (opts.onlyFrom && !opts.onlyFrom.has(current.status))) return [];
+      if (current.status === status && current.pause_reason === reason && opts.message === undefined) return [];
       this.store.setStatus(id, status, reason, at);
-      return [{ type: "status", message: message ?? statusMessage(status, reason) }];
+      changed = true;
+      return [{ type: "status", message: opts.message ?? statusMessage(status, reason) }];
     });
+    if (this.campaignId === id) this.status = this.store.campaign(id)?.status ?? null;
+    return changed;
+  }
+
+  private setLoopStatus(id: number, status: CampaignStatus, reason: string | null): boolean {
+    return this.setStatus(id, status, reason, { onlyFrom: ACTIVE_STATUSES });
   }
 
   private apply(campaignId: number, change: (at: string) => EventInput[]): WorkerEvent[] {

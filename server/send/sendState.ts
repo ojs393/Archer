@@ -66,6 +66,16 @@ export class SendStore {
     return row?.id ?? null;
   }
 
+  latestHeldCampaign(): number | null {
+    const row = this.db
+      .prepare(
+        `SELECT id FROM campaigns WHERE status IN (${HELD_STATUSES.map(() => "?").join(",")})
+         ORDER BY COALESCE(started_at, created_at) DESC, id DESC LIMIT 1`,
+      )
+      .get(...HELD_STATUSES) as { id: number } | undefined;
+    return row?.id ?? null;
+  }
+
   setStatus(id: number, status: CampaignStatus, reason: string | null, at: string): void {
     this.db
       .prepare(
@@ -90,7 +100,8 @@ export class SendStore {
       .get(campaignId) as { contact_id: number } | undefined;
     const retry = this.db
       .prepare(
-        "SELECT contact_id FROM sends WHERE campaign_id = ? AND state = 'retry' AND next_attempt_at <= ? ORDER BY contact_id LIMIT 1",
+        `SELECT contact_id FROM sends WHERE campaign_id = ? AND state = 'retry' AND (next_attempt_at IS NULL OR next_attempt_at <= ?)
+         ORDER BY contact_id LIMIT 1`,
       )
       .get(campaignId, nowIso) as { contact_id: number } | undefined;
     const ids = [pending?.contact_id, retry?.contact_id].filter((id): id is number => id !== undefined);

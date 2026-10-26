@@ -603,27 +603,101 @@ describe("SendWorker — recovery and control", () => {
     expect(() => worker.start(second)).toThrow(/active/i);
   });
 
-  it("survives an unexpected exception inside the loop", async () => {
+  it("survives a transient unexpected exception inside the loop", async () => {
     const { campaignId } = seed(people(2));
-    let calls = 0;
+    const good = (db.prepare("SELECT schedule_json FROM campaigns WHERE id = ?").get(campaignId) as { schedule_json: string })
+      .schedule_json;
     const naps: number[] = [];
     const worker = makeWorker({
-      getSenderConfig: () => {
-        if (calls++ === 0) throw new Error("settings unreadable");
-        return sender();
+      sleep: async (ms) => {
+        naps.push(ms);
+        if (ms === 5000) db.prepare("UPDATE campaigns SET schedule_json = ? WHERE id = ?").run(good, campaignId);
+        await advancingSleep(ms);
       },
+    });
+    worker.once("event", () => db.prepare("UPDATE campaigns SET schedule_json = '{corrupt' WHERE id = ?").run(campaignId));
+    worker.start(campaignId);
+    await waitForStatus(campaignId, "completed");
+
+    expect(events.filter((e) => e.type === "error" && /Unexpected error in send loop/.test(e.message))).toHaveLength(1);
+    expect(naps).toContain(5000);
+    expect(receivedTo()).toEqual(people(2).map((p) => p.email));
+  });
+
+  it("pauses with unexpected_error after 5 consecutive loop errors", async () => {
+    const { campaignId } = seed(people(1));
+    const naps: number[] = [];
+    const worker = makeWorker({
       sleep: async (ms) => {
         naps.push(ms);
         await advancingSleep(ms);
       },
     });
+    worker.once("event", () => db.prepare("UPDATE campaigns SET schedule_json = '{corrupt' WHERE id = ?").run(campaignId));
+    worker.start(campaignId);
+    await waitForStatus(campaignId, "paused");
+
+    expect(campaign(campaignId).pause_reason).toBe("unexpected_error");
+    expect(events.filter((e) => e.type === "error" && /Unexpected error in send loop/.test(e.message))).toHaveLength(5);
+    expect(naps.filter((ms) => ms === 5000)).toHaveLength(4);
+    expect(sends(campaignId)[0]).toMatchObject({ state: "pending", attempts: 0 });
+    expect(smtp.received).toHaveLength(0);
+  });
+
+  it.each([
+    ["a corrupt variable map", (): Partial<WorkerDeps> => {
+      db.prepare("UPDATE templates SET variable_map_json = '{corrupt'").run();
+      return {};
+    }],
+    ["createTransport throwing", (): Partial<WorkerDeps> => ({
+      createTransport: () => {
+        throw new Error("transport factory broke");
+      },
+    })],
+    ["getSenderConfig throwing", (): Partial<WorkerDeps> => ({
+      getSenderConfig: () => {
+        throw new Error("settings unreadable");
+      },
+    })],
+  ])("reverts the row and pauses with internal_error on %s before anything is sent", async (_label, setup) => {
+    const { campaignId } = seed(people(2));
+    const worker = makeWorker(setup());
+    worker.start(campaignId);
+    await waitForStatus(campaignId, "paused");
+
+    expect(campaign(campaignId).pause_reason).toBe("internal_error");
+    expect(sends(campaignId).map((r) => [r.state, r.attempts])).toEqual(Array(2).fill(["pending", 0]));
+    expect(events.some((e) => e.type === "uncertain")).toBe(false);
+    expect(events.some((e) => e.type === "error")).toBe(true);
+    expect(smtp.received).toHaveLength(0);
+  });
+
+  it("selects a retry row with no next_attempt_at instead of idling", async () => {
+    const { campaignId, contactIds } = seed(people(2));
+    db.prepare("UPDATE sends SET state = 'retry', attempts = 1, next_attempt_at = NULL WHERE contact_id = ?").run(contactIds[0]);
+    const worker = makeWorker();
     worker.start(campaignId);
     await waitForStatus(campaignId, "completed");
 
-    expect(events.some((e) => e.type === "error" && /settings unreadable/.test(e.message))).toBe(true);
-    expect(naps).toContain(5000);
-    expect(receivedTo()).toEqual(people(2).map((p) => p.email));
+    expect(sends(campaignId).map((r) => [r.state, r.attempts])).toEqual([
+      ["sent", 2],
+      ["sent", 1],
+    ]);
   });
+
+  it.each(["postalAddress", "unsubMailbox", "fromEmail"] as const)(
+    "pauses with compliance_config when %s is blank",
+    async (field) => {
+      const { campaignId } = seed(people(2));
+      const worker = makeWorker({ getSenderConfig: () => ({ ...sender(), [field]: "  " }) });
+      worker.start(campaignId);
+      await waitForStatus(campaignId, "paused");
+
+      expect(campaign(campaignId).pause_reason).toBe("compliance_config");
+      expect(sends(campaignId).map((r) => [r.state, r.attempts])).toEqual(Array(2).fill(["pending", 0]));
+      expect(smtp.received).toHaveLength(0);
+    },
+  );
 
   it("restartLoop marks the in-flight row uncertain and continues", async () => {
     const list = people(3);
@@ -652,5 +726,81 @@ describe("SendWorker — recovery and control", () => {
     expect(campaign(campaignId).status).toBe("running");
     expect(sends(campaignId).map((r) => r.state)).toEqual(["uncertain", "pending"]);
     expect(worker.getActivity().inFlightSince).toBeNull();
+  });
+});
+
+describe("SendWorker — user control always wins over the loop", () => {
+  it("stays stopped when a pending network probe later succeeds", async () => {
+    const { campaignId } = seed(people(2));
+    let mailFroms = 0;
+    smtp.setMailFromBehavior(() => (mailFroms++ === 0 ? "drop" : "accept"));
+    let probeCalls = 0;
+    let resolveProbe: (ok: boolean) => void = () => {};
+    const worker = makeWorker({
+      probeNetwork: () => {
+        probeCalls += 1;
+        if (probeCalls === 1) return Promise.resolve(false);
+        return new Promise<boolean>((resolve) => {
+          resolveProbe = resolve;
+        });
+      },
+    });
+    worker.start(campaignId);
+    await waitFor(() => probeCalls === 2, "second probe");
+    expect(campaign(campaignId).status).toBe("waiting_network");
+    worker.stop();
+    resolveProbe(true);
+    await new Promise((r) => setTimeout(r, 300));
+
+    expect(campaign(campaignId).status).toBe("stopped");
+    expect(campaign(campaignId).finished_at).not.toBeNull();
+    expect(mailFroms).toBe(1);
+    expect(smtp.received).toHaveLength(0);
+  });
+
+  it("keeps a pause made during an in-flight send when an auth error arrives afterwards", async () => {
+    const { campaignId } = seed(people(2));
+    let worker: SendWorker | undefined;
+    smtp.setMailFromBehavior(() => {
+      worker?.pause("user");
+      return { code: 535, message: "5.7.8 Authentication required" };
+    });
+    worker = makeWorker();
+    worker.start(campaignId);
+    await waitFor(() => events.some((e) => e.type === "error"), "auth error event");
+    await waitFor(() => worker.getActivity().inFlightSince === null, "in-flight to settle");
+
+    expect(campaign(campaignId)).toMatchObject({ status: "paused", pause_reason: "user" });
+    expect(sends(campaignId).map((r) => [r.state, r.attempts])).toEqual(Array(2).fill(["pending", 0]));
+    expect(smtp.received).toHaveLength(0);
+  });
+});
+
+describe("SendWorker — control after a reboot", () => {
+  it("adopts a paused campaign so stop() works and another campaign can start", async () => {
+    const paused = seed(people(1), { status: "paused" }).campaignId;
+    db.prepare("UPDATE campaigns SET pause_reason = 'user' WHERE id = ?").run(paused);
+    const other = seed(people(2, "other")).campaignId;
+    const worker = makeWorker();
+    expect(worker.recoverOnBoot()).toEqual({ uncertain: 0, resumeCampaignId: null });
+    expect(worker.getActivity().campaignId).toBe(paused);
+    expect(campaign(paused).status).toBe("paused");
+
+    worker.stop();
+    expect(campaign(paused).status).toBe("stopped");
+    worker.start(other);
+    await waitForStatus(other, "completed");
+    expect(receivedTo()).toEqual(people(2, "other").map((p) => p.email));
+  });
+
+  it("adopts a safety-stopped campaign so resume() relaunches it", async () => {
+    const { campaignId } = seed(people(2), { status: "safety_stop" });
+    const worker = makeWorker();
+    expect(worker.recoverOnBoot()).toEqual({ uncertain: 0, resumeCampaignId: null });
+    expect(smtp.received).toHaveLength(0);
+
+    worker.resume();
+    await waitForStatus(campaignId, "completed");
+    expect(receivedTo()).toEqual(people(2).map((p) => p.email));
   });
 });
