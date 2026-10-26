@@ -12,6 +12,7 @@ export interface DnsLike {
 const DEFAULT_TIMEOUT_MS = 5000;
 const TRIES = 2;
 const DEFAULT_CONCURRENCY = 10;
+const BREAKER_THRESHOLD = 20;
 const DOES_NOT_EXIST = new Set(["ENOTFOUND", "ENODATA"]);
 
 type Lookup<T> = { ok: true; value: T } | { ok: false; missing: boolean };
@@ -34,13 +35,13 @@ function lookup<T extends unknown[]>(query: () => Promise<T>, deadlineMs: number
 
 async function resolveStatus(dns: DnsLike, domain: string, deadlineMs: number): Promise<DomainStatus> {
   const name = domainToASCII(domain);
-  if (!name) return "invalid";
-  const mx = await lookup(() => dns.resolveMx(name), deadlineMs);
-  if (mx.ok) return mx.value.some((r) => r.exchange && r.exchange !== ".") ? "ok" : "invalid";
-  const [a, aaaa] = await Promise.all([
+  if (!name) return "unknown";
+  const [mx, a, aaaa] = await Promise.all([
+    lookup(() => dns.resolveMx(name), deadlineMs),
     lookup(() => dns.resolve4(name), deadlineMs),
     lookup(() => dns.resolve6(name), deadlineMs),
   ]);
+  if (mx.ok) return mx.value.some((r) => r.exchange && r.exchange !== ".") ? "ok" : "invalid";
   if (a.ok || aaaa.ok) return "ok";
   return mx.missing && !a.ok && a.missing && !aaaa.ok && aaaa.missing ? "invalid" : "unknown";
 }
@@ -65,14 +66,16 @@ export async function checkDomains(
   domains: string[],
   check: (d: string) => Promise<DomainStatus>,
   concurrency: number = DEFAULT_CONCURRENCY,
-  onProgress?: (done: number, total: number) => void,
+  onProgress?: (done: number, total: number, info?: { breakerTripped: boolean }) => void,
 ): Promise<Map<string, DomainStatus>> {
   const unique = [...new Set(domains)];
   const results = new Map<string, DomainStatus>();
   let next = 0;
   let done = 0;
+  let consecutiveUnknown = 0;
+  let breakerTripped = false;
   const worker = async () => {
-    while (next < unique.length) {
+    while (!breakerTripped && next < unique.length) {
       const domain = unique[next++];
       let status: DomainStatus;
       try {
@@ -80,11 +83,17 @@ export async function checkDomains(
       } catch {
         status = "unknown";
       }
+      consecutiveUnknown = status === "unknown" ? consecutiveUnknown + 1 : 0;
+      if (consecutiveUnknown >= BREAKER_THRESHOLD) breakerTripped = true;
       results.set(domain, status);
-      onProgress?.(++done, unique.length);
+      onProgress?.(++done, unique.length, { breakerTripped });
     }
   };
   const workers = Math.min(Math.max(1, Math.floor(concurrency) || 1), unique.length);
   await Promise.all(Array.from({ length: workers }, worker));
+  if (done < unique.length) {
+    for (const domain of unique) if (!results.has(domain)) results.set(domain, "unknown");
+    onProgress?.(unique.length, unique.length, { breakerTripped });
+  }
   return results;
 }

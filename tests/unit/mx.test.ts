@@ -124,6 +124,27 @@ describe("createDomainChecker", () => {
     expect(calls.filter((c) => c.startsWith("mx:"))).toEqual(["mx:good.com"]);
   });
 
+  it("is unknown, without querying, when the domain cannot be converted to ASCII", async () => {
+    const { dns, calls } = fakeDns({});
+    expect(await createDomainChecker({ dns })("xn--a.com")).toBe("unknown");
+    expect(calls).toEqual([]);
+  });
+
+  it("queries MX, A and AAAA in parallel so a hung domain costs one deadline", async () => {
+    const { dns, calls } = fakeDns({ "slow.com": { mx: "hang", a: "hang", aaaa: "hang" } });
+    const pending = createDomainChecker({ dns, timeoutMs: 100 })("slow.com");
+    await new Promise((r) => setTimeout(r, 10));
+    expect(calls.sort()).toEqual(["a:slow.com", "aaaa:slow.com", "mx:slow.com"]);
+    const started = Date.now();
+    expect(await pending).toBe("unknown");
+    expect(Date.now() - started).toBeLessThan(300);
+  });
+
+  it("still treats a null MX as invalid when A answers in parallel", async () => {
+    const { dns } = fakeDns({ "nullmx.com": { mx: [{ exchange: ".", priority: 0 }], a: ["192.0.2.1"], aaaa: ["2001:db8::1"] } });
+    expect(await createDomainChecker({ dns })("nullmx.com")).toBe("invalid");
+  });
+
   it("queries internationalized domains in ASCII form", async () => {
     const { dns, calls } = fakeDns({ "xn--exmple-cua.com": { mx: [{ exchange: "mx.example.com", priority: 1 }] } });
     expect(await createDomainChecker({ dns })("exämple.com")).toBe("ok");
@@ -181,6 +202,52 @@ describe("checkDomains", () => {
   it("treats a rejecting checker as unknown", async () => {
     const result = await checkDomains(["x.com"], () => Promise.reject(new Error("dns down")));
     expect(result.get("x.com")).toBe("unknown");
+  });
+
+  it("trips the breaker after 20 consecutive unknowns when DNS never answers", async () => {
+    const domains = Array.from({ length: 500 }, (_, i) => `d${i}.com`);
+    const { dns, calls } = fakeDns(Object.fromEntries(domains.map((d) => [d, { mx: "hang", a: "hang", aaaa: "hang" }])));
+    const check = createDomainChecker({ dns, timeoutMs: 2 });
+    const seen: { done: number; total: number; tripped: boolean | undefined }[] = [];
+    const started = Date.now();
+    const result = await checkDomains(domains, check, 10, (done, total, info) =>
+      seen.push({ done, total, tripped: info?.breakerTripped }),
+    );
+    const queried = calls.filter((c) => c.startsWith("mx:")).length;
+    expect(queried).toBeGreaterThanOrEqual(20);
+    expect(queried).toBeLessThanOrEqual(30);
+    expect(result.size).toBe(500);
+    expect([...result.values()].every((s) => s === "unknown")).toBe(true);
+    expect(seen.at(-1)).toEqual({ done: 500, total: 500, tripped: true });
+    expect(Date.now() - started).toBeLessThan(2000);
+  });
+
+  it("trips after exactly 20 consecutive unknowns at concurrency 1", async () => {
+    const checked: string[] = [];
+    const domains = Array.from({ length: 25 }, (_, i) => `d${i}.com`);
+    const result = await checkDomains(domains, async (d) => {
+      checked.push(d);
+      return "unknown";
+    }, 1);
+    expect(checked).toHaveLength(20);
+    expect(result.get("d24.com")).toBe("unknown");
+  });
+
+  it("resets the consecutive count on any non-unknown result", async () => {
+    const checked: string[] = [];
+    const domains = Array.from({ length: 100 }, (_, i) => `d${i}.com`);
+    const seen: (boolean | undefined)[] = [];
+    await checkDomains(
+      domains,
+      async (d) => {
+        checked.push(d);
+        return Number(d.slice(1, -4)) % 15 === 14 ? "ok" : "unknown";
+      },
+      1,
+      (_done, _total, info) => seen.push(info?.breakerTripped),
+    );
+    expect(checked).toHaveLength(100);
+    expect(seen.every((t) => t === false)).toBe(true);
   });
 
   it("returns an empty map for no domains", async () => {

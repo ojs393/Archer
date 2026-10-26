@@ -54,6 +54,7 @@ export interface ImportProgress {
   rowsProcessed: number;
   domainsChecked?: number;
   domainsTotal?: number;
+  breakerTripped?: boolean;
 }
 
 export interface ImportOptions {
@@ -188,12 +189,13 @@ async function dropInvalidDomains(
   check: (d: string) => Promise<DomainStatus>,
   counts: ImportCounts,
 ): Promise<void> {
-  const { deleted, rolesDeleted } = await pruneInvalidDomains(opts.db, opts.listId, check, (done, total) =>
+  const { deleted, rolesDeleted } = await pruneInvalidDomains(opts.db, opts.listId, check, (done, total, info) =>
     opts.onProgress?.({
       phase: "checking_domains",
       rowsProcessed: counts.totalRows,
       domainsChecked: done,
       domainsTotal: total,
+      breakerTripped: info?.breakerTripped ?? false,
     }),
   );
   counts.valid -= deleted;
@@ -208,9 +210,13 @@ function oneLine(err: unknown): string {
 
 export async function streamImport(opts: ImportOptions): Promise<ImportCounts & { emailColumn: string }> {
   const { db, listId } = opts;
-  if (!getList(db, listId)) throw new Error(`List ${listId} not found`);
   const counts: ImportCounts = { totalRows: 0, valid: 0, invalid: 0, duplicate: 0, suppressed: 0, role: 0 };
   try {
+    if (!getList(db, listId)) throw new Error(`List ${listId} not found`);
+    db.prepare(
+      `UPDATE lists SET status = 'importing', error = NULL, total_rows = 0, valid_count = 0, invalid_count = 0,
+        duplicate_count = 0, suppressed_count = 0, role_count = 0 WHERE id = ?`,
+    ).run(listId);
     const emailColumn = await parseAndInsert(opts, counts);
     if (opts.domainChecker) await dropInvalidDomains(opts, opts.domainChecker, counts);
     db.prepare(

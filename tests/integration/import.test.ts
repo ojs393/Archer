@@ -275,6 +275,44 @@ describe("streamImport — failures", () => {
   });
 });
 
+describe("streamImport — re-import into an existing list", () => {
+  it("resets a previously failed list and ends ready with fresh counts and no stale error", async () => {
+    const listId = newList();
+    await expect(run(csvFile("n.csv", "name,city\nJo,Paris\n"), listId)).rejects.toThrow(Error);
+    db.prepare(
+      `UPDATE lists SET total_rows = 99, valid_count = 99, invalid_count = 99, duplicate_count = 99,
+        suppressed_count = 99, role_count = 99 WHERE id = ?`,
+    ).run(listId);
+
+    const result = await run(csvFile("ok.csv", "email\njo@x.com\nbad\n"), listId);
+
+    expect(result).toMatchObject({ totalRows: 2, valid: 1, invalid: 1 });
+    expect(getList(db, listId)).toMatchObject({
+      status: "ready",
+      error: null,
+      total_rows: 2,
+      valid_count: 1,
+      invalid_count: 1,
+      duplicate_count: 0,
+      suppressed_count: 0,
+      role_count: 0,
+    });
+  });
+
+  it("marks the list importing with cleared error and zeroed counts while it runs", async () => {
+    const listId = newList();
+    db.prepare("UPDATE lists SET status = 'failed', error = 'old', valid_count = 7, total_rows = 7 WHERE id = ?").run(listId);
+    const rows = Array.from({ length: 1000 }, (_, i) => `u${i}@x.com`).join("\n");
+    let during: unknown;
+    await run(csvFile("p.csv", `email\n${rows}\n`), listId, {
+      onProgress: () => {
+        during ??= getList(db, listId);
+      },
+    });
+    expect(during).toMatchObject({ status: "importing", error: null, valid_count: 0, total_rows: 0 });
+  });
+});
+
 describe("streamImport — progress", () => {
   it("reports parsing progress every 1000 rows and at the end", async () => {
     const listId = newList();
@@ -321,7 +359,32 @@ describe("streamImport — domain phase", () => {
     });
     expect(checked.sort()).toEqual(["bad.com", "good.com", "slow.com"]);
     const domainEvents = seen.filter((p) => p.phase === "checking_domains");
-    expect(domainEvents.at(-1)).toEqual({ phase: "checking_domains", rowsProcessed: 5, domainsChecked: 3, domainsTotal: 3 });
+    expect(domainEvents.at(-1)).toEqual({
+      phase: "checking_domains",
+      rowsProcessed: 5,
+      domainsChecked: 3,
+      domainsTotal: 3,
+      breakerTripped: false,
+    });
+  });
+
+  it("keeps every contact and reports breakerTripped when DNS is down", async () => {
+    const listId = newList();
+    const emails = Array.from({ length: 60 }, (_, i) => `u${i}@d${i}.com`);
+    const seen: ImportProgress[] = [];
+    let calls = 0;
+    const result = await run(csvFile("down.csv", `email\n${emails.join("\n")}\n`), listId, {
+      domainChecker: async () => {
+        calls++;
+        return "unknown";
+      },
+      onProgress: (p) => seen.push({ ...p }),
+    });
+    expect(result).toMatchObject({ totalRows: 60, valid: 60, invalid: 0 });
+    expect(calls).toBeLessThan(60);
+    expect(contacts(listId)).toHaveLength(60);
+    expect(seen.at(-1)).toMatchObject({ phase: "checking_domains", domainsChecked: 60, domainsTotal: 60, breakerTripped: true });
+    expect(getList(db, listId)!.status).toBe("ready");
   });
 
   it("skips the domain phase when no checker is given", async () => {

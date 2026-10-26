@@ -14,7 +14,7 @@ export async function pruneInvalidDomains(
   db: DatabaseSync,
   listId: number,
   check: (d: string) => Promise<DomainStatus>,
-  onProgress?: (done: number, total: number) => void,
+  onProgress?: (done: number, total: number, info?: { breakerTripped: boolean }) => void,
 ): Promise<PruneResult> {
   const domains = (
     db.prepare("SELECT DISTINCT domain FROM contacts WHERE list_id = ?").all(listId) as { domain: string }[]
