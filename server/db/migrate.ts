@@ -97,6 +97,15 @@ const MIGRATIONS: readonly string[] = [
   );
   CREATE INDEX events_campaign_id ON events (campaign_id, id);
   `,
+  `
+  CREATE TABLE campaign_days (
+    campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    day TEXT NOT NULL,
+    sent INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (campaign_id, day)
+  );
+  CREATE INDEX sends_campaign_state_contact ON sends (campaign_id, state, contact_id);
+  `,
 ];
 
 export function runMigrations(db: DatabaseSync): void {
