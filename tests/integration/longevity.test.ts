@@ -55,15 +55,19 @@ describe("longevity invariants", () => {
         );
         db.prepare("INSERT INTO sends (campaign_id, contact_id, state, attempts) VALUES (?, ?, 'sent', 1)").run(campaignId, contactId);
 
-        const log = new EventLog(db, { trimEvery: 1_000 });
+        // Bulk insert then one trim (avoids 150× WAL checkpoints); still exercises KEEP_EVENTS.
+        const insert = db.prepare("INSERT INTO events (campaign_id, type, message, created_at) VALUES (?, ?, ?, ?)");
         const total = KEEP_EVENTS * 3;
         const firstAt = "2026-01-01T00:00:00.000Z";
+        db.exec("BEGIN");
         for (let i = 0; i < total; i++) {
           const at = i === 0 ? firstAt : new Date(Date.UTC(2026, 5, 1) + i * 1000).toISOString();
-          log.insert({ type: i % 10 === 0 ? "sent" : "status", campaignId, message: `e${i}`, at });
-          log.trimIfDue();
+          insert.run(campaignId, i % 10 === 0 ? "sent" : "status", `e${i}`, at);
         }
-        log.trimNow();
+        db.exec("COMMIT");
+        expect((db.prepare("SELECT COUNT(*) AS n FROM events").get() as { n: number }).n).toBe(total);
+
+        new EventLog(db).trimNow();
 
         const count = (db.prepare("SELECT COUNT(*) AS n FROM events").get() as { n: number }).n;
         expect(count).toBeLessThanOrEqual(KEEP_EVENTS);
@@ -77,7 +81,7 @@ describe("longevity invariants", () => {
         expect(summary.totals.sent).toBe(1);
         expect(summary.totals.recipients).toBe(1);
       },
-      180_000,
+      60_000,
     );
   });
 
@@ -224,6 +228,9 @@ describe("longevity invariants", () => {
           nowMs += ms;
           await new Promise<void>((r) => setImmediate(r));
         };
+        const stored = db.prepare("SELECT schedule_json FROM campaigns WHERE id = ?").get(campaignId) as { schedule_json: string };
+        expect(JSON.parse(stored.schedule_json).delaySeconds).toBe(1);
+
         const worker = new SendWorker({
           db,
           getSenderConfig: sender,
@@ -234,7 +241,7 @@ describe("longevity invariants", () => {
           retryDelaysMs: [1, 1, 1, 1, 1],
           sendTimeoutMs: 3000,
           networkProbeIntervalMs: 10,
-        } satisfies WorkerDeps);
+        } as WorkerDeps);
         workers.push(worker);
 
         global.gc?.();
