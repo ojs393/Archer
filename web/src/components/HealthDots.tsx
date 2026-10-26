@@ -24,7 +24,7 @@ function HealthDot({ label, item }: { label: string; item: HealthItem | undefine
               type="button"
               aria-label={`${label}: ${view.label}`}
               className={cn(
-                "inline-flex h-8 w-5 items-center sm:w-6 justify-center rounded-md transition-colors hover:bg-zinc-100",
+                "inline-flex h-8 w-6 items-center justify-center rounded-md transition-colors hover:bg-zinc-100",
                 "aria-expanded:bg-zinc-100",
                 focusRing,
               )}
@@ -52,7 +52,7 @@ function HealthDot({ label, item }: { label: string; item: HealthItem | undefine
 
 export function HealthDots({ health, className }: { health: Health | null | undefined; className?: string }) {
   return (
-    <div role="group" aria-label="Health" className={cn("flex items-center", className)}>
+    <div role="group" aria-label="Health" className={cn("flex items-center gap-1", className)}>
       {ITEMS.map(({ key, label }) => (
         <HealthDot key={key} label={label} item={health?.[key]} />
       ))}

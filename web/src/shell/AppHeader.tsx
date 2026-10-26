@@ -38,7 +38,7 @@ export function AppHeader({ ready }: { ready: boolean }) {
             return (
               <Tooltip key={id}>
                 <TooltipTrigger asChild>
-                  <TabsTrigger value={id} aria-label={label} className="h-full max-md:w-9 max-md:px-0">
+                  <TabsTrigger value={id} aria-label={label} className="h-full max-md:w-9 max-md:px-0 max-sm:w-8">
                     <Icon aria-hidden="true" />
                     <span className="max-md:hidden">{label}</span>
                   </TabsTrigger>
