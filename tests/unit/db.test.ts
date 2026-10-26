@@ -167,7 +167,7 @@ describe("openDb", () => {
     expect(db.prepare("PRAGMA journal_mode").get()).toEqual({ journal_mode: "wal" });
     expect(db.prepare("PRAGMA foreign_keys").get()).toEqual({ foreign_keys: 1 });
     expect(db.prepare("PRAGMA busy_timeout").get()).toEqual({ timeout: 5000 });
-    expect(db.prepare("PRAGMA synchronous").get()).toEqual({ synchronous: 1 });
+    expect(db.prepare("PRAGMA synchronous").get()).toEqual({ synchronous: 2 });
   });
 });
 

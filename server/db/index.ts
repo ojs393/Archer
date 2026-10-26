@@ -27,10 +27,10 @@ export function openDb(dbPath: string): DatabaseSync {
   const db = new DatabaseSync(dbPath);
   try {
     db.exec(`
-      PRAGMA journal_mode = WAL;
-      PRAGMA synchronous = NORMAL;
-      PRAGMA foreign_keys = ON;
       PRAGMA busy_timeout = 5000;
+      PRAGMA journal_mode = WAL;
+      PRAGMA synchronous = FULL;
+      PRAGMA foreign_keys = ON;
     `);
     runMigrations(db);
   } catch (err) {
