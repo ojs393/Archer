@@ -19,27 +19,22 @@ function isAppPath(url: string): boolean {
 }
 
 export function registerWeb(app: FastifyInstance, opts: { webDir: string; sessionToken: string }): void {
-  const built = fs.existsSync(path.join(opts.webDir, "index.html"));
+  const indexPath = path.join(opts.webDir, "index.html");
+  const built = fs.existsSync(indexPath);
 
-  const sendIndex = (reply: FastifyReply) => {
+  const sendIndex = async (reply: FastifyReply) => {
     setSessionCookie(reply, opts.sessionToken);
-    reply.header("cache-control", "no-store");
-    if (!built) return reply.type("text/html; charset=utf-8").send(PLACEHOLDER);
-    return reply.sendFile("index.html", opts.webDir, { cacheControl: false });
+    reply.header("cache-control", "no-store").type("text/html; charset=utf-8");
+    if (!built) return reply.send(PLACEHOLDER);
+    return reply.send(await fs.promises.readFile(indexPath));
   };
 
   if (built) {
-    app.register(fastifyStatic, {
-      root: opts.webDir,
-      prefix: "/",
-      index: false,
-      wildcard: true,
-      dotfiles: "deny",
-      allowedPath: (pathName) => pathName !== "/index.html",
-    });
+    app.register(fastifyStatic, { root: opts.webDir, prefix: "/", index: false, wildcard: true, dotfiles: "deny" });
   }
 
   app.get("/", (_request, reply) => sendIndex(reply));
+  app.get("/index.html", (_request, reply) => sendIndex(reply));
 
   app.setNotFoundHandler((request: FastifyRequest, reply: FastifyReply) => {
     if ((request.method === "GET" || request.method === "HEAD") && isAppPath(request.url)) return sendIndex(reply);
