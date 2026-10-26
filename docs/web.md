@@ -26,7 +26,7 @@ The dev server proxies `/api` and `/u/` to the backend port read from `data/serv
 - `src/panels/`: one lazily loaded chunk per tab. If a chunk is missing because the app was rebuilt while the page was open, the page reloads once; if it is still missing the panel shows a Retry state. The server answers missing files (anything under `/assets/` or with an extension) with 404, never with `index.html`.
 
 ## Design rules
-- White surfaces on a `#fafafa` canvas, zinc text and borders, blue (`#2563eb` family) only for interactive elements and focus (2 px `blue-500/40` ring). Status colours (green/amber/red/blue/zinc) only on small dots and badges; red buttons only for destructive confirms in alert dialogs.
+- White surfaces on a `#fafafa` canvas, zinc text and borders, blue (`#2563eb` family) only for interactive elements and focus (solid 2 px blue-600 ring with 2 px white offset). Status colours (green/amber/red/blue/zinc) only on small dots and badges; red buttons only for destructive confirms in alert dialogs.
 - Labels are short nouns; longer explanations sit behind `InfoHint` (click to reveal). No emoji. Icons come from `lucide-react` (plus `BrandMark`).
 - Icon-only actions use `IconButton` (borderless 32 x 32, `aria-label` and tooltip from one `label` prop; `destructive` turns the hover red).
 - Tokens are CSS variables in `src/index.css`, mapped to Tailwind colours in `tailwind.config.ts`.
