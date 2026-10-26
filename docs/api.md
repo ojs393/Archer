@@ -1,6 +1,6 @@
 # MamaDirect HTTP API
 
-Request schemas (zod 4) and response types live in `server/http/contract.ts`; import types from there rather than redeclaring them. The contract below is binding; "Implementation notes (10A)" at the end records what the implementation adds or clarifies. Nothing in the contract was changed.
+Request schemas (zod 4) and response types live in `server/http/contract.ts`; import types from there rather than redeclaring them. The contract below is binding; "Implementation notes (10A)" at the end records what the implementation adds or clarifies. One contract change: `CampaignView.schedule` is nullable (see "Status and health").
 
 ## Conventions
 - All API routes are under `/api`, JSON in/out unless stated. Errors: HTTP 4xx/5xx with body `{ "error": { "code": string, "message": string, "details"?: unknown } }`. Validation errors: 400, code `invalid_request`, details = zod issues.
@@ -19,7 +19,7 @@ type Health = { smtp: HealthItem; dns: HealthItem; network: HealthItem; worker: 
 type SettingsView = { fromName: string; fromEmail: string; replyTo: string | null; postalAddress: string; unsubMailbox: string; publicBaseUrl: string | null; dkimSelector: string | null; timezone: string; testInboxes: string[]; smtp: { host: string; port: number; secure: boolean; user: string; passSet: boolean } };
 type ImportEvent = { listId: number; phase: "parsing" | "checking_domains" | "done" | "failed"; rowsProcessed?: number; domainsChecked?: number; domainsTotal?: number; breakerTripped?: boolean; counts?: ImportCounts; error?: string };
 type CampaignCounts = { pending: number; sending: number; sent: number; retry: number; failed: number; uncertain: number; skipped_suppressed: number; total: number };
-type CampaignView = { id; listId; templateId; templateVersion; status; pauseReason: string | null; schedule: Schedule; createdAt; startedAt; finishedAt; counts: CampaignCounts; estimate: Estimate; stats: { sentLastHour: number; rejectionRate: number; sample: number } };
+type CampaignView = { id; listId; templateId; templateVersion; status; pauseReason: string | null; schedule: Schedule | null; createdAt; startedAt; finishedAt; counts: CampaignCounts; estimate: Estimate; stats: { sentLastHour: number; rejectionRate: number; sample: number } };
 type StatusSnapshot = { campaign: CampaignView | null; worker: { status: string | null; heartbeatAgeMs: number | null; loopRunning: boolean; inFlight: boolean } };
 type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_address" | "unsub_mailbox" | "smtp_verified" | "dns_ok" | "variables_resolved" | "no_malformed_tags" | "links_ok" | "test_send_ok" | "schedule_valid"; ok: boolean; message: string };
 ```
@@ -101,6 +101,8 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 - A client that stops reading is dropped once more than 8 MiB is buffered for it. `EventHub.closeAll()` ends every stream (graceful shutdown calls it before `app.close()`).
 
 ### Status and health
+- `CampaignView.schedule` is `null` when the stored schedule JSON is unreadable; `estimate` is then empty with a `perDayCapacityNote` asking to set the schedule again. A corrupt row never breaks `/api/status` or SSE connects.
+- `HEAD /api/events` is not routed (404); only GET opens a stream.
 - `StatusSnapshot.campaign` is the worker's current campaign (after a restart, the most recent active or held campaign is adopted), or `null`. `estimate` covers pending + retry + sending rows; `stats.sentLastHour` counts `sent` events in the last hour; `rejectionRate`/`sample` use the last 200 sent/failed/suppressed outcomes.
 - `Health.worker.checkedAt` is the time of the request. Worker status is `fail` when an active campaign's loop is not running, a send has been in flight longer than the send timeout + 30 s, or the loop has been silent longer than max(60 s, 3 × delay + 60 s) past its expected wake time; otherwise `ok`.
 - `Health.network` is `unknown` until an SMTP host is set; otherwise a DNS lookup of the SMTP host (5 s cap), refreshed at most every 60 s (or immediately when the host changes) when `GET /api/health` is called.
@@ -131,6 +133,8 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 - The public listener (`MAMADIRECT_PUBLIC_PORT`) has no Host check and answers 404 to everything except `GET/POST /u/:token`; it never sets the session cookie.
 
 ### Boot and runtime files
+- The lock is taken right after the data directories exist and before `.env` secrets are generated, so two simultaneous first starts cannot write different `UNSUB_SECRET`s.
+- The lock file is created with its content in one step (temp file + hard link), so it is never seen half-written. A stale lock is renamed aside, re-checked, and deleted only if it is still the file judged stale (otherwise it is put back), so two racing starts end with exactly one owner. An unreadable lock younger than 2 s counts as "starting".
 - `data/mamadirect.lock` (`{ pid, port, startedAt }`): a second start prints `MamaDirect is already running at http://127.0.0.1:<port>` and exits 0 when the holder is alive and answers `GET /api/session`, or "already starting" (exit 0) during its first 60 s. A lock whose pid is dead, whose `startedAt` predates the last reboot, or that is unreadable is taken over. A live holder that does not answer after 60 s is not taken over (two senders on one database could duplicate mail): the second start prints how to recover and exits 1.
 - `data/server.json` (`{ pid, port, url }`) is written once listening and removed on exit.
 - Env: `PORT` (default 5199, next free port if busy), `MAMADIRECT_DATA_DIR`, `MAMADIRECT_ENV_FILE` (path to `.env`), `MAMADIRECT_NO_OPEN=1`, `MAMADIRECT_PUBLIC_PORT`, `MAMADIRECT_DEV_ORIGIN`.

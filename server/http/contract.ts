@@ -85,7 +85,8 @@ export interface CampaignView {
   templateVersion: number;
   status: CampaignStatus;
   pauseReason: string | null;
-  schedule: Schedule;
+  /** null when the stored schedule JSON is unreadable; the estimate is then empty with a note. */
+  schedule: Schedule | null;
   createdAt: string;
   startedAt: string | null;
   finishedAt: string | null;

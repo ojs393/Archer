@@ -62,6 +62,17 @@ describe("GET /api/events", () => {
     expect(h.events.size).toBe(0);
   });
 
+  it("answers HEAD promptly without leaving a subscriber in the hub", async () => {
+    h = await makeHarness();
+    const res = await Promise.race([
+      h.app.inject({ method: "HEAD", url: "/api/events", headers: authed }),
+      new Promise<"hung">((resolve) => setTimeout(() => resolve("hung"), 2000)),
+    ]);
+    expect(res).not.toBe("hung");
+    if (res !== "hung") expect(res.statusCode).toBeGreaterThanOrEqual(400);
+    expect(h.events.size).toBe(0);
+  });
+
   it("sends a comment ping on the interval", async () => {
     const hub = new EventHub({ pingMs: 20 });
     const server = http.createServer((_req, res) => hub.subscribe(res));

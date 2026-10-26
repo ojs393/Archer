@@ -47,7 +47,24 @@ function campaignStats(db: DatabaseSync, campaignId: number, now: Date): Campaig
   return { sentLastHour: n, rejectionRate: outcomes.length ? rejections / outcomes.length : 0, sample: outcomes.length };
 }
 
-function campaignEstimate(db: DatabaseSync, id: number, schedule: Schedule, remaining: number, now: Date): Estimate {
+const UNREADABLE_SCHEDULE: Estimate = {
+  perDay: [],
+  completionDate: null,
+  totalDays: 0,
+  perDayCapacityNote: "The saved schedule is unreadable; set the schedule again.",
+};
+
+function parseSchedule(json: string): Schedule | null {
+  try {
+    const value: unknown = JSON.parse(json);
+    return value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Schedule) : null;
+  } catch {
+    return null;
+  }
+}
+
+function campaignEstimate(db: DatabaseSync, id: number, schedule: Schedule | null, remaining: number, now: Date): Estimate {
+  if (!schedule) return { ...UNREADABLE_SCHEDULE, perDay: [] };
   try {
     const today = localDateKey(now, schedule.timezone);
     const sentToday =
@@ -69,7 +86,7 @@ export function getCampaignView(db: DatabaseSync, campaignId: number, now: Date 
     )
     .get(campaignId) as CampaignDbRow | undefined;
   if (!row) return null;
-  const schedule = JSON.parse(row.schedule_json) as Schedule;
+  const schedule = parseSchedule(row.schedule_json);
   const counts = campaignCounts(db, row.id);
   return {
     id: row.id,

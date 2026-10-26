@@ -7,7 +7,7 @@ export function healthRoutes(app: FastifyInstance, ctx: AppContext): void {
 
   app.get("/api/status", async () => statusSnapshot(ctx.db, ctx.worker));
 
-  app.get("/api/events", (_request, reply) => {
+  app.get("/api/events", { exposeHeadRoute: false }, (_request, reply) => {
     const initial = [
       { name: "status", data: statusSnapshot(ctx.db, ctx.worker) },
       { name: "health", data: ctx.health.get() },

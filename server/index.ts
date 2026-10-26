@@ -73,12 +73,6 @@ async function listenPublic(db: DatabaseSync): Promise<FastifyInstance | null> {
 
 async function main(): Promise<number | null> {
   ensureDataDirs(config);
-  const generated = ensureSecrets(config.envPath);
-  loadEnv(config.envPath);
-  if (generated.length > 0) logger.info(`Generated ${generated.join(", ")} in ${config.envPath}`);
-  registerSecret(process.env.UNSUB_SECRET);
-  registerSecret(process.env.SMTP_PASS);
-
   const lockPath = path.join(config.dataDir, "mamadirect.lock");
   const infoPath = path.join(config.dataDir, "server.json");
   const held = await acquireInstanceLock(lockPath);
@@ -91,7 +85,8 @@ async function main(): Promise<number | null> {
       );
       return 1;
     }
-    console.log(held.reason === "running" ? `MamaDirect is already running at ${where}` : `MamaDirect is already starting (pid ${held.pid})`);
+    const starting = held.pid === null ? "MamaDirect is already starting" : `MamaDirect is already starting (pid ${held.pid})`;
+    console.log(held.reason === "running" ? `MamaDirect is already running at ${where}` : starting);
     return 0;
   }
   const { lock } = held;
@@ -99,6 +94,12 @@ async function main(): Promise<number | null> {
     removeServerInfo(infoPath, process.pid);
     lock.release();
   });
+
+  const generated = ensureSecrets(config.envPath);
+  loadEnv(config.envPath);
+  if (generated.length > 0) logger.info(`Generated ${generated.join(", ")} in ${config.envPath}`);
+  registerSecret(process.env.UNSUB_SECRET);
+  registerSecret(process.env.SMTP_PASS);
 
   const { db, restoredFrom, quarantined } = openDbWithRecovery(config.dbPath, config.backupsDir);
   if (restoredFrom) logger.warn(`DATABASE WAS CORRUPT: restored from backup ${restoredFrom}. Changes since that backup are lost.`);

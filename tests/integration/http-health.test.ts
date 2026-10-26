@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { setSetting } from "../../server/db/settings.ts";
 import { defaultSchedule } from "../../server/domain/schedule.ts";
 import { HealthMonitor } from "../../server/health/monitor.ts";
-import { authed, makeHarness, type Harness } from "./httpHarness.ts";
+import { authed, makeHarness, waitFor, type Harness } from "./httpHarness.ts";
 
 let h: Harness;
 
@@ -149,5 +149,26 @@ describe("GET /api/status", () => {
     });
     expect(campaign.schedule.timezone).toBe("UTC");
     expect(campaign.estimate.perDay.reduce((n: number, d: { count: number }) => n + d.count, 0)).toBe(3);
+  });
+
+  it("still answers /api/status and SSE connects when a campaign's schedule_json is corrupt", async () => {
+    h = await makeHarness();
+    const id = seedCampaign(h.db, "paused");
+    h.db.prepare("UPDATE campaigns SET schedule_json = '{not json' WHERE id = ?").run(id);
+    h.worker.recoverOnBoot();
+
+    const res = await h.app.inject({ method: "GET", url: "/api/status", headers: authed });
+    expect(res.statusCode).toBe(200);
+    const { campaign } = res.json();
+    expect(campaign).toMatchObject({ id, status: "paused", schedule: null, counts: { total: 7 } });
+    expect(campaign.estimate).toMatchObject({ perDay: [], completionDate: null, totalDays: 0, perDayCapacityNote: expect.any(String) });
+
+    const stream = h.app.inject({ method: "GET", url: "/api/events", headers: authed });
+    await waitFor(() => h.events.size === 1);
+    h.events.closeAll();
+    const sse = await stream;
+    expect(sse.statusCode).toBe(200);
+    expect(sse.body).toContain("event: status");
+    expect(sse.body).toContain('"schedule":null');
   });
 });
