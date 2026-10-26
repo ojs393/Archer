@@ -23,7 +23,7 @@ const KNOWN_CLIENT_ERRORS: Record<string, { status: number; code: string; messag
   FST_ERR_CTP_INVALID_MEDIA_TYPE: { status: 415, code: "unsupported_media_type", message: "Unsupported content type" },
   FST_ERR_CTP_INVALID_CONTENT_LENGTH: { status: 400, code: "invalid_request", message: "Invalid Content-Length" },
   FST_ERR_CTP_EMPTY_JSON_BODY: { status: 400, code: "invalid_request", message: "The JSON body is empty" },
-  FST_REQ_FILE_TOO_LARGE: { status: 413, code: "file_too_large", message: "The file is larger than 2 GB" },
+  FST_REQ_FILE_TOO_LARGE: { status: 413, code: "file_too_large", message: "The file is larger than 200 MB" },
   FST_FILES_LIMIT: { status: 413, code: "too_many_files", message: "Upload one file at a time" },
   FST_FIELDS_LIMIT: { status: 413, code: "too_many_fields", message: "Too many form fields" },
   FST_PARTS_LIMIT: { status: 413, code: "too_many_fields", message: "Too many form parts" },

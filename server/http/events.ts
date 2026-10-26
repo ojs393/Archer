@@ -3,7 +3,8 @@ import type { ServerResponse } from "node:http";
 const EVENT_NAME = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
 const DEFAULT_PING_MS = 15_000;
 const RECONNECT_MS = 2_000;
-const MAX_BUFFERED_BYTES = 8 * 1024 * 1024;
+/** Drop a slow SSE client once Node has buffered this many bytes for it. */
+export const MAX_BUFFERED_BYTES = 8 * 1024 * 1024;
 
 export const SSE_HEADERS: Record<string, string> = {
   "content-type": "text/event-stream; charset=utf-8",
@@ -25,10 +26,12 @@ export function formatEvent(name: string, data: unknown): string {
 export class EventHub {
   private readonly clients = new Set<ServerResponse>();
   private readonly pingMs: number;
+  private readonly maxBufferedBytes: number;
   private timer: NodeJS.Timeout | null = null;
 
-  constructor(opts: { pingMs?: number } = {}) {
+  constructor(opts: { pingMs?: number; maxBufferedBytes?: number } = {}) {
     this.pingMs = opts.pingMs ?? DEFAULT_PING_MS;
+    this.maxBufferedBytes = opts.maxBufferedBytes ?? MAX_BUFFERED_BYTES;
   }
 
   get size(): number {
@@ -69,7 +72,7 @@ export class EventHub {
   private write(res: ServerResponse, frame: string): void {
     if (res.destroyed || res.writableEnded) return this.drop(res);
     // A client that stopped reading must not make the server buffer events without bound.
-    if (res.writableLength > MAX_BUFFERED_BYTES) {
+    if (res.writableLength > this.maxBufferedBytes) {
       this.drop(res);
       res.destroy();
       return;

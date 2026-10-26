@@ -5,6 +5,7 @@ import type { FastifyInstance } from "fastify";
 import { openBrowser } from "./boot/browser.ts";
 import { acquireInstanceLock } from "./boot/lock.ts";
 import { clearDirectory, removeServerInfo, writeServerInfo } from "./boot/runtimeFile.ts";
+import { recycleUploads } from "./boot/uploads.ts";
 import { config, ensureDataDirs, ensureSecrets, getFreePort, loadEnv } from "./config.ts";
 import { backup, openDbWithRecovery } from "./db/index.ts";
 import { HealthMonitor } from "./health/monitor.ts";
@@ -109,7 +110,11 @@ async function main(): Promise<number | null> {
   const cleared = clearDirectory(config.uploadsDir);
   if (cleared > 0) logger.info(`Removed ${cleared} leftover upload file(s)`);
   runBackup(db);
-  setInterval(() => runBackup(db), BACKUP_EVERY_MS).unref();
+  setInterval(() => {
+    runBackup(db);
+    const recycled = recycleUploads(config.uploadsDir);
+    if (recycled > 0) logger.info(`Recycled ${recycled} stale upload file(s)`);
+  }, BACKUP_EVERY_MS).unref();
 
   const events = new EventHub();
   const worker = new SendWorker({ db, getSenderConfig: () => getSenderConfig(db, process.env), sendTimeoutMs: DEFAULT_SEND_TIMEOUT_MS });

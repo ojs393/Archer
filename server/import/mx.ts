@@ -13,6 +13,8 @@ const DEFAULT_TIMEOUT_MS = 5000;
 const TRIES = 2;
 const DEFAULT_CONCURRENCY = 10;
 const BREAKER_THRESHOLD = 20;
+/** Hard cap on cached MX/DNS domain results (LRU eviction). */
+export const MX_CACHE_MAX = 10_000;
 const DOES_NOT_EXIST = new Set(["ENOTFOUND", "ENODATA"]);
 
 type Lookup<T> = { ok: true; value: T } | { ok: false; missing: boolean };
@@ -46,20 +48,40 @@ async function resolveStatus(dns: DnsLike, domain: string, deadlineMs: number): 
   return mx.missing && !a.ok && a.missing && !aaaa.ok && aaaa.missing ? "invalid" : "unknown";
 }
 
-export function createDomainChecker(opts: { dns?: DnsLike; timeoutMs?: number } = {}): (domain: string) => Promise<DomainStatus> {
+export type DomainChecker = ((domain: string) => Promise<DomainStatus>) & { cacheSize(): number };
+
+export function createDomainChecker(
+  opts: { dns?: DnsLike; timeoutMs?: number; maxCache?: number } = {},
+): DomainChecker {
   const timeoutMs = opts.timeoutMs ?? DEFAULT_TIMEOUT_MS;
+  const maxCache = opts.maxCache ?? MX_CACHE_MAX;
   const dns = opts.dns ?? new dnsPromises.Resolver({ timeout: timeoutMs, tries: TRIES });
   const deadlineMs = timeoutMs * TRIES;
   const cache = new Map<string, Promise<DomainStatus>>();
-  return (domain) => {
-    const key = domain.trim().toLowerCase();
-    let status = cache.get(key);
-    if (!status) {
-      status = resolveStatus(dns, key, deadlineMs).catch(() => "unknown" as const);
-      cache.set(key, status);
+
+  const touch = (key: string, value: Promise<DomainStatus>): void => {
+    cache.delete(key);
+    cache.set(key, value);
+    while (cache.size > maxCache) {
+      const oldest = cache.keys().next().value;
+      if (oldest === undefined) break;
+      cache.delete(oldest);
     }
-    return status;
   };
+
+  const check = ((domain: string) => {
+    const key = domain.trim().toLowerCase();
+    const hit = cache.get(key);
+    if (hit) {
+      touch(key, hit);
+      return hit;
+    }
+    const status = resolveStatus(dns, key, deadlineMs).catch(() => "unknown" as const);
+    touch(key, status);
+    return status;
+  }) as DomainChecker;
+  check.cacheSize = () => cache.size;
+  return check;
 }
 
 export async function checkDomains(

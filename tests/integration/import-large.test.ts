@@ -72,6 +72,8 @@ it(
     });
     expect(getList(db, listId)!.valid_count).toBe(ROWS);
     expect(growthMb).toBeLessThan(150);
+    const leftovers = fs.readdirSync(dir).filter((n) => n.startsWith("incoming-") || n.endsWith(".partial"));
+    expect(leftovers).toEqual([]);
   },
   180_000,
 );

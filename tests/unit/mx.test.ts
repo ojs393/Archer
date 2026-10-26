@@ -124,6 +124,23 @@ describe("createDomainChecker", () => {
     expect(calls.filter((c) => c.startsWith("mx:"))).toEqual(["mx:good.com"]);
   });
 
+  it("evicts LRU entries so the cache never grows past maxCache", async () => {
+    const zones = Object.fromEntries(
+      Array.from({ length: 12 }, (_, i) => [`d${i}.com`, { mx: [{ exchange: `mx.d${i}.com`, priority: 10 }] }]),
+    );
+    const { dns, calls } = fakeDns(zones);
+    const check = createDomainChecker({ dns, maxCache: 5 });
+    for (let i = 0; i < 12; i++) await check(`d${i}.com`);
+    expect(check.cacheSize()).toBe(5);
+    const mxCalls = () => calls.filter((c) => c.startsWith("mx:")).length;
+    const afterFill = mxCalls();
+    await check("d11.com");
+    expect(mxCalls()).toBe(afterFill);
+    await check("d0.com");
+    expect(mxCalls()).toBe(afterFill + 1);
+    expect(check.cacheSize()).toBe(5);
+  });
+
   it("is unknown, without querying, when the domain cannot be converted to ASCII", async () => {
     const { dns, calls } = fakeDns({});
     expect(await createDomainChecker({ dns })("xn--a.com")).toBe("unknown");
@@ -149,6 +166,19 @@ describe("createDomainChecker", () => {
     const { dns, calls } = fakeDns({ "xn--exmple-cua.com": { mx: [{ exchange: "mx.example.com", priority: 1 }] } });
     expect(await createDomainChecker({ dns })("exämple.com")).toBe("ok");
     expect(calls).toContain("mx:xn--exmple-cua.com");
+  });
+
+  it("caps the domain cache and evicts LRU entries past maxCache", async () => {
+    const zones: Record<string, FakeZone> = {};
+    for (let i = 0; i < 6; i++) zones[`d${i}.com`] = { mx: [{ exchange: `mx.d${i}.com`, priority: 10 }] };
+    const { dns, calls } = fakeDns(zones);
+    const check = createDomainChecker({ dns, maxCache: 3 });
+    for (let i = 0; i < 5; i++) await check(`d${i}.com`);
+    expect(check.cacheSize()).toBe(3);
+    const mxCallsBefore = calls.filter((c) => c === "mx:d0.com").length;
+    await check("d0.com");
+    expect(calls.filter((c) => c === "mx:d0.com").length).toBe(mxCallsBefore + 1);
+    expect(check.cacheSize()).toBe(3);
   });
 });
 

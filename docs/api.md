@@ -103,7 +103,7 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 | 400 | `bad_request` | any other malformed request |
 | 404 | `not_found` | unknown route or id |
 | 409 | `import_running` | DELETE of a list whose import is still running |
-| 413 | `body_too_large`, `file_too_large`, `too_many_files`, `too_many_fields` | limits (JSON 1 MiB, upload 2 GiB, 1 file, 20 fields) |
+| 413 | `body_too_large`, `file_too_large`, `too_many_files`, `too_many_fields` | limits (JSON 1 MiB, list CSV upload 200 MiB, 1 file, 20 fields) |
 | 415 | `unsupported_media_type` | wrong content type (lists routes need multipart) |
 | 500 | `internal` | unexpected server error |
 | 507 | `disk_full` | ENOSPC while writing |
@@ -133,7 +133,7 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 - `emailColumn`: `#<n>` is a 0-based column index; anything else is a header name.
 - `POST /api/lists/preview` reads only the first 64 KiB but drains the rest of the upload; clients should send `file.slice(0, 65536)`.
 - `ListRow` is the database row type from `server/import/lists.ts` (snake_case). `GET /api/lists/:id` `columns` lists the extra CSV columns (not the email column).
-- On boot, lists left in `importing` by a crash are marked `failed` ("upload the file again") and `data/uploads/` is emptied.
+- On boot, lists left in `importing` by a crash are marked `failed` ("upload the file again") and `data/uploads/` is emptied. A daily pass also deletes uploads older than 7 days. See `docs/operations.md` for disk growth and restore.
 
 ### Suppression
 - `DELETE /api/suppression/:email` is idempotent (204 even if the address was not listed).
@@ -200,7 +200,7 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 ### Analytics
 - All routes are read-only GETs. `campaignId` (positive integer) scopes to one run; an unknown id is 404 `not_found`. Unknown query keys are 400.
 - Summary and runs count `sends` rows (so they are exact at any size): `pending` includes the row being sent right now (`sending`); `skipped` is `skipped_suppressed`; `suppressed` is the hard bounces, that is `failed` rows whose address has a `hard_bounce` suppression, and `failed` excludes them. Rates are fractions of attempts (`sent + failed + suppressed`) and 0 without attempts; `runs.deliveryRate` is the same per run. A run whose list or template row is gone is named `List <id>` / `Template <id>`.
-- Timeseries and errors read the `events` table, which keeps only the newest 50,000 events. Both answers carry `coverageFrom`: the `created_at` of the oldest event still kept in the scope (that run's oldest when `campaignId` is given), or `null` when the scope has no events. Buckets that start before `coverageFrom` have no data and should be shown as such, not as zeros.
+- Timeseries and errors read the `events` table, which keeps only the newest 50,000 events (`KEEP_EVENTS`; see `docs/operations.md` for disk/log/upload recycle). Both answers carry `coverageFrom`: the `created_at` of the oldest event still kept in the scope (that run's oldest when `campaignId` is given), or `null` when the scope has no events. Buckets that start before `coverageFrom` have no data and should be shown as such, not as zeros.
 - `lastSendAt` is the newest `sent` event; when none is kept in the scope it falls back to the newest `updated_at` of a `sent` sends row (per run, through the `sends (campaign_id, state, …)` index), so it is only `null` when nothing was ever sent.
 - Timeseries buckets are UTC hours or days, oldest first, ending with the current bucket; every bucket in the window is present (zeros when empty), so a series has `days × 24` (hour) or `days` (day) points, at most 2,160. Migration 5 adds `events (type, created_at)`.
 - Errors group events of the four kinds by kind + normalized message: registered secrets masked, whitespace collapsed, email addresses (with or without `<…>`) replaced by `<email>`, ISO timestamps by `<time>`, the worker's `Retry n/m` counter dropped, then cut to 160 characters. Sorted by count, then most recent.

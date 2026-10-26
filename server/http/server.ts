@@ -26,7 +26,8 @@ import { registerWeb } from "./web.ts";
 export type { ServerDeps } from "./context.ts";
 
 export const JSON_BODY_LIMIT = 1024 * 1024;
-export const UPLOAD_LIMIT = 2 * 1024 * 1024 * 1024;
+/** Multipart list CSV upload cap (reject with 413 `file_too_large`). */
+export const UPLOAD_LIMIT = 200 * 1024 * 1024;
 // Unsubscribe tokens embed the whole address; find-my-way's default (100) would 404 long ones.
 export const MAX_PARAM_LENGTH = 2048;
 

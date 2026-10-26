@@ -17,13 +17,40 @@ export interface SafetyConfig {
   threshold: number;
 }
 
-const KEEP_EVENTS = 50_000;
-const TRIM_EVERY = 1_000;
+/** Newest events kept in the SQLite ring; older rows are deleted after trim. */
+export const KEEP_EVENTS = 50_000;
+export const TRIM_EVERY = 1_000;
+
+/** Best-effort WAL recycle; ignores busy / non-WAL databases. */
+export function walCheckpoint(db: DatabaseSync): void {
+  try {
+    db.prepare("PRAGMA wal_checkpoint(TRUNCATE)").get();
+  } catch {
+    // Another writer holds the WAL, or this connection is not in WAL mode.
+  }
+}
+
+/** Best-effort query planner refresh; safe to call after daily backup. */
+export function optimizeDb(db: DatabaseSync): void {
+  try {
+    db.prepare("PRAGMA optimize").run();
+  } catch {
+    // Optional maintenance; never fail the caller.
+  }
+}
 
 export class EventLog {
   private sinceTrim = 0;
+  private readonly keep: number;
+  private readonly trimEvery: number;
 
-  constructor(private readonly db: DatabaseSync) {}
+  constructor(
+    private readonly db: DatabaseSync,
+    opts: { keep?: number; trimEvery?: number } = {},
+  ) {
+    this.keep = opts.keep ?? KEEP_EVENTS;
+    this.trimEvery = opts.trimEvery ?? TRIM_EVERY;
+  }
 
   insert(e: WorkerEvent): number {
     const r = this.db
@@ -34,9 +61,16 @@ export class EventLog {
   }
 
   trimIfDue(): void {
-    if (this.sinceTrim < TRIM_EVERY) return;
+    if (this.sinceTrim < this.trimEvery) return;
     this.sinceTrim = 0;
-    this.db.prepare("DELETE FROM events WHERE id <= (SELECT MAX(id) FROM events) - ?").run(KEEP_EVENTS);
+    this.db.prepare("DELETE FROM events WHERE id <= (SELECT MAX(id) FROM events) - ?").run(this.keep);
+    walCheckpoint(this.db);
+  }
+
+  /** Force a ring trim (and WAL checkpoint) regardless of insert count — tests / maintenance. */
+  trimNow(): void {
+    this.sinceTrim = this.trimEvery;
+    this.trimIfDue();
   }
 
   lastIdOf(campaignId: number, type: WorkerEventType, message: string): number {

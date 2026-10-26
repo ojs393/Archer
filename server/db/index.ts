@@ -7,12 +7,13 @@ import {
   moveAside,
   restoreLatestBackup,
 } from "../../scripts/lib/db-maint.mjs";
+import { optimizeDb, walCheckpoint } from "../send/events.ts";
 import { runMigrations } from "./migrate.ts";
 
 export { runMigrations } from "./migrate.ts";
 export { transaction } from "./transaction.ts";
 
-const BACKUPS_KEPT = 7;
+export const BACKUPS_KEPT = 7;
 const BACKUP_NAME = /^mamadirect-\d{4}-\d{2}-\d{2}\.db$/;
 
 export interface RecoveredDb {
@@ -45,13 +46,16 @@ export function checkIntegrity(db: DatabaseSync): boolean {
   return rows.length === 1 && rows[0]?.integrity_check === "ok";
 }
 
-function pruneBackups(backupsDir: string): void {
-  const newestFirst = fs
-    .readdirSync(backupsDir)
-    .filter((name) => BACKUP_NAME.test(name))
-    .sort()
-    .reverse();
-  for (const name of newestFirst.slice(BACKUPS_KEPT)) fs.rmSync(path.join(backupsDir, name));
+/** Keep only the newest BACKUPS_KEPT daily `mamadirect-YYYY-MM-DD.db` files. */
+export function pruneBackups(backupsDir: string): void {
+  let names: string[];
+  try {
+    names = fs.readdirSync(backupsDir);
+  } catch {
+    return;
+  }
+  const newestFirst = names.filter((name) => BACKUP_NAME.test(name)).sort().reverse();
+  for (const name of newestFirst.slice(BACKUPS_KEPT)) fs.rmSync(path.join(backupsDir, name), { force: true });
 }
 
 export function backup(db: DatabaseSync, backupsDir: string, now: Date = new Date()): string {
@@ -64,6 +68,8 @@ export function backup(db: DatabaseSync, backupsDir: string, now: Date = new Dat
     fs.renameSync(staging, target);
   }
   pruneBackups(backupsDir);
+  walCheckpoint(db);
+  optimizeDb(db);
   return target;
 }
 

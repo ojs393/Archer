@@ -58,12 +58,18 @@ function defaultWrite(line: string, level: Level): void {
   (level === "error" ? process.stderr : process.stdout).write(`${line}\n`);
 }
 
+/** Rotate when the active log reaches this size. Overwrites a previous `app.log.1`. */
+export const LOG_ROTATE_BYTES = 10 * 1024 * 1024;
+
 export function createLogger({
   logFile,
   write = defaultWrite,
+  rotateBytes = LOG_ROTATE_BYTES,
 }: {
   logFile?: string;
   write?: (line: string, level: Level) => void;
+  /** Override for tests; production uses LOG_ROTATE_BYTES. */
+  rotateBytes?: number;
 }): Logger {
   let dirReady = false;
 
@@ -75,6 +81,17 @@ export function createLogger({
       if (!dirReady) {
         fs.mkdirSync(path.dirname(logFile), { recursive: true });
         dirReady = true;
+      }
+      if (rotateBytes > 0) {
+        try {
+          if (fs.statSync(logFile).size >= rotateBytes) {
+            const rotated = `${logFile}.1`;
+            fs.rmSync(rotated, { force: true });
+            fs.renameSync(logFile, rotated);
+          }
+        } catch {
+          // Missing file or I/O error: leave logging alone; append still tried below.
+        }
       }
       fs.appendFileSync(logFile, `${line}\n`);
     } catch {

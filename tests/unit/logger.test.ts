@@ -4,6 +4,8 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createLogger, registerSecret } from "../../server/logger.ts";
 
+const ROTATE_AT = 2_000;
+
 let dir: string;
 let logFile: string;
 let lines: string[];
@@ -77,5 +79,30 @@ describe("logger", () => {
     const log = createLogger({ write: (l) => lines.push(l) });
     log.info("plain text");
     expect(lines[0]).toMatch(/INFO plain text$/);
+  });
+
+  it("rotates app.log to app.log.1 at the size threshold and starts a shorter file", () => {
+    const log = createLogger({ logFile, write: () => {}, rotateBytes: ROTATE_AT });
+    const chunk = "x".repeat(400);
+    while (!fs.existsSync(logFile) || fs.statSync(logFile).size < ROTATE_AT) {
+      log.info(chunk);
+    }
+    const beforeRotate = fs.statSync(logFile).size;
+    expect(beforeRotate).toBeGreaterThanOrEqual(ROTATE_AT);
+    log.info("after-threshold");
+    const rotated = `${logFile}.1`;
+    expect(fs.existsSync(rotated)).toBe(true);
+    expect(fs.existsSync(logFile)).toBe(true);
+    expect(fs.statSync(logFile).size).toBeLessThan(beforeRotate);
+    expect(fs.readdirSync(path.dirname(logFile)).filter((n) => n.startsWith("app.log")).sort()).toEqual([
+      "app.log",
+      "app.log.1",
+    ]);
+    // Second rotate overwrites the previous .1; still only one sibling.
+    log.info("y".repeat(ROTATE_AT));
+    expect(fs.readdirSync(path.dirname(logFile)).filter((n) => n.startsWith("app.log")).sort()).toEqual([
+      "app.log",
+      "app.log.1",
+    ]);
   });
 });

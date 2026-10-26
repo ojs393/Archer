@@ -125,6 +125,48 @@ describe("GET /api/events", () => {
     h.events.publish("import", { listId: 1, phase: "done" });
   });
 
+  it("drops a slow client once buffered bytes exceed the cap", async () => {
+    const hub = new EventHub({ maxBufferedBytes: 64 * 1024 });
+    const server = http.createServer((_req, res) => hub.subscribe(res));
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as { port: number };
+    const req = http.get({ host: "127.0.0.1", port, path: "/" }, (res) => {
+      res.pause();
+    });
+    req.on("error", () => {});
+    await waitFor(() => hub.size === 1);
+    const pad = "x".repeat(8 * 1024);
+    for (let i = 0; i < 40 && hub.size > 0; i++) {
+      hub.publish("import", { listId: 1, phase: "parsing", rowsProcessed: i, pad });
+    }
+    await waitFor(() => hub.size === 0);
+    hub.closeAll();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
+  it("drops a slow client once its write buffer exceeds the cap", async () => {
+    const hub = new EventHub({ pingMs: 60_000, maxBufferedBytes: 2_000 });
+    const server = http.createServer((_req, res) => hub.subscribe(res));
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    const { port } = server.address() as { port: number };
+    const socket = await new Promise<import("node:net").Socket>((resolve, reject) => {
+      const req = http.get({ host: "127.0.0.1", port, path: "/" }, (res) => {
+        // Do not read the body — let Node buffer outbound frames on the response.
+        res.on("aborted", () => {});
+        resolve(req.socket);
+      });
+      req.on("error", reject);
+    });
+    await waitFor(() => hub.size === 1);
+    const payload = { pad: "z".repeat(500) };
+    for (let i = 0; i < 40; i++) hub.publish("import", payload);
+    await waitFor(() => hub.size === 0, 3000);
+    expect(hub.size).toBe(0);
+    socket.destroy();
+    hub.closeAll();
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+  });
+
   it("closeAll lets app.close() finish while a real stream is open", async () => {
     const port = await getFreePort(20_000 + Math.floor(Math.random() * 20_000));
     h = await makeHarness({ build: (deps) => buildServer({ ...deps, port }) });
