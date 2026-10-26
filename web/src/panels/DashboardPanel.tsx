@@ -1,50 +1,45 @@
-import { Send } from "lucide-react";
-import { EmptyState } from "@/components/EmptyState";
-import { StatCard } from "@/components/StatCard";
-import { Card } from "@/components/ui/card";
-import { formatNumber } from "@/lib/format";
+import { useState } from "react";
+import { StatusPill } from "@/components/StatusPill";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useAnalyticsRuns, type CampaignScope } from "@/lib/queries/analytics";
 import { useStatus } from "@/lib/queries";
-import { navigateToTab } from "@/lib/tabs";
+import { ErrorsTab } from "./dashboard/ErrorsTab";
+import { FeedbackTab } from "./dashboard/FeedbackTab";
+import { OverviewTab } from "./dashboard/OverviewTab";
+import { RunsTab } from "./dashboard/RunsTab";
+import { StatRow } from "./dashboard/StatRow";
 import { PanelShell } from "./PanelShell";
 
 export default function DashboardPanel() {
   const status = useStatus();
-  const campaign = status.data?.campaign ?? null;
+  const runsQuery = useAnalyticsRuns();
+  const [campaignId, setCampaignId] = useState<CampaignScope>(null);
+  const runs = runsQuery.data?.rows ?? [];
+  const active = status.data?.campaign ?? null;
 
   return (
-    <PanelShell title="Dashboard">
-      {campaign || status.isPending ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <StatCard
-            label="Sent"
-            value={formatNumber(campaign?.counts.sent)}
-            sub={campaign ? `of ${formatNumber(campaign.counts.total)}` : undefined}
-            loading={status.isPending}
-          />
-          <StatCard
-            label="Pending"
-            value={formatNumber(campaign ? campaign.counts.pending + campaign.counts.retry : undefined)}
-            info="Waiting to send, including messages queued for another attempt."
-            loading={status.isPending}
-          />
-          <StatCard
-            label="Failed"
-            value={formatNumber(campaign?.counts.failed)}
-            info="Permanently rejected by the receiving server. Failed addresses are not retried."
-            loading={status.isPending}
-          />
-          <StatCard
-            label="Last hour"
-            value={formatNumber(campaign?.stats.sentLastHour)}
-            info="Messages sent in the last 60 minutes."
-            loading={status.isPending}
-          />
-        </div>
-      ) : (
-        <Card>
-          <EmptyState icon={Send} title="No active run" action={{ label: "Runs", onClick: () => navigateToTab("runs") }} />
-        </Card>
-      )}
+    <PanelShell title="Dashboard" actions={active ? <StatusPill status={active.status} detail={active.pauseReason} /> : null}>
+      <StatRow />
+      <Tabs defaultValue="overview" className="flex flex-col gap-4">
+        <TabsList aria-label="Dashboard sections">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="errors">Errors</TabsTrigger>
+          <TabsTrigger value="runs">Runs</TabsTrigger>
+          <TabsTrigger value="feedback">Feedback</TabsTrigger>
+        </TabsList>
+        <TabsContent value="overview">
+          <OverviewTab runs={runs} campaignId={campaignId} onCampaignIdChange={setCampaignId} />
+        </TabsContent>
+        <TabsContent value="errors">
+          <ErrorsTab runs={runs} campaignId={campaignId} onCampaignIdChange={setCampaignId} />
+        </TabsContent>
+        <TabsContent value="runs">
+          <RunsTab runs={runs} loading={runsQuery.isPending} error={runsQuery.isError} />
+        </TabsContent>
+        <TabsContent value="feedback">
+          <FeedbackTab />
+        </TabsContent>
+      </Tabs>
     </PanelShell>
   );
 }

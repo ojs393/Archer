@@ -31,6 +31,19 @@ const ROUTES: Record<string, unknown> = {
   "/api/lists": [],
   "/api/templates": [],
   "/api/setup": setup,
+  "/api/analytics/summary": {
+    totals: { recipients: 0, sent: 0, failed: 0, suppressed: 0, retry: 0, uncertain: 0, skipped: 0, pending: 0 },
+    rates: { deliveryRate: 0, bounceRate: 0, rejectionRate: 0 },
+    lastSendAt: null,
+  },
+  "/api/analytics/timeseries": { bucket: "hour", coverageFrom: null, points: [] },
+  "/api/analytics/errors": { coverageFrom: null, rows: [] },
+  "/api/analytics/runs": { rows: [] },
+  "/api/analytics/feedback": {
+    available: false,
+    reason: "Feedback unavailable",
+    guidance: ["Step one"],
+  },
 };
 
 let fetchMock: ReturnType<typeof vi.fn>;
@@ -45,8 +58,12 @@ async function renderApp(hash = "") {
   return view;
 }
 
+function shellTabs() {
+  return within(screen.getByRole("tablist", { name: "Sections" }));
+}
+
 function selectTab(name: string) {
-  fireEvent.mouseDown(screen.getByRole("tab", { name }), { button: 0 });
+  fireEvent.mouseDown(shellTabs().getByRole("tab", { name }), { button: 0 });
 }
 
 beforeEach(() => {
@@ -71,9 +88,9 @@ describe("App shell", () => {
   it("renders the brand and exactly five tabs, dashboard selected by default", async () => {
     await renderApp();
     expect(screen.getByRole("banner")).toHaveTextContent("MamaDirect");
-    const tabs = within(screen.getByRole("tablist")).getAllByRole("tab");
+    const tabs = shellTabs().getAllByRole("tab");
     expect(tabs.map((t) => t.getAttribute("aria-label"))).toEqual(["Dashboard", "Runs", "Audience", "Templates", "Settings"]);
-    expect(screen.getByRole("tab", { name: "Dashboard" })).toHaveAttribute("aria-selected", "true");
+    expect(shellTabs().getByRole("tab", { name: "Dashboard" })).toHaveAttribute("aria-selected", "true");
     expect(window.location.hash).toBe("#/dashboard");
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Dashboard");
   });
@@ -104,7 +121,7 @@ describe("App shell", () => {
 
   it("selects the tab named in the hash on load", async () => {
     await renderApp("#/templates");
-    expect(screen.getByRole("tab", { name: "Templates" })).toHaveAttribute("aria-selected", "true");
+    expect(shellTabs().getByRole("tab", { name: "Templates" })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByRole("heading", { level: 1, name: "Templates" })).toBeInTheDocument();
   });
 
@@ -116,18 +133,18 @@ describe("App shell", () => {
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
     expect(await screen.findByRole("heading", { level: 1, name: "Runs" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Runs" })).toHaveAttribute("aria-selected", "true");
+    expect(shellTabs().getByRole("tab", { name: "Runs" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("replaces the history entry while roving with arrow keys; a click pushes one", async () => {
     await renderApp();
     const start = window.history.length;
-    const dashboard = screen.getByRole("tab", { name: "Dashboard" });
+    const dashboard = shellTabs().getByRole("tab", { name: "Dashboard" });
     act(() => dashboard.focus());
     fireEvent.keyDown(dashboard, { key: "ArrowRight" });
     expect(await screen.findByRole("heading", { level: 1, name: "Runs" })).toBeInTheDocument();
     expect(window.location.hash).toBe("#/runs");
-    fireEvent.keyDown(screen.getByRole("tab", { name: "Runs" }), { key: "ArrowRight" });
+    fireEvent.keyDown(shellTabs().getByRole("tab", { name: "Runs" }), { key: "ArrowRight" });
     expect(await screen.findByRole("heading", { level: 1, name: "Audience" })).toBeInTheDocument();
     expect(window.location.hash).toBe("#/audience");
     expect(window.history.length).toBe(start);
@@ -147,7 +164,7 @@ describe("App shell", () => {
     });
     expect(window.location.hash).toBe("#/dashboard");
     expect(await screen.findByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
-    expect(screen.getByRole("tab", { name: "Dashboard" })).toHaveAttribute("aria-selected", "true");
+    expect(shellTabs().getByRole("tab", { name: "Dashboard" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("gives every button, including icon-only ones, an accessible name", async () => {
