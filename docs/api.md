@@ -1,6 +1,6 @@
 # MamaDirect HTTP API
 
-Request schemas (zod 4) and response types live in `server/http/contract.ts`; import types from there rather than redeclaring them. The contract below is binding; "Implementation notes (10A)" and "Implementation notes (10B)" at the end record what the implementation adds or clarifies. Contract changes: `CampaignView.schedule` is nullable (see "Status and health"); `POST /api/templates/:id/test-send` also accepts an optional `listId`; `resume` re-runs the launch gates (see "Campaigns").
+Request schemas (zod 4) and response types live in `server/http/contract.ts`; import types from there rather than redeclaring them. The contract below is binding; "Implementation notes (10A)", "(10B)" and "(10C)" at the end record what the implementation adds or clarifies. Contract changes: `CampaignView.schedule` is nullable (see "Status and health"); `POST /api/templates/:id/test-send` also accepts an optional `listId`; `resume` re-runs the launch gates (see "Campaigns").
 
 ## Conventions
 - All API routes are under `/api`, JSON in/out unless stated. Errors: HTTP 4xx/5xx with body `{ "error": { "code": string, "message": string, "details"?: unknown } }`. Validation errors: 400, code `invalid_request`, details = zod issues.
@@ -16,7 +16,7 @@ Request schemas (zod 4) and response types live in `server/http/contract.ts`; im
 ```ts
 type HealthItem = { status: "ok" | "fail" | "unknown"; detail: string; checkedAt: string | null };
 type Health = { smtp: HealthItem; dns: HealthItem; network: HealthItem; worker: HealthItem & { heartbeatAgeMs: number | null; loopRunning: boolean } };
-type SettingsView = { fromName: string; fromEmail: string; replyTo: string | null; postalAddress: string; unsubMailbox: string; publicBaseUrl: string | null; dkimSelector: string | null; timezone: string; testInboxes: string[]; smtp: { host: string; port: number; secure: boolean; user: string; passSet: boolean } };
+type SettingsView = { provider: "ses" | "smtp"; sesRegion: string | null; operatorName: string; organization: string; setupCompletedAt: string | null; fromName: string; fromEmail: string; replyTo: string | null; postalAddress: string; unsubMailbox: string; publicBaseUrl: string | null; dkimSelector: string | null; timezone: string; testInboxes: string[]; smtp: { host: string; port: number; secure: boolean; user: string; passSet: boolean } };
 type ImportEvent = { listId: number; phase: "parsing" | "checking_domains" | "done" | "failed"; rowsProcessed?: number; domainsChecked?: number; domainsTotal?: number; breakerTripped?: boolean; counts?: ImportCounts; error?: string };
 type CampaignCounts = { pending: number; sending: number; sent: number; retry: number; failed: number; uncertain: number; skipped_suppressed: number; total: number };
 type CampaignView = { id; listId; templateId; templateVersion; status; pauseReason: string | null; schedule: Schedule | null; createdAt; startedAt; finishedAt; counts: CampaignCounts; estimate: Estimate; stats: { sentLastHour: number; rejectionRate: number; sample: number } };
@@ -70,6 +70,19 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 | POST | /api/campaigns/:id/requeue | `{ contactIds?: number[] }` | `{ requeued: number }` |
 | GET | /api/campaigns/:id/events | `type?, limit (≤500), beforeId?` | `{ rows: {id,type,message,createdAt}[] }` |
 | DELETE | /api/campaigns/:id | draft/completed/stopped only | 204 |
+
+## Routes — 10C
+| Method | Path | Body / query | Response |
+|---|---|---|---|
+| GET | /api/setup | — | SetupView `{ complete; completedAt: string \| null; steps: { operator; provider; domain; addresses; testInboxes }; regions: { id; label }[] }` |
+| POST | /api/setup/complete | — | SetupView (409 `setup_incomplete`, details = steps, unless operator, provider, addresses and testInboxes pass) |
+| POST | /api/setup/reset | — | SetupView (clears `setupCompletedAt` only) |
+| GET | /api/analytics/summary | `campaignId?` | `{ totals: { recipients, sent, failed, suppressed, retry, uncertain, skipped, pending }; rates: { deliveryRate, bounceRate, rejectionRate }; lastSendAt: string \| null }` |
+| GET | /api/analytics/timeseries | `bucket?: hour \| day` (default hour), `days?: 1..90` (default 2 for hour, 30 for day), `campaignId?` | `{ bucket; points: { t; sent; failed; suppressed; retry; uncertain }[] }` |
+| GET | /api/analytics/errors | `limit?: 1..50` (default 10), `campaignId?` | `{ rows: { kind: "failed" \| "suppressed" \| "retry" \| "uncertain"; message; count; lastAt }[] }` |
+| GET | /api/analytics/runs | `campaignId?` | `{ rows: { id; name; status; recipients; sent; failed; suppressed; uncertain; deliveryRate; startedAt; finishedAt }[] }` (newest first, ≤ 100) |
+| GET | /api/analytics/feedback | — | `{ available: false; reason: string; guidance: string[] }` |
+| POST | /api/system/desktop-launcher | — | `{ ok: true; path }` (500 `launcher_failed` with the reason) |
 
 ## Implementation notes (10A)
 
@@ -171,3 +184,30 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 
 ### Self-test
 - `npm run selftest` (also run by `npm run setup`/`doctor`) uses a temporary directory and database, never `data/`, starts the in-process fake SMTP server (`server/testing/fakeSmtp.ts`, which needs the `smtp-server` dev dependency), imports a 3-row list, sends a campaign with a simulated clock, checks 3 `sent`, 3 messages received, personalised subjects, `List-Unsubscribe` and the compliance footer, prints PASS/FAIL lines and exits 0/1.
+
+## Implementation notes (10C)
+
+### Provider and setup settings
+- New `SettingsView` fields: `provider` (`"ses"` default, or `"smtp"`), `sesRegion` (one of the 21 ids in `server/settings/sesRegions.ts`, or `null`; `""` also clears it; anything else is 400), `operatorName` and `organization` (one line, ≤ 120 characters, trimmed), and `setupCompletedAt` (read-only: `PUT` accepts and ignores it so a `SettingsView` can be sent back; only `POST /api/setup/complete` sets it).
+- While `provider` is `"ses"` the SMTP endpoint is derived: `email-smtp.<sesRegion>.amazonaws.com`, port 587, `secure: false` (STARTTLS is required). The stored `smtp.host/port/secure` are kept (and still returned in `SettingsView.smtp`) but ignored, so switching back to `"smtp"` restores them. With `"ses"` and no region there is no endpoint: the SMTP test answers "Choose the Amazon SES region first", the test send answers 422 `smtp_incomplete`, and `Health.network` stays `unknown`. `smtp.user` / write-only `smtp.pass` hold the SES SMTP credentials. The derived endpoint is used by the worker (`getSenderConfig`), the SMTP test, the test send and the network probe.
+- Changing `provider` or `sesRegion` resets `Health.smtp` to `unknown`, like any other SMTP change.
+- Migration 4 sets `provider = "smtp"` on an existing install that already has a non-empty SMTP host, so the new SES default does not silently drop a working configuration.
+
+### Setup
+- Steps: `operator` = non-blank `operatorName`; `provider` = (ses: region, username and password set) or (smtp: host, port, username and password set); `domain` = `fromEmail` set and `Health.dns.status === "ok"`; `addresses` = valid `fromEmail` and `unsubMailbox` and a non-blank `postalAddress` (the same check as the test-send `sender_incomplete` error); `testInboxes` = at least one.
+- `POST /api/setup/complete` does not require `domain` (DNS may still be propagating; the launch gates check DNS again). Completing again refreshes `completedAt`. `regions` is always the full list, in the order of `SES_REGIONS`.
+
+### Analytics
+- All routes are read-only GETs. `campaignId` (positive integer) scopes to one run; an unknown id is 404 `not_found`. Unknown query keys are 400.
+- Summary and runs count `sends` rows (so they are exact at any size): `pending` includes the row being sent right now (`sending`); `skipped` is `skipped_suppressed`; `suppressed` is the hard bounces, that is `failed` rows whose address has a `hard_bounce` suppression, and `failed` excludes them. Rates are fractions of attempts (`sent + failed + suppressed`) and 0 without attempts; `runs.deliveryRate` is the same per run. A run whose list or template row is gone is named `List <id>` / `Template <id>`.
+- `lastSendAt`, timeseries and errors read the `events` table, which keeps only the newest 50,000 events, so very old activity drops out of them.
+- Timeseries buckets are UTC hours or days, oldest first, ending with the current bucket; every bucket in the window is present (zeros when empty), so a series has `days × 24` (hour) or `days` (day) points, at most 2,160. Migration 5 adds `events (type, created_at)`.
+- Errors group events of the four kinds by kind + normalized message: registered secrets masked, whitespace collapsed, email addresses (with or without `<…>`) replaced by `<email>`, ISO timestamps by `<time>`, the worker's `Retry n/m` counter dropped, then cut to 160 characters. Sorted by count, then most recent.
+- Feedback always answers `available: false`: complaint data needs SES feedback notifications through SNS, which MamaDirect does not receive yet. No numbers are returned.
+
+### Desktop launcher
+- Written to the desktop folder (`~/Desktop`; on Windows `%USERPROFILE%\OneDrive\Desktop` when it exists, otherwise `<home>\Desktop`), created if missing, overwriting an earlier launcher. Every launcher puts the folder of the running Node.js first on `PATH` (a double-clicked launcher does not read the shell profile that usually does that) and then runs `npm start` in the project root.
+  - macOS: `MamaDirect.command` (bash, mode 755). No custom icon is set on the file.
+  - Linux: `MamaDirect.desktop` (mode 755, `Terminal=true`, `Exec=bash -lc "…"` escaped per the Desktop Entry spec, `Icon=` the 512 px PNG when it exists). Some desktops also ask the user to "Allow launching" the first time.
+  - Windows: `MamaDirect.cmd`, plus a best-effort `MamaDirect.lnk` with the `.ico` icon made through PowerShell `WScript.Shell` (a failure there is ignored).
+- Icons are read from `assets/icons/` (`mamadirect.icns`, `mamadirect.ico`, `mamadirect-512.png`). Paths with a line break or control character (and, on Windows, a double quote) are refused with 500 `launcher_failed`; so is any write error, with its reason in the message.
