@@ -111,6 +111,18 @@ describe("schema", () => {
     expect(indexColumns(db, "events")).toContainEqual(["campaign_id", "id"]);
   });
 
+  it("indexes events by type and time for the analytics charts", () => {
+    const db = memDb();
+    expect(indexColumns(db, "events")).toContainEqual(["type", "created_at"]);
+    const plan = db
+      .prepare(
+        `EXPLAIN QUERY PLAN SELECT substr(created_at, 1, 13) AS k, type, COUNT(*) FROM events
+         WHERE type IN ('sent','failed') AND created_at >= ? GROUP BY k, type`,
+      )
+      .all("2026-10-24T00:00:00.000Z") as { detail: string }[];
+    expect(plan.map((r) => r.detail).join("\n")).toMatch(/SEARCH events USING (COVERING )?INDEX events_type_created/);
+  });
+
   it("enforces foreign keys", () => {
     const db = memDb();
     expect(() => db.prepare("INSERT INTO contacts (list_id, email, domain) VALUES (999, 'a@x.com', 'x.com')").run()).toThrow(

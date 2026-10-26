@@ -381,3 +381,85 @@ export const campaignEventsQuerySchema = z.strictObject({
   limit: z.coerce.number().int().min(1).max(500).default(100),
   beforeId: z.coerce.number().int().positive().optional(),
 });
+
+export interface AnalyticsTotals {
+  recipients: number;
+  sent: number;
+  failed: number;
+  suppressed: number;
+  retry: number;
+  uncertain: number;
+  skipped: number;
+  pending: number;
+}
+
+export interface AnalyticsSummary {
+  totals: AnalyticsTotals;
+  rates: { deliveryRate: number; bounceRate: number; rejectionRate: number };
+  lastSendAt: string | null;
+}
+
+export type AnalyticsBucket = "hour" | "day";
+
+export interface AnalyticsPoint {
+  t: string;
+  sent: number;
+  failed: number;
+  suppressed: number;
+  retry: number;
+  uncertain: number;
+}
+
+export interface AnalyticsTimeseries {
+  bucket: AnalyticsBucket;
+  points: AnalyticsPoint[];
+}
+
+export type AnalyticsErrorKind = "failed" | "suppressed" | "retry" | "uncertain";
+
+export interface AnalyticsErrors {
+  rows: { kind: AnalyticsErrorKind; message: string; count: number; lastAt: string }[];
+}
+
+export interface AnalyticsRun {
+  id: number;
+  name: string;
+  status: CampaignStatus;
+  recipients: number;
+  sent: number;
+  failed: number;
+  suppressed: number;
+  uncertain: number;
+  deliveryRate: number;
+  startedAt: string | null;
+  finishedAt: string | null;
+}
+
+export interface AnalyticsRuns {
+  rows: AnalyticsRun[];
+}
+
+export interface AnalyticsFeedback {
+  available: false;
+  reason: string;
+  guidance: string[];
+}
+
+export const ANALYTICS_MAX_DAYS = 90;
+
+const analyticsCampaignId = z.coerce.number().int().positive().optional();
+
+export const analyticsScopeSchema = z.strictObject({ campaignId: analyticsCampaignId });
+
+export const analyticsTimeseriesQuerySchema = z
+  .strictObject({
+    campaignId: analyticsCampaignId,
+    bucket: z.enum(["hour", "day"]).default("hour"),
+    days: z.coerce.number().int().min(1).max(ANALYTICS_MAX_DAYS).optional(),
+  })
+  .transform((q) => ({ ...q, days: q.days ?? (q.bucket === "hour" ? 2 : 30) }));
+
+export const analyticsErrorsQuerySchema = z.strictObject({
+  campaignId: analyticsCampaignId,
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});

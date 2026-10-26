@@ -114,6 +114,9 @@ const MIGRATIONS: readonly string[] = [
   INSERT OR IGNORE INTO settings (key, value)
   SELECT 'provider', 'smtp' WHERE EXISTS (SELECT 1 FROM settings WHERE key = 'smtp_host' AND value <> '');
   `,
+  `
+  CREATE INDEX events_type_created ON events (type, created_at);
+  `,
 ];
 
 export function runMigrations(db: DatabaseSync): void {
