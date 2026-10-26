@@ -5,7 +5,7 @@ const SQLITE_CORRUPT = 11;
 const SQLITE_NOTADB = 26;
 const SIDECARS = ["-wal", "-shm"];
 
-function loadSqlite() {
+export function loadSqlite() {
   // doctor/setup can't pass --disable-warning (older Nodes reject the flag before the version
   // check runs), so mute only node:sqlite's ExperimentalWarning, only while the module loads.
   const emitWarning = process.emitWarning;
@@ -55,17 +55,22 @@ function newestFirst(dir) {
     .map(({ file }) => file);
 }
 
+export function moveAside(dbPath) {
+  const aside = `${dbPath}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`;
+  if (fs.existsSync(dbPath)) fs.renameSync(dbPath, aside);
+  // A stale WAL would be replayed into whatever file takes dbPath's place and corrupt it again.
+  for (const suffix of SIDECARS) {
+    if (fs.existsSync(dbPath + suffix)) fs.renameSync(dbPath + suffix, aside + suffix);
+  }
+  return aside;
+}
+
 export function restoreLatestBackup(dbPath, backupsDir) {
   if (!fs.existsSync(backupsDir)) return { restored: false };
   const from = newestFirst(backupsDir).find((file) => checkIntegrity(file).status === "ok");
   if (!from) return { restored: false };
 
-  const aside = `${dbPath}.corrupt-${new Date().toISOString().replace(/[:.]/g, "-")}`;
-  if (fs.existsSync(dbPath)) fs.renameSync(dbPath, aside);
-  // A stale WAL would be replayed into the restored file and corrupt it again.
-  for (const suffix of SIDECARS) {
-    if (fs.existsSync(dbPath + suffix)) fs.renameSync(dbPath + suffix, aside + suffix);
-  }
+  moveAside(dbPath);
 
   const staging = `${dbPath}.restoring`;
   fs.copyFileSync(from, staging);
