@@ -1,4 +1,5 @@
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { addSuppression } from "../../server/db/suppression.ts";
 import { textToHtml } from "../../server/domain/template.ts";
 import { signToken } from "../../server/domain/unsubscribe.ts";
 import type { FetchLike, LookupFn } from "../../server/templates/linkCheck.ts";
@@ -324,6 +325,30 @@ describe("link check", () => {
     expect((await get(`/api/templates/${view.id}`)).json().linkCheck).toEqual(check);
   });
 
+  it("refuses to check more than 200 unique links", async () => {
+    let fetched = 0;
+    h = await makeHarness({
+      linkChecker: {
+        fetchImpl: async () => {
+          fetched += 1;
+          return new Response(null, { status: 200 });
+        },
+        lookup,
+      },
+    });
+    const links = (n: number) => Array.from({ length: n }, (_, i) => `<a href="https://l${i}.example/">${i}</a>`).join("");
+    const atLimit = await createTemplate({ html: COMPLIANT_HTML + links(199) + '<a href="https://x.example/?e={{email}}">v</a>' });
+    expect((await post(`/api/templates/${atLimit.id}/link-check`)).statusCode).toBe(200);
+
+    fetched = 0;
+    const over = await createTemplate({ html: COMPLIANT_HTML + links(200) + '<a href="https://x.example/?e={{email}}">v</a>' });
+    const res = await post(`/api/templates/${over.id}/link-check`);
+    expect(res.statusCode).toBe(413);
+    expect(res.json().error.code).toBe("too_many_links");
+    expect(fetched).toBe(0);
+    expect((await get(`/api/templates/${over.id}`)).json().linkCheck).toBeNull();
+  });
+
   it("acknowledges a link, keeps acknowledgements on re-check of the same version, and rejects unknown links", async () => {
     h = await makeHarness(opts);
     const view = await createTemplate({ html: LINKS_HTML });
@@ -416,6 +441,29 @@ describe("POST /api/templates/:id/test-send", () => {
     expect(results[0]).toMatchObject({ to: TEST_INBOXES[0], ok: true });
     expect(results[1]).toMatchObject({ to: TEST_INBOXES[1], ok: false, messageId: null, error: expect.stringContaining("No such user") });
     expect((await get(`/api/templates/${view.id}`)).json().testedOk).toBe(false);
+  });
+
+  it("skips a suppressed test inbox and marks the version tested only when every requested inbox succeeded", async () => {
+    h = await makeHarness();
+    await configureSender(h, smtp.port);
+    addSuppression(h.db, TEST_INBOXES[1], "unsubscribe");
+    const view = await createTemplate();
+    const all = await post(`/api/templates/${view.id}/test-send`, {});
+    expect(all.statusCode).toBe(200);
+    expect(all.json().results).toEqual([
+      { to: TEST_INBOXES[0], ok: true, messageId: expect.any(String), error: null },
+      { to: TEST_INBOXES[1], ok: false, messageId: null, error: "suppressed" },
+    ]);
+    expect(smtp.received.map((m) => m.to)).toEqual([[TEST_INBOXES[0]]]);
+    expect((await get(`/api/templates/${view.id}`)).json().testedOk).toBe(false);
+
+    const onlySuppressed = await post(`/api/templates/${view.id}/test-send`, { to: [TEST_INBOXES[1]] });
+    expect(onlySuppressed.json().results).toEqual([{ to: TEST_INBOXES[1], ok: false, messageId: null, error: "suppressed" }]);
+    expect(smtp.received).toHaveLength(1);
+    expect((await get(`/api/templates/${view.id}`)).json().testedOk).toBe(false);
+
+    expect((await post(`/api/templates/${view.id}/test-send`, { to: [TEST_INBOXES[0]] })).json().results[0].ok).toBe(true);
+    expect((await get(`/api/templates/${view.id}`)).json().testedOk).toBe(true);
   });
 
   it("returns 422 render_failed when the template cannot render", async () => {

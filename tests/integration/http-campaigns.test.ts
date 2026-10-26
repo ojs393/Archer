@@ -112,7 +112,9 @@ async function readyTemplate(): Promise<number> {
 }
 
 async function readyCampaign(contacts: SeedContact[] = CONTACTS, schedule: Schedule = ALL_DAY) {
+  h.db.exec("BEGIN");
   const { listId, contactIds } = seedList(h.db, contacts);
+  h.db.exec("COMMIT");
   const templateId = await readyTemplate();
   const res = await post("/api/campaigns", { listId, templateId, schedule });
   expect(res.statusCode).toBe(201);
@@ -166,6 +168,56 @@ describe("POST/GET /api/campaigns", () => {
     expect(bad.json().error.details[0].message).toBe("End time must be after start time.");
     expect((await get("/api/campaigns/999")).statusCode).toBe(404);
     expect((await get("/api/campaigns")).json()).toEqual([]);
+  });
+});
+
+describe("campaign creation completeness", () => {
+  it("refuses start, resume, delete, schedule changes and requeue while the campaign is still being created", async () => {
+    await setup();
+    const templateId = await readyTemplate();
+    h.db.exec("BEGIN");
+    const { listId } = seedList(h.db, Array.from({ length: 20_000 }, (_, i) => ({ email: `u${i}@x.example` })));
+    h.db.exec("COMMIT");
+
+    const creating = post("/api/campaigns", { listId, templateId, schedule: ALL_DAY });
+    let id: number | undefined;
+    while (id === undefined) {
+      await new Promise((resolve) => setImmediate(resolve));
+      id = (h.db.prepare("SELECT id FROM campaigns").get() as { id: number } | undefined)?.id;
+    }
+    const attempts = await Promise.all([
+      post(`/api/campaigns/${id}/start`),
+      post(`/api/campaigns/${id}/resume`),
+      del(`/api/campaigns/${id}`),
+      put(`/api/campaigns/${id}/schedule`, { schedule: ALL_DAY }),
+      post(`/api/campaigns/${id}/requeue`, {}),
+    ]);
+    for (const r of attempts) {
+      expect(r.statusCode).toBe(409);
+      expect(r.json().error.code).toBe("creating");
+    }
+
+    const created = await creating;
+    expect(created.statusCode).toBe(201);
+    expect(created.json()).toMatchObject({ id, status: "draft", counts: { pending: 20_000, total: 20_000 } });
+    expect((await gates(id)).gates.find((g: any) => g.key === "has_recipients").ok).toBe(true);
+    expect((await del(`/api/campaigns/${id}`)).statusCode).toBe(204);
+  });
+
+  it("fails has_recipients for a campaign with fewer sends rows than list contacts", async () => {
+    await setup();
+    const { campaign, contactIds } = await readyCampaign();
+    h.db.prepare("DELETE FROM sends WHERE campaign_id = ? AND contact_id = ?").run(campaign.id, contactIds[2]);
+    const result = await gates(campaign.id);
+    expect(result.ok).toBe(false);
+    expect(result.gates.find((g: any) => g.key === "has_recipients")).toEqual({
+      key: "has_recipients",
+      ok: false,
+      message: "This campaign was not fully created (2 of 3 recipients); delete it and create it again.",
+    });
+    const start = await post(`/api/campaigns/${campaign.id}/start`);
+    expect(start.statusCode).toBe(409);
+    expect(start.json().error.code).toBe("gates_failed");
   });
 });
 

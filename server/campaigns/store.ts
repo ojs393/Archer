@@ -27,10 +27,14 @@ export function listCampaignIds(db: DatabaseSync): number[] {
   return (db.prepare("SELECT id FROM campaigns ORDER BY id DESC").all() as { id: number }[]).map((r) => r.id);
 }
 
-/** Inserts the campaign and one pending sends row per contact, in committed batches that yield between them. */
+/**
+ * Inserts the campaign and one pending sends row per contact, in committed batches that yield between them.
+ * The id is in `inProgress` from the first commit until the last batch, so callers can refuse to act on it meanwhile.
+ */
 export async function createCampaign(
   db: DatabaseSync,
   input: { listId: number; templateId: number; templateVersion: number; schedule: Schedule },
+  inProgress: Set<number> = new Set(),
 ): Promise<number> {
   const insertBatch = db.prepare(
     `INSERT INTO sends (campaign_id, contact_id)
@@ -51,6 +55,7 @@ export async function createCampaign(
         }
         return Number(insertBatch.run(id, input.listId, after).changes);
       });
+      inProgress.add(id);
       if (inserted < SEND_ROW_BATCH) return id;
       after = (lastContact.get(id) as { id: number }).id;
       await nextTurn();
@@ -58,7 +63,13 @@ export async function createCampaign(
   } catch (err) {
     if (id !== 0) deleteCampaign(db, id);
     throw err;
+  } finally {
+    inProgress.delete(id);
   }
+}
+
+export function listContactCount(db: DatabaseSync, listId: number): number {
+  return (db.prepare("SELECT COUNT(*) AS n FROM contacts WHERE list_id = ?").get(listId) as { n: number }).n;
 }
 
 export function updateSchedule(db: DatabaseSync, id: number, schedule: Schedule): void {

@@ -7,7 +7,7 @@ import { senderGaps } from "../settings/store.ts";
 import { analyzeTemplate } from "../templates/analysis.ts";
 import { linksPass } from "../templates/linkCheck.ts";
 import { getTemplate, type TemplateRecord } from "../templates/store.ts";
-import { getCampaign, type CampaignRecord } from "./store.ts";
+import { getCampaign, listContactCount, type CampaignRecord } from "./store.ts";
 import { campaignCounts } from "./view.ts";
 
 export const BULK_SENDER_DAILY_CAP = 5000;
@@ -34,6 +34,15 @@ function listGate(db: DatabaseSync, c: CampaignRecord): Gate {
 
 function recipientsGate(db: DatabaseSync, c: CampaignRecord): Gate {
   const counts = campaignCounts(db, c.id);
+  const expected = listContactCount(db, c.list_id);
+  if (counts.total < expected) {
+    return gate(
+      "has_recipients",
+      false,
+      "",
+      `This campaign was not fully created (${counts.total} of ${expected} recipients); delete it and create it again.`,
+    );
+  }
   const waiting = counts.pending + counts.retry;
   return gate(
     "has_recipients",

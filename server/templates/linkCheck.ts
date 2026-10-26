@@ -29,6 +29,7 @@ export interface CheckLinksOptions {
   concurrency?: number;
 }
 
+export const MAX_LINKS = 200;
 const DEFAULT_TIMEOUT_MS = 10_000;
 const DEFAULT_CONCURRENCY = 4;
 const MAX_REDIRECTS = 5;
@@ -80,7 +81,22 @@ export function extractLinks(html: string, text: string | null): { urls: string[
 
 function ipv4Private(ip: string): boolean {
   const [a, b] = ip.split(".").map(Number);
-  return a === 0 || a === 10 || a === 127 || (a === 169 && b === 254) || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168);
+  return (
+    a === 0 ||
+    a === 10 ||
+    a === 127 ||
+    (a === 100 && b >= 64 && b <= 127) ||
+    (a === 169 && b === 254) ||
+    (a === 172 && b >= 16 && b <= 31) ||
+    (a === 192 && b === 168) ||
+    (a === 198 && (b === 18 || b === 19)) ||
+    (a >= 224 && a <= 239) ||
+    ip === "255.255.255.255"
+  );
+}
+
+function embeddedIpv4(high: number, low: number): string {
+  return `${high >> 8}.${high & 0xff}.${low >> 8}.${low & 0xff}`;
 }
 
 function ipv6Groups(ip: string): number[] | null {
@@ -104,9 +120,11 @@ export function isPrivateAddress(ip: string): boolean {
   const g = ipv6Groups(ip);
   if (!g) return true;
   const leadingZeros = g.slice(0, 5).every((x) => x === 0);
-  if (leadingZeros && g[5] === 0xffff) return ipv4Private(`${g[6] >> 8}.${g[6] & 0xff}.${g[7] >> 8}.${g[7] & 0xff}`);
+  if (leadingZeros && g[5] === 0xffff) return ipv4Private(embeddedIpv4(g[6], g[7]));
   if (leadingZeros && g[5] === 0) return true;
-  return (g[0] & 0xfe00) === 0xfc00 || (g[0] & 0xffc0) === 0xfe80;
+  if (g[0] === 0x2002) return ipv4Private(embeddedIpv4(g[1], g[2]));
+  if (g[0] === 0x64 && g[1] === 0xff9b && g.slice(2, 6).every((x) => x === 0)) return ipv4Private(embeddedIpv4(g[6], g[7]));
+  return (g[0] & 0xfe00) === 0xfc00 || (g[0] & 0xffc0) === 0xfe80 || (g[0] & 0xffc0) === 0xfec0 || (g[0] & 0xff00) === 0xff00;
 }
 
 function oneLine(text: string): string {

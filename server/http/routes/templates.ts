@@ -1,6 +1,7 @@
 import path from "node:path";
 import type { Readable } from "node:stream";
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { isSuppressed } from "../../db/suppression.ts";
 import { MalformedTemplateError, MissingVariableError, textToHtml } from "../../domain/template.ts";
 import { getList } from "../../import/lists.ts";
 import { longDate } from "../../send/compose.ts";
@@ -8,7 +9,7 @@ import type { OutgoingMessage } from "../../send/transport.ts";
 import { DEFAULT_SEND_TIMEOUT_MS } from "../../send/worker.ts";
 import { getSenderConfig, getSettingsView, getSmtpConfig, senderGaps } from "../../settings/store.ts";
 import { templateView } from "../../templates/analysis.ts";
-import { acknowledgeLink, buildLinkCheck, checkLinks, extractLinks, type LinkCheck } from "../../templates/linkCheck.ts";
+import { MAX_LINKS, acknowledgeLink, buildLinkCheck, checkLinks, extractLinks, type LinkCheck } from "../../templates/linkCheck.ts";
 import {
   SYNTHETIC_CONTACT,
   composeTestMessages,
@@ -165,6 +166,9 @@ export function templateRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post("/api/templates/:id/link-check", async (request): Promise<LinkCheck> => {
     const t = requireTemplate(request.params);
     const { urls, variableLinks } = extractLinks(t.html, t.text);
+    if (urls.length + variableLinks.length > MAX_LINKS) {
+      throw new HttpError(413, "too_many_links", `The template has more than ${MAX_LINKS} different links; remove some and check again`);
+    }
     const probes = await checkLinks(urls, ctx.linkChecker);
     const latest = getTemplate(ctx.db, t.id);
     if (!latest) throw notFound("Template");
@@ -201,13 +205,18 @@ export function templateRoutes(app: FastifyInstance, ctx: AppContext): void {
       throw new HttpError(422, "smtp_incomplete", "Enter the SMTP host, username and password first");
     }
     const contact = sampleContact(body.listId);
+    const recipients = [...new Set(body.to ?? settings.testInboxes)];
+    const sendable = recipients.filter((to) => !isSuppressed(ctx.db, to));
     let messages: OutgoingMessage[];
     try {
-      messages = composeTestMessages(t, contact, [...new Set(body.to ?? settings.testInboxes)], getSenderConfig(ctx.db, ctx.env), today());
+      messages = composeTestMessages(t, contact, sendable, getSenderConfig(ctx.db, ctx.env), today());
     } catch (err) {
       return renderFailed(err);
     }
-    const results = await deliverTestMessages(messages, ctx.createTransport(smtp), DEFAULT_SEND_TIMEOUT_MS);
+    const delivered = messages.length > 0 ? await deliverTestMessages(messages, ctx.createTransport(smtp), DEFAULT_SEND_TIMEOUT_MS) : [];
+    const results = recipients.map(
+      (to) => delivered.find((r) => r.to === to) ?? { to, ok: false, messageId: null, error: "suppressed" },
+    );
     if (results.every((r) => r.ok)) markTested(ctx.db, t.id, t.version);
     return { results };
   });

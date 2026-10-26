@@ -49,6 +49,13 @@ function errorText(err: unknown): string {
 export function campaignRoutes(app: FastifyInstance, ctx: AppContext): void {
   const sendStore = new SendStore(ctx.db);
   const eventLog = new EventLog(ctx.db);
+  const creating = new Set<number>();
+
+  const settledCampaign = (params: unknown): CampaignRecord => {
+    const c = requireCampaign(params);
+    if (creating.has(c.id)) throw new HttpError(409, "creating", "This campaign is still being created; try again in a moment");
+    return c;
+  };
 
   const requireCampaign = (params: unknown): CampaignRecord => {
     const { id } = idParamSchema.parse(params);
@@ -101,14 +108,14 @@ export function campaignRoutes(app: FastifyInstance, ctx: AppContext): void {
     if (list.status !== "ready") throw new HttpError(409, "list_not_ready", "The list is not ready; wait for the import to finish or upload it again");
     const template = getTemplate(ctx.db, input.templateId);
     if (!template) throw notFound("Template");
-    const id = await createCampaign(ctx.db, { ...input, templateVersion: template.version });
+    const id = await createCampaign(ctx.db, { ...input, templateVersion: template.version }, creating);
     return reply.code(201).send(view(id));
   });
 
   app.get("/api/campaigns/:id", async (request): Promise<CampaignView> => view(requireCampaign(request.params).id));
 
   app.put("/api/campaigns/:id/schedule", async (request): Promise<CampaignView> => {
-    const c = requireCampaign(request.params);
+    const c = settledCampaign(request.params);
     const { schedule } = scheduleUpdateSchema.parse(request.body ?? {});
     if (!SCHEDULE_EDITABLE.has(c.status)) throw invalidState("Pause the campaign before changing its schedule");
     updateSchedule(ctx.db, c.id, schedule);
@@ -118,7 +125,7 @@ export function campaignRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.get("/api/campaigns/:id/gates", async (request): Promise<GatesResult> => gatesFor(requireCampaign(request.params).id));
 
   app.post("/api/campaigns/:id/start", async (request): Promise<CampaignView> => {
-    const c = requireCampaign(request.params);
+    const c = settledCampaign(request.params);
     if (ACTIVE_STATUSES.has(c.status)) throw invalidState("This campaign is already sending");
     if (c.status === "stopped") throw invalidState("A stopped campaign cannot be restarted; create a new campaign");
     requireGates(c.id);
@@ -135,7 +142,7 @@ export function campaignRoutes(app: FastifyInstance, ctx: AppContext): void {
   });
 
   app.post("/api/campaigns/:id/resume", async (request): Promise<CampaignView> => {
-    const c = requireCampaign(request.params);
+    const c = settledCampaign(request.params);
     if (!RESUMABLE.has(c.status)) throw invalidState("Only a paused campaign can be resumed");
     requireGates(c.id);
     workerCall(() => (isWorkerCampaign(c.id) ? ctx.worker.resume() : ctx.worker.start(c.id)));
@@ -157,7 +164,7 @@ export function campaignRoutes(app: FastifyInstance, ctx: AppContext): void {
   });
 
   app.post("/api/campaigns/:id/requeue", async (request) => {
-    const c = requireCampaign(request.params);
+    const c = settledCampaign(request.params);
     const { contactIds } = requeueSchema.parse(request.body ?? {});
     const requeued = ctx.worker.requeueUncertain(c.id, contactIds);
     if (requeued > 0) {
@@ -173,7 +180,7 @@ export function campaignRoutes(app: FastifyInstance, ctx: AppContext): void {
   });
 
   app.delete("/api/campaigns/:id", async (request, reply) => {
-    const c = requireCampaign(request.params);
+    const c = settledCampaign(request.params);
     if (!DELETABLE.has(c.status)) throw invalidState("Stop the campaign before deleting it");
     deleteCampaign(ctx.db, c.id);
     return reply.code(204).send();
