@@ -9,6 +9,7 @@ import {
   windowBounds,
   nextSendTime,
   estimateSchedule,
+  NoSendWindowError,
   type Schedule,
 } from "../../server/domain/schedule.ts";
 
@@ -208,8 +209,8 @@ describe("nextSendTime", () => {
     expect(nextSendTime(at("2026-10-26T03:00:00Z"), kolkata).toISOString()).toBe("2026-10-26T03:30:00.000Z");
   });
 
-  it("throws instead of looping when there are no send days", () => {
-    expect(() => nextSendTime(at("2026-10-26T10:00:00Z"), schedule({ sendDays: [] }))).toThrow();
+  it("throws NoSendWindowError instead of looping when there are no send days", () => {
+    expect(() => nextSendTime(at("2026-10-26T10:00:00Z"), schedule({ sendDays: [] }))).toThrow(NoSendWindowError);
   });
 });
 
@@ -302,6 +303,23 @@ describe("estimateSchedule", () => {
       sentToday: 50,
     });
     expect(estimate.perDay).toEqual([{ date: "2026-10-27", count: 100 }]);
+  });
+
+  for (const [label, now] of [
+    ["16:59", "2026-10-26T20:59:00Z"],
+    ["17:01", "2026-10-26T21:01:00Z"],
+  ] as const) {
+    it(`counts today's warm-up step once sentToday > 0, at ${label} local`, () => {
+      const warm = schedule({ warmup: true, dailyCap: 2000, delaySeconds: 1 });
+      const estimate = estimateSchedule({ remaining: 100, schedule: warm, now: at(now), sendDayIndex: 0, sentToday: 50 });
+      expect(estimate.perDay).toEqual([{ date: "2026-10-27", count: 100 }]);
+    });
+  }
+
+  it("keeps sendDayIndex for the next send day when sentToday is 0 past the window end", () => {
+    const warm = schedule({ warmup: true, dailyCap: 2000, delaySeconds: 1 });
+    const estimate = estimateSchedule({ remaining: 100, schedule: warm, now: at("2026-10-26T21:01:00Z"), sendDayIndex: 0, sentToday: 0 });
+    expect(estimate.perDay[0]).toEqual({ date: "2026-10-27", count: 50 });
   });
 
   it("skips today without consuming a warm-up day when now is past the window end", () => {

@@ -81,6 +81,8 @@ export function isWithinWindow(instant: Date, s: Schedule): boolean {
   return instant >= start && instant < end;
 }
 
+export class NoSendWindowError extends Error {}
+
 export function nextSendTime(now: Date, s: Schedule): Date {
   let date = localDateKey(now, s.timezone);
   for (let i = 0; i < NEXT_SEND_SEARCH_DAYS; i++, date = addDays(date, 1)) {
@@ -89,7 +91,7 @@ export function nextSendTime(now: Date, s: Schedule): Date {
     if (now >= end || end <= start) continue;
     return now >= start ? new Date(now.getTime()) : start;
   }
-  throw new Error(`No send window within ${NEXT_SEND_SEARCH_DAYS} days.`);
+  throw new NoSendWindowError(`No send window within ${NEXT_SEND_SEARCH_DAYS} days.`);
 }
 
 export interface EstimateInput {
@@ -97,6 +99,10 @@ export interface EstimateInput {
   schedule: Schedule;
   now: Date;
   sentToday?: number;
+  /**
+   * When sentToday > 0: the warm-up step today has consumed, even if today's window is closed.
+   * When sentToday is 0/absent: the warm-up step of the next send day.
+   */
   sendDayIndex?: number;
 }
 
@@ -125,16 +131,18 @@ export function estimateSchedule(input: EstimateInput): Estimate {
     if (!isSendDay(date, s)) continue;
     const { start, end } = windowBounds(date, s);
     const isToday = i === 0;
+    const stepUsedToday = isToday && sentToday > 0;
+    const quota = warmupQuota(index, s.dailyCap, s.warmup) - (isToday ? sentToday : 0);
+    if (stepUsedToday) index++;
     if (isToday && now >= end) continue;
     const from = isToday && now > start ? now : start;
     const windowSeconds = Math.max(0, (end.getTime() - from.getTime()) / 1000);
-    const quota = warmupQuota(index, s.dailyCap, s.warmup) - (isToday ? sentToday : 0);
     const count = Math.min(Math.max(0, quota), Math.floor(windowSeconds / s.delaySeconds), left);
     if (count > 0) {
       perDay.push({ date, count });
       left -= count;
+      if (!stepUsedToday) index++;
     }
-    if (count > 0 || (isToday && sentToday > 0)) index++;
   }
 
   if (left > 0) {
