@@ -55,6 +55,13 @@ export function getListColumns(db: DatabaseSync, listId: number): string[] {
   return row ? Object.keys(JSON.parse(row.fields_json) as Record<string, unknown>) : [];
 }
 
+export function failInterruptedImports(db: DatabaseSync): number {
+  const r = db
+    .prepare("UPDATE lists SET status = 'failed', error = ? WHERE status = 'importing'")
+    .run("The import was interrupted by a restart; upload the file again");
+  return Number(r.changes);
+}
+
 export function deleteList(db: DatabaseSync, id: number): void {
   transaction(db, () => {
     if (db.prepare("SELECT 1 FROM campaigns WHERE list_id = ? LIMIT 1").get(id)) {

@@ -25,11 +25,12 @@ export interface ServerDeps {
   dnsResolver?: AuthResolver;
   verifySmtp?: (cfg: SmtpConfig) => Promise<void>;
   smtpTestTimeoutMs?: number;
+  uploadLimitBytes?: number;
   createDomainChecker?: () => (domain: string) => Promise<DomainStatus>;
   registerSecret?: (value: string) => void;
   log?: Logger;
 }
 
-type OptionalInContext = "dnsResolver" | "smtpTestTimeoutMs";
+type OptionalInContext = "dnsResolver" | "smtpTestTimeoutMs" | "uploadLimitBytes";
 
 export type AppContext = Required<Omit<ServerDeps, OptionalInContext>> & Pick<ServerDeps, OptionalInContext>;

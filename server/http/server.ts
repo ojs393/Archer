@@ -9,6 +9,7 @@ import type { AppContext, ServerDeps } from "./context.ts";
 import { errorHandler } from "./errors.ts";
 import { ImportJobs } from "./importJobs.ts";
 import { healthRoutes } from "./routes/health.ts";
+import { listRoutes } from "./routes/lists.ts";
 import { sessionRoutes } from "./routes/session.ts";
 import { settingsRoutes } from "./routes/settings.ts";
 import { suppressionRoutes } from "./routes/suppression.ts";
@@ -61,7 +62,9 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
 
   installJsonParser(app);
   app.register(fastifyCookie);
-  app.register(fastifyMultipart, { limits: { fileSize: UPLOAD_LIMIT, files: 1, fields: 20, fieldSize: 64 * 1024, parts: 21 } });
+  app.register(fastifyMultipart, {
+    limits: { fileSize: ctx.uploadLimitBytes ?? UPLOAD_LIMIT, files: 1, fields: 20, fieldSize: 64 * 1024, parts: 21 },
+  });
   app.addHook("onRequest", securityHook({ port: ctx.port, sessionToken: ctx.sessionToken, devOrigin: ctx.env.MAMADIRECT_DEV_ORIGIN }));
   applySecurityHeaders(app);
   app.setErrorHandler(errorHandler(ctx.log));
@@ -69,6 +72,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   sessionRoutes(app, ctx);
   healthRoutes(app, ctx);
   settingsRoutes(app, ctx);
+  listRoutes(app, ctx);
   suppressionRoutes(app, ctx);
   registerWeb(app, { webDir: ctx.webDir, sessionToken: ctx.sessionToken });
   return app;

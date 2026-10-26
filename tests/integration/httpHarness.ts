@@ -8,6 +8,7 @@ import { openDb } from "../../server/db/index.ts";
 import type { AuthResolver } from "../../server/dns/check.ts";
 import { HealthMonitor } from "../../server/health/monitor.ts";
 import { EventHub } from "../../server/http/events.ts";
+import { ImportJobs } from "../../server/http/importJobs.ts";
 import { buildServer, type ServerDeps } from "../../server/http/server.ts";
 import type { DomainStatus } from "../../server/import/mx.ts";
 import { getSenderConfig, getSettingsView } from "../../server/settings/store.ts";
@@ -35,6 +36,8 @@ export interface Harness {
   events: EventHub;
   health: HealthMonitor;
   worker: SendWorker;
+  imports: ImportJobs;
+  published: { name: string; data: any }[];
   close(): Promise<void>;
 }
 
@@ -47,6 +50,7 @@ export interface HarnessOptions {
   probeNetwork?: (host: string) => Promise<boolean>;
   registerSecret?: (value: string) => void;
   extend?: (app: FastifyInstance) => void;
+  uploadLimitBytes?: number;
   build?: (deps: ServerDeps) => FastifyInstance;
 }
 
@@ -57,6 +61,13 @@ export async function makeHarness(opts: HarnessOptions = {}): Promise<Harness> {
   const db = openDb(paths.dbPath);
   const env: Record<string, string | undefined> = { UNSUB_SECRET, ...opts.env };
   const events = new EventHub();
+  const published: Harness["published"] = [];
+  const publish = events.publish.bind(events);
+  events.publish = (name, data) => {
+    published.push({ name, data });
+    publish(name, data);
+  };
+  const log = { info() {}, warn() {}, error() {} };
   const worker = new SendWorker({ db, getSenderConfig: () => getSenderConfig(db, env) });
   const health = new HealthMonitor({
     db,
@@ -64,6 +75,12 @@ export async function makeHarness(opts: HarnessOptions = {}): Promise<Harness> {
     getSmtpHost: () => getSettingsView(db, env).smtp.host,
     probeNetwork: opts.probeNetwork ?? (async () => true),
     onChange: (h) => events.publish("health", h),
+  });
+  const imports = new ImportJobs({
+    db,
+    events,
+    createDomainChecker: opts.createDomainChecker ?? (() => async () => "ok" as const),
+    log,
   });
   const deps: ServerDeps = {
     db,
@@ -79,7 +96,9 @@ export async function makeHarness(opts: HarnessOptions = {}): Promise<Harness> {
     verifySmtp: opts.verifySmtp,
     createDomainChecker: opts.createDomainChecker,
     registerSecret: opts.registerSecret ?? (() => {}),
-    log: { info() {}, warn() {}, error() {} },
+    uploadLimitBytes: opts.uploadLimitBytes,
+    imports,
+    log,
   };
   const app = (opts.build ?? buildServer)(deps);
   opts.extend?.(app);
@@ -93,8 +112,11 @@ export async function makeHarness(opts: HarnessOptions = {}): Promise<Harness> {
     events,
     health,
     worker,
+    imports,
+    published,
     async close() {
       events.closeAll();
+      await imports.idle();
       await app.close().catch(() => {});
       await worker.shutdown(500);
       db.close();

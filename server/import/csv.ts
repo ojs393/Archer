@@ -31,7 +31,7 @@ export function sniffDelimiter(firstLine: string): Delimiter {
   return max > 0 && winners.length === 1 ? winners[0] : ",";
 }
 
-function looksLikeEmail(cell: string): boolean {
+export function looksLikeEmail(cell: string): boolean {
   return isValidEmail(normalizeEmail(cell));
 }
 
@@ -79,7 +79,7 @@ async function readFirstLine(filePath: string): Promise<string> {
   }
 }
 
-function uniqueHeaders(cells: string[]): string[] {
+export function uniqueHeaders(cells: string[]): string[] {
   const seen = new Set<string>();
   return cells.map((cell, i) => {
     const base = cell.trim() || `column_${i + 1}`;
