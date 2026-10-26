@@ -10,17 +10,26 @@ export const eventStream = new EventStream({ url: "/api/events", beforeReconnect
 
 type QueryKeyName = keyof typeof queryKeys;
 
+/** Analytics queries are heavier, so they refetch at most this often however many events arrive. */
+const MIN_INVALIDATE_INTERVAL_MS: Partial<Record<QueryKeyName, number>> = { analytics: 5_000 };
+
 function syncQueries(stream: EventStream, client: QueryClient): () => void {
-  const pending = new Set<QueryKeyName>();
-  let timer: ReturnType<typeof setTimeout> | null = null;
-  const flush = () => {
-    timer = null;
-    for (const name of pending) void client.invalidateQueries({ queryKey: queryKeys[name] });
-    pending.clear();
-  };
+  const timers = new Map<QueryKeyName, ReturnType<typeof setTimeout>>();
+  const lastRun = new Map<QueryKeyName, number>();
   const invalidate = (...names: QueryKeyName[]) => {
-    for (const name of names) pending.add(name);
-    timer ??= setTimeout(flush, INVALIDATE_COALESCE_MS);
+    for (const name of names) {
+      if (timers.has(name)) continue;
+      const earliest = (lastRun.get(name) ?? -Infinity) + (MIN_INVALIDATE_INTERVAL_MS[name] ?? 0);
+      const wait = Math.max(INVALIDATE_COALESCE_MS, earliest - Date.now());
+      timers.set(
+        name,
+        setTimeout(() => {
+          timers.delete(name);
+          lastRun.set(name, Date.now());
+          void client.invalidateQueries({ queryKey: queryKeys[name] });
+        }, wait),
+      );
+    }
   };
 
   let everConnected = stream.getState().connected;
@@ -41,16 +50,15 @@ function syncQueries(stream: EventStream, client: QueryClient): () => void {
       invalidate("campaigns", "analytics");
     }),
     stream.on("health", (health) => client.setQueryData(queryKeys.health, health)),
-    stream.on("worker", () => invalidate("status", "campaigns", "analytics")),
+    stream.on("worker", () => invalidate("status", "campaigns")),
     stream.on("import", (event) => {
       if (event.phase === "done" || event.phase === "failed") invalidate("lists");
     }),
   ];
   return () => {
     for (const off of offs) off();
-    if (timer) clearTimeout(timer);
-    timer = null;
-    pending.clear();
+    for (const timer of timers.values()) clearTimeout(timer);
+    timers.clear();
   };
 }
 
@@ -70,17 +78,26 @@ function bindQueryClient(stream: EventStream, client: QueryClient): () => void {
   };
 }
 
-/** Holds the shared `/api/events` connection open while mounted and keeps React Query in step with it. */
-export function useEventStream(stream: EventStream = eventStream): StreamState {
+/**
+ * Holds the shared `/api/events` connection open while mounted (and `enabled`) and keeps React Query in
+ * step with it. Mount it once near the root; components that only display the state use `useEventStreamState`.
+ */
+export function useEventStream({ enabled = true, stream = eventStream }: { enabled?: boolean; stream?: EventStream } = {}): StreamState {
   const client = useQueryClient();
   useEffect(() => {
+    if (!enabled) return;
     const unbind = bindQueryClient(stream, client);
     const release = stream.retain();
     return () => {
       release();
       unbind();
     };
-  }, [stream, client]);
+  }, [enabled, stream, client]);
+  return useEventStreamState(stream);
+}
+
+/** The shared stream's state, without opening or holding the connection. */
+export function useEventStreamState(stream: EventStream = eventStream): StreamState {
   return useSyncExternalStore(stream.subscribeState, stream.getState);
 }
 

@@ -11,6 +11,7 @@ import { useSession } from "@/lib/queries";
 import { lazyPanel } from "@/lib/lazyPanel";
 import { createQueryClient } from "@/lib/queryClient";
 import { isTabId, TAB_IDS, type TabId } from "@/lib/tabs";
+import { useEventStream } from "@/lib/useEventStream";
 import { AppHeader } from "@/shell/AppHeader";
 import { PanelBoundary } from "@/shell/PanelBoundary";
 import { ReconnectBanner } from "@/shell/ReconnectBanner";
@@ -40,6 +41,7 @@ function Shell() {
   const [tab, setTab] = useHashTab();
   const session = useSession();
   const ready = session.isSuccess;
+  useEventStream({ enabled: ready });
   const Panel = PANELS[tab];
   const roving = useRef(false);
 

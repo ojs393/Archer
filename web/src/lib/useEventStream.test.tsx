@@ -236,6 +236,85 @@ describe("useEventStream", () => {
     expect(keys).toEqual(["analytics", "campaigns", "lists", "status"]);
   });
 
+  it("never invalidates analytics for worker events", async () => {
+    const { useEventStream } = await loadHook();
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    function Consumer() {
+      useEventStream();
+      return null;
+    }
+    render(<Consumer />, { wrapper: wrapper(client) });
+    act(() => latest().open());
+    for (let s = 0; s < 8; s++) {
+      act(() => latest().emit("worker", { type: "sent", campaignId: 1, message: "ok", at: "" }));
+      await act(() => vi.advanceTimersByTimeAsync(1000));
+    }
+    const keys = new Set(invalidate.mock.calls.map(([filters]) => (filters as { queryKey: string[] }).queryKey[0]));
+    expect([...keys].sort()).toEqual(["campaigns", "status"]);
+  });
+
+  it("invalidates analytics for status events at most once every 5 s", async () => {
+    const { useEventStream } = await loadHook();
+    const client = new QueryClient();
+    const invalidate = vi.spyOn(client, "invalidateQueries");
+    const analyticsCalls = () =>
+      invalidate.mock.calls.filter(([filters]) => (filters as { queryKey: string[] }).queryKey[0] === "analytics").length;
+    function Consumer() {
+      useEventStream();
+      return null;
+    }
+    render(<Consumer />, { wrapper: wrapper(client) });
+    act(() => latest().open());
+
+    for (let s = 0; s < 3; s++) {
+      act(() => latest().emit("status", snapshot));
+      await act(() => vi.advanceTimersByTimeAsync(1000));
+    }
+    expect(analyticsCalls()).toBe(1);
+    await act(() => vi.advanceTimersByTimeAsync(2000));
+    expect(analyticsCalls()).toBe(1);
+    await act(() => vi.advanceTimersByTimeAsync(1000));
+    expect(analyticsCalls()).toBe(2);
+    await act(() => vi.advanceTimersByTimeAsync(10_000));
+    expect(analyticsCalls()).toBe(2);
+  });
+
+  it("opens no connection while disabled", async () => {
+    const { useEventStream } = await loadHook();
+    const client = new QueryClient();
+    function Consumer({ enabled }: { enabled: boolean }) {
+      useEventStream({ enabled });
+      return null;
+    }
+    const view = render(<Consumer enabled={false} />, { wrapper: wrapper(client) });
+    expect(FakeEventSource.instances).toHaveLength(0);
+    view.rerender(<Consumer enabled />);
+    expect(FakeEventSource.instances).toHaveLength(1);
+  });
+
+  it("lets a component read the shared state without holding the connection", async () => {
+    const { useEventStream, useEventStreamState } = await loadHook();
+    const client = new QueryClient();
+    function Holder() {
+      useEventStream();
+      return null;
+    }
+    function Reader() {
+      return <span data-testid="state">{useEventStreamState().connected ? "up" : "down"}</span>;
+    }
+    const view = render(<Reader />, { wrapper: wrapper(client) });
+    expect(FakeEventSource.instances).toHaveLength(0);
+    view.rerender(
+      <>
+        <Holder />
+        <Reader />
+      </>,
+    );
+    act(() => latest().open());
+    expect(screen.getByTestId("state")).toHaveTextContent("up");
+  });
+
   it("refreshes cached lists after a reconnect", async () => {
     const { useEventStream } = await loadHook();
     const client = new QueryClient();

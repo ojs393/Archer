@@ -1,12 +1,12 @@
 import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
-import { useEventStream } from "@/lib/useEventStream";
+import { useEventStreamState } from "@/lib/useEventStream";
 
 export const RECONNECT_BANNER_DELAY_MS = 3_000;
 
-/** Thin notice once the live connection has been down for more than a few seconds. */
+/** Thin notice once the live connection (held by the shell) has been down for more than a few seconds. */
 export function ReconnectBanner() {
-  const { connected, downSince } = useEventStream();
+  const { connected, downSince } = useEventStreamState();
   const [, rerender] = useState(0);
   const downFor = !connected && downSince !== null ? Date.now() - downSince : 0;
   const visible = !connected && downSince !== null && downFor > RECONNECT_BANNER_DELAY_MS;
