@@ -1,7 +1,7 @@
 import { Info } from "lucide-react";
 import type { ReactNode } from "react";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { cn } from "@/lib/utils";
+import { cn, focusRing } from "@/lib/utils";
 
 /** Compact "i" control that reveals longer help copy on click. */
 export function InfoHint({ label, children, className }: { label: string; children: ReactNode; className?: string }) {
@@ -11,9 +11,9 @@ export function InfoHint({ label, children, className }: { label: string; childr
         <button
           type="button"
           className={cn(
-            "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-400 transition-colors",
+            "inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-zinc-500 transition-colors",
             "hover:bg-zinc-100 hover:text-zinc-700 data-[state=open]:text-primary",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+            focusRing,
             className,
           )}
           aria-label={label}

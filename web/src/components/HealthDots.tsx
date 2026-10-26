@@ -4,7 +4,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { formatDateTime } from "@/lib/format";
 import { healthStatusView } from "@/lib/status";
 import type { Health, HealthItem } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import { cn, focusRing } from "@/lib/utils";
 
 const ITEMS: readonly { key: keyof Health; label: string }[] = [
   { key: "smtp", label: "SMTP" },
@@ -25,7 +25,8 @@ function HealthDot({ label, item }: { label: string; item: HealthItem | undefine
               aria-label={`${label}: ${view.label}`}
               className={cn(
                 "inline-flex h-8 w-5 items-center sm:w-6 justify-center rounded-md transition-colors hover:bg-zinc-100",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40 aria-expanded:bg-zinc-100",
+                "aria-expanded:bg-zinc-100",
+                focusRing,
               )}
             >
               <StatusDot tone={view.tone} />

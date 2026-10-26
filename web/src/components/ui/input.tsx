@@ -1,12 +1,13 @@
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { cn, focusRing } from "@/lib/utils";
 
 export const fieldClass = cn(
   "w-full rounded-md border border-input bg-background px-3 text-sm text-foreground shadow-card transition-colors",
   "placeholder:text-muted-foreground hover:border-zinc-400",
-  "focus-visible:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40",
+  "focus-visible:border-primary",
+  focusRing,
   "disabled:cursor-not-allowed disabled:bg-zinc-50 disabled:opacity-60",
-  "aria-[invalid=true]:border-destructive aria-[invalid=true]:focus-visible:ring-destructive/30",
+  "aria-[invalid=true]:border-destructive",
 );
 
 const Input = React.forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>(

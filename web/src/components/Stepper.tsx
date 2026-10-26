@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, focusRing } from "@/lib/utils";
 
 export interface StepperStep {
   id: string;
@@ -49,7 +49,7 @@ export function Stepper({
               <button
                 type="button"
                 onClick={() => onSelect(index)}
-                className="flex min-w-0 items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+                className={cn("flex min-w-0 items-center gap-2 rounded-md", focusRing)}
               >
                 {marker}
               </button>

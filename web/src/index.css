@@ -29,7 +29,7 @@
 
     --border: 240 5.9% 90%;
     --input: 240 4.9% 83.9%;
-    --ring: 217.2 91.2% 59.8%;
+    --ring: 221.2 83.2% 53.3%;
 
     --status-ok: 142.1 76.2% 36.3%;
     --status-warn: 32.1 94.6% 43.7%;
@@ -65,8 +65,8 @@
   }
 
   :focus-visible {
-    outline: 2px solid hsl(var(--ring) / 0.4);
-    outline-offset: 1px;
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
   }
 
   @media (prefers-reduced-motion: reduce) {

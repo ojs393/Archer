@@ -1,6 +1,6 @@
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import * as React from "react";
-import { cn } from "@/lib/utils";
+import { cn, focusRing, focusRingInset } from "@/lib/utils";
 
 const Tabs = TabsPrimitive.Root;
 
@@ -23,7 +23,7 @@ const TabsTrigger = React.forwardRef<
       "hover:text-zinc-900 [&_svg]:size-4 [&_svg]:shrink-0",
       "after:absolute after:inset-x-2 after:bottom-0 after:h-0.5 after:rounded-full after:bg-transparent after:transition-colors",
       "aria-selected:text-zinc-950 aria-selected:after:bg-primary",
-      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring/40",
+      focusRingInset,
       "disabled:pointer-events-none disabled:opacity-50",
       className,
     )}
@@ -38,7 +38,7 @@ const TabsContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
-    className={cn("focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40", className)}
+    className={cn(focusRing, className)}
     {...props}
   />
 ));

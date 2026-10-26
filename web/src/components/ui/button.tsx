@@ -2,9 +2,7 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { Loader2 } from "lucide-react";
 import * as React from "react";
-import { cn } from "@/lib/utils";
-
-const focusRing = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40";
+import { cn, focusRing } from "@/lib/utils";
 
 const buttonVariants = cva(
   cn(
@@ -68,4 +66,4 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 );
 Button.displayName = "Button";
 
-export { Button, buttonVariants, focusRing };
+export { Button, buttonVariants };

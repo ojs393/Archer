@@ -2,7 +2,7 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
 import * as React from "react";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, focusRing } from "@/lib/utils";
 
 const Dialog = DialogPrimitive.Root;
 const DialogTrigger = DialogPrimitive.Trigger;
@@ -36,7 +36,10 @@ const DialogContent = React.forwardRef<
         <Tooltip>
           <TooltipTrigger asChild>
             <DialogPrimitive.Close
-              className="absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
+              className={cn(
+                "absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900",
+                focusRing,
+              )}
               aria-label="Close"
             >
               <X className="h-4 w-4" aria-hidden="true" />
