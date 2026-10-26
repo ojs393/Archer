@@ -8,6 +8,8 @@ import { buildTransport, verifyTransport } from "../send/transport.ts";
 import type { AppContext, ServerDeps } from "./context.ts";
 import { errorHandler } from "./errors.ts";
 import { ImportJobs } from "./importJobs.ts";
+import { campaignRoutes } from "./routes/campaigns.ts";
+import { estimateRoutes } from "./routes/estimate.ts";
 import { healthRoutes } from "./routes/health.ts";
 import { listRoutes } from "./routes/lists.ts";
 import { sessionRoutes } from "./routes/session.ts";
@@ -85,6 +87,8 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   listRoutes(app, ctx);
   suppressionRoutes(app, ctx);
   templateRoutes(app, ctx);
+  campaignRoutes(app, ctx);
+  estimateRoutes(app);
   app.register(unsubscribePlugin, { db: ctx.db, env: ctx.env, log: ctx.log });
   registerWeb(app, { webDir: ctx.webDir, sessionToken: ctx.sessionToken });
   return app;
