@@ -6,9 +6,9 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "setup": "node --disable-warning=ExperimentalWarning scripts/setup.mjs",
-    "doctor": "node --disable-warning=ExperimentalWarning scripts/doctor.mjs",
-    "start": "node --disable-warning=ExperimentalWarning scripts/doctor.mjs --quick && node --disable-warning=ExperimentalWarning --import tsx server/supervisor.ts",
+    "setup": "node scripts/setup.mjs",
+    "doctor": "node scripts/doctor.mjs",
+    "start": "node scripts/doctor.mjs --quick && node --disable-warning=ExperimentalWarning --import tsx server/supervisor.ts",
     "dev": "node --disable-warning=ExperimentalWarning --import tsx server/index.ts",
     "build:web": "vite build",
     "typecheck": "tsc --noEmit",
@@ -24,7 +24,7 @@
     "fastify": "5.12.7",
     "html-to-text": "10.0.1",
     "nodemailer": "10.2.1",
-    "zod": "3.25.76"
+    "zod": "4.6.7"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",

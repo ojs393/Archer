@@ -34,6 +34,15 @@ describe("run", () => {
     expect(r.attempts).toBe(1);
   });
 
+  it("captures stdout when stdio is piped", async () => {
+    const r = await run(node, ["-e", "process.stdout.write('x'.repeat(200000)); process.exitCode = 1"], {
+      stdio: "pipe",
+      timeoutMs: 10_000,
+    });
+    expect(r.code).toBe(1);
+    expect(r.stdout).toHaveLength(200_000);
+  });
+
   it("reports a command that cannot be spawned", async () => {
     const r = await run("mamadirect-no-such-binary", [], { ...quiet, timeoutMs: 10_000 });
     expect(r.ok).toBe(false);

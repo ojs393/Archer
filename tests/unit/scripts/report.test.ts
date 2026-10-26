@@ -11,6 +11,12 @@ describe("formatResult", () => {
     );
   });
 
+  it("aligns WARN like the other statuses", () => {
+    expect(formatResult({ status: "WARN", name: "npm audit", detail: "2 high/critical advisories" })).toBe(
+      "WARN  npm audit (2 high/critical advisories)",
+    );
+  });
+
   it("omits empty detail", () => {
     expect(formatResult({ status: "PASS", name: "node" })).toBe("PASS  node");
   });

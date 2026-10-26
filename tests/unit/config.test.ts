@@ -23,6 +23,12 @@ describe("resolvePaths", () => {
     expect(p.envPath).toBe(path.join(root, ".env"));
   });
 
+  it("resolves a relative MAMADIRECT_DATA_DIR against the project root, not cwd", () => {
+    const p = resolvePaths({ root, env: { MAMADIRECT_DATA_DIR: path.join("var", "md") } });
+    expect(p.dataDir).toBe(path.join(root, "var", "md"));
+    expect(p.dbPath).toBe(path.join(root, "var", "md", "mamadirect.db"));
+  });
+
   it("ignores an empty MAMADIRECT_DATA_DIR", () => {
     const p = resolvePaths({ root, env: { MAMADIRECT_DATA_DIR: "" } });
     expect(p.dataDir).toBe(path.join(root, "data"));

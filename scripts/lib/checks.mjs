@@ -79,12 +79,36 @@ function database(paths) {
   };
 }
 
-async function audit(root) {
+function countHighAdvisories(stdout) {
+  try {
+    const counts = JSON.parse(stdout ?? "").metadata?.vulnerabilities;
+    if (!counts) return null;
+    return (counts.high ?? 0) + (counts.critical ?? 0);
+  } catch {
+    return null;
+  }
+}
+
+export function auditResult(r) {
   const name = "npm audit";
-  const r = await runNpm(["audit", "--audit-level=high"], { cwd: root, timeoutMs: AUDIT_TIMEOUT_MS });
   if (r.ok) return { status: "PASS", name, detail: "no high-severity advisories" };
   if (r.timedOut) return { status: "SKIP", name, detail: "timed out" };
-  return { status: "FAIL", name, detail: "high-severity advisories or audit unavailable; report only, see above" };
+  const count = countHighAdvisories(r.stdout);
+  if (count === null) {
+    const why = r.error ?? `exit code ${r.code}`;
+    return { status: "WARN", name, detail: `could not complete (${why}); run npm audit for details` };
+  }
+  const noun = count === 1 ? "advisory" : "advisories";
+  return { status: "WARN", name, detail: `${count} high/critical ${noun}; run npm audit for details` };
+}
+
+async function audit(root) {
+  const r = await runNpm(["audit", "--json", "--audit-level=high"], {
+    cwd: root,
+    timeoutMs: AUDIT_TIMEOUT_MS,
+    stdio: ["ignore", "pipe", "ignore"],
+  });
+  return auditResult(r);
 }
 
 async function selfTest(root) {

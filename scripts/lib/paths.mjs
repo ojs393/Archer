@@ -7,7 +7,7 @@ export function projectRoot() {
 
 export function resolvePaths({ root, env }) {
   const dataDir = env.MAMADIRECT_DATA_DIR
-    ? path.resolve(env.MAMADIRECT_DATA_DIR)
+    ? path.resolve(root, env.MAMADIRECT_DATA_DIR)
     : path.join(root, "data");
   return {
     root,

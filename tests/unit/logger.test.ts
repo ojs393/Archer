@@ -40,6 +40,37 @@ describe("logger", () => {
     expect(lines[2]).toContain("Error: auth failed for ***");
   });
 
+  describe("secrets containing characters that serializers escape", () => {
+    const secret = `q"u\\o't'e`;
+    const forms = [secret, JSON.stringify(secret).slice(1, -1), secret.replace(/'/g, "\\'")];
+    const leaked = (text: string) => forms.filter((f) => text.includes(f));
+
+    it("redacts them in strings, objects, and circular objects", () => {
+      registerSecret(secret);
+      const log = createLogger({ logFile, write: (l) => lines.push(l) });
+      const circular: Record<string, unknown> = { pass: secret, nested: [{ token: secret }] };
+      circular.self = circular;
+
+      log.info(`pass=${secret}`);
+      log.info({ pass: secret, [secret]: "as key" });
+      log.info(circular);
+
+      const all = lines.join("\n") + fs.readFileSync(logFile, "utf8");
+      expect(leaked(all)).toEqual([]);
+      expect(lines[0]).toContain("pass=***");
+      expect(lines[1]).toContain('{"pass":"***","***":"as key"}');
+      expect(lines[2]).toContain("pass: '***'");
+      expect(lines[2]).toContain("token: '***'");
+      expect(lines[2]).toContain("[Circular");
+    });
+  });
+
+  it("keeps non-plain values like dates readable", () => {
+    const log = createLogger({ write: (l) => lines.push(l) });
+    log.info({ at: new Date("2026-01-02T03:04:05.000Z") });
+    expect(lines[0]).toContain('{"at":"2026-01-02T03:04:05.000Z"}');
+  });
+
   it("ignores empty secrets", () => {
     registerSecret("");
     registerSecret(undefined);

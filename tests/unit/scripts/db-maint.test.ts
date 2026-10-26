@@ -1,9 +1,12 @@
+import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { pathToFileURL } from "node:url";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { checkIntegrity, restoreLatestBackup } from "../../../scripts/lib/db-maint.mjs";
+import { projectRoot } from "../../../scripts/lib/paths.mjs";
 
 let dir: string;
 let dbPath: string;
@@ -65,6 +68,19 @@ describe("checkIntegrity", () => {
   it("does not create a file when the database is missing", () => {
     checkIntegrity(dbPath);
     expect(fs.existsSync(dbPath)).toBe(false);
+  });
+
+  it("does not print the node:sqlite ExperimentalWarning when run without node flags", () => {
+    makeDb(dbPath, "x");
+    const moduleUrl = pathToFileURL(path.join(projectRoot(), "scripts", "lib", "db-maint.mjs")).href;
+    const script = `const m = await import(${JSON.stringify(moduleUrl)});
+      console.log(JSON.stringify(m.checkIntegrity(${JSON.stringify(dbPath)})));`;
+    const child = spawnSync(process.execPath, ["--input-type=module", "-e", script], {
+      encoding: "utf8",
+      env: { ...process.env, NODE_OPTIONS: "" },
+    });
+    expect(child.stderr).toBe("");
+    expect(JSON.parse(child.stdout)).toEqual({ ok: true, status: "ok" });
   });
 });
 

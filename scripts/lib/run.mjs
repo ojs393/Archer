@@ -29,8 +29,14 @@ function runOnce(command, args, { cwd, env, shell = false, stdio = "inherit", ti
       terminate(child);
     }, timeoutMs);
 
-    child.once("error", (err) => finish({ ok: false, code: null, timedOut, error: err.message }));
-    child.once("close", (code) => finish({ ok: code === 0 && !timedOut, code, timedOut }));
+    // Piped streams must be drained or a chatty child blocks once the pipe buffer fills.
+    const out = [];
+    child.stdout?.on("data", (chunk) => out.push(chunk));
+    child.stderr?.resume();
+    const captured = () => (child.stdout ? { stdout: Buffer.concat(out).toString("utf8") } : {});
+
+    child.once("error", (err) => finish({ ok: false, code: null, timedOut, error: err.message, ...captured() }));
+    child.once("close", (code) => finish({ ok: code === 0 && !timedOut, code, timedOut, ...captured() }));
   });
 }
 

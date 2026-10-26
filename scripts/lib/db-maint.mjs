@@ -5,9 +5,25 @@ const SQLITE_CORRUPT = 11;
 const SQLITE_NOTADB = 26;
 const SIDECARS = ["-wal", "-shm"];
 
+function loadSqlite() {
+  // doctor/setup can't pass --disable-warning (older Nodes reject the flag before the version
+  // check runs), so mute only node:sqlite's ExperimentalWarning, only while the module loads.
+  const emitWarning = process.emitWarning;
+  process.emitWarning = function (warning, ...rest) {
+    const type = typeof rest[0] === "string" ? rest[0] : rest[0]?.type;
+    const message = typeof warning === "string" ? warning : warning?.message;
+    if (type === "ExperimentalWarning" && /sqlite/i.test(message ?? "")) return;
+    return emitWarning.call(this, warning, ...rest);
+  };
+  try {
+    return process.getBuiltinModule("node:sqlite");
+  } finally {
+    process.emitWarning = emitWarning;
+  }
+}
+
 function openDatabase(dbPath) {
-  // Loaded lazily so scripts that never touch a database don't pay for (or warn about) node:sqlite.
-  const { DatabaseSync } = process.getBuiltinModule("node:sqlite");
+  const { DatabaseSync } = loadSqlite();
   return new DatabaseSync(dbPath);
 }
 

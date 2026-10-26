@@ -24,13 +24,33 @@ export function redact(text: string): string {
   return ordered.reduce((out, secret) => out.split(secret).join(REDACTED), text);
 }
 
+// Redaction must happen on raw values: once serialized, JSON/inspect escape quotes and
+// backslashes, so a secret containing them would no longer match.
+function redactDeep(value: unknown, seen: WeakMap<object, unknown>): unknown {
+  if (typeof value === "string") return redact(value);
+  if (value instanceof Error) return redact(value.stack ?? `${value.name}: ${value.message}`);
+  if (value === null || typeof value !== "object" || value instanceof Date) return value;
+  const known = seen.get(value);
+  if (known) return known;
+  if (Array.isArray(value)) {
+    const copy: unknown[] = [];
+    seen.set(value, copy);
+    for (const item of value) copy.push(redactDeep(item, seen));
+    return copy;
+  }
+  const copy: Record<string, unknown> = {};
+  seen.set(value, copy);
+  for (const [key, item] of Object.entries(value)) copy[redact(key)] = redactDeep(item, seen);
+  return copy;
+}
+
 function formatArg(arg: unknown): string {
-  if (typeof arg === "string") return arg;
-  if (arg instanceof Error) return arg.stack ?? `${arg.name}: ${arg.message}`;
+  const value = redactDeep(arg, new WeakMap());
+  if (typeof value === "string") return value;
   try {
-    return JSON.stringify(arg) ?? String(arg);
+    return JSON.stringify(value) ?? String(value);
   } catch {
-    return inspect(arg, { depth: 4 });
+    return inspect(value, { depth: 4 });
   }
 }
 

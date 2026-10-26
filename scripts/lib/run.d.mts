@@ -15,6 +15,8 @@ export interface RunResult {
   timedOut: boolean;
   attempts: number;
   error?: string;
+  /** Present only when stdio is "pipe". */
+  stdout?: string;
 }
 
 export function run(command: string, args: string[], opts: RunOptions): Promise<RunResult>;
