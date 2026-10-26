@@ -1,11 +1,14 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { CircleCheck, Settings } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { Stepper, type StepperStep } from "@/components/Stepper";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { useSetup } from "@/lib/queries";
 import { queryKeys } from "@/lib/queryKeys";
+import { requestSetupWizard } from "@/lib/setupEvent";
 import type { SetupView } from "@/lib/types";
 import { PanelShell } from "./PanelShell";
 
@@ -18,10 +21,16 @@ const STEP_LABELS: Record<keyof SetupView["steps"], string> = {
 };
 
 export default function SettingsPanel() {
-  const setup = useQuery({
-    queryKey: queryKeys.setup,
-    queryFn: ({ signal }) => api.get<SetupView>("/api/setup", { signal }),
+  const queryClient = useQueryClient();
+  const setup = useSetup();
+  const reset = useMutation({
+    mutationFn: () => api.post<SetupView>("/api/setup/reset"),
+    onSuccess: (view) => {
+      queryClient.setQueryData(queryKeys.setup, view);
+      requestSetupWizard();
+    },
   });
+
   const steps: StepperStep[] = setup.data
     ? (Object.keys(STEP_LABELS) as (keyof SetupView["steps"])[]).map((id) => ({
         id,
@@ -43,8 +52,19 @@ export default function SettingsPanel() {
         )}
       </Card>
       {setup.data ? (
-        <Card>
-          <EmptyState icon={setup.data.complete ? CircleCheck : Settings} title={setup.data.complete ? "Setup complete" : "Setup not finished"} />
+        <Card className="flex flex-col items-center gap-4 p-6">
+          <EmptyState
+            icon={setup.data.complete ? CircleCheck : Settings}
+            title={setup.data.complete ? "Setup complete" : "Setup not finished"}
+          />
+          <Button
+            type="button"
+            variant="secondary"
+            loading={reset.isPending}
+            onClick={() => reset.mutate()}
+          >
+            Re-run setup
+          </Button>
         </Card>
       ) : null}
     </PanelShell>

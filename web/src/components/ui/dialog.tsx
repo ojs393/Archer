@@ -26,27 +26,29 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
-  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, children, ...props }, ref) => (
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { hideClose?: boolean }
+>(({ className, children, hideClose = false, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <div className={viewportClass}>
       <DialogPrimitive.Content ref={ref} className={cn(panelClass, className)} {...props}>
         {children}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <DialogPrimitive.Close
-              className={cn(
-                "absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900",
-                focusRing,
-              )}
-              aria-label="Close"
-            >
-              <X className="h-4 w-4" aria-hidden="true" />
-            </DialogPrimitive.Close>
-          </TooltipTrigger>
-          <TooltipContent>Close</TooltipContent>
-        </Tooltip>
+        {hideClose ? null : (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DialogPrimitive.Close
+                className={cn(
+                  "absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900",
+                  focusRing,
+                )}
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" aria-hidden="true" />
+              </DialogPrimitive.Close>
+            </TooltipTrigger>
+            <TooltipContent>Close</TooltipContent>
+          </Tooltip>
+        )}
       </DialogPrimitive.Content>
     </div>
   </DialogPortal>

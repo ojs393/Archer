@@ -6,4 +6,5 @@ export const queryKeys = {
   lists: ["lists"],
   templates: ["templates"],
   setup: ["setup"],
+  settings: ["settings"],
 } as const;

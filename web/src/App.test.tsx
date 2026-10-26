@@ -18,9 +18,9 @@ const item = { status: "ok" as const, detail: "Connected", checkedAt: "2026-10-2
 const health: Health = { smtp: item, dns: { ...item, status: "fail", detail: "SPF missing" }, network: item, worker: { ...item, heartbeatAgeMs: 10, loopRunning: true } };
 const status: StatusSnapshot = { campaign: null, worker: { status: null, heartbeatAgeMs: null, loopRunning: false, inFlight: false } };
 const setup: SetupView = {
-  complete: false,
-  completedAt: null,
-  steps: { operator: true, provider: false, domain: false, addresses: false, testInboxes: false },
+  complete: true,
+  completedAt: "2026-10-26T00:00:00.000Z",
+  steps: { operator: true, provider: true, domain: true, addresses: true, testInboxes: true },
   regions: [],
 };
 

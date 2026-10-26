@@ -1,15 +1,17 @@
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { RotateCw, Unplug } from "lucide-react";
-import { Suspense, useRef, useState, type ComponentType, type LazyExoticComponent } from "react";
+import { Suspense, useEffect, useRef, useState, type ComponentType, type LazyExoticComponent } from "react";
 import { EmptyState } from "@/components/EmptyState";
+import { SetupWizard } from "@/components/setup/SetupWizard";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Toaster } from "@/components/ui/sonner";
 import { TabsContent, Tabs } from "@/components/ui/tabs";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useSession } from "@/lib/queries";
+import { useSession, useSetup } from "@/lib/queries";
 import { lazyPanel } from "@/lib/lazyPanel";
 import { createQueryClient } from "@/lib/queryClient";
+import { SETUP_EVENT } from "@/lib/setupEvent";
 import { isTabId, TAB_IDS, type TabId } from "@/lib/tabs";
 import { useEventStream } from "@/lib/useEventStream";
 import { AppHeader } from "@/shell/AppHeader";
@@ -42,8 +44,20 @@ function Shell() {
   const session = useSession();
   const ready = session.isSuccess;
   useEventStream({ enabled: ready });
+  const setup = useSetup(ready);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const Panel = PANELS[tab];
   const roving = useRef(false);
+
+  useEffect(() => {
+    if (setup.data && setup.data.complete === false) setWizardOpen(true);
+  }, [setup.data]);
+
+  useEffect(() => {
+    const open = () => setWizardOpen(true);
+    window.addEventListener(SETUP_EVENT, open);
+    return () => window.removeEventListener(SETUP_EVENT, open);
+  }, []);
 
   return (
     <Tabs
@@ -88,6 +102,7 @@ function Shell() {
         )}
       </main>
       <Toaster />
+      {ready ? <SetupWizard open={wizardOpen} onOpenChange={setWizardOpen} /> : null}
     </Tabs>
   );
 }

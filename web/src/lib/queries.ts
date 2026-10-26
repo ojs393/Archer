@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { api, ensureSession } from "./api";
 import { queryKeys } from "./queryKeys";
-import type { Health, StatusSnapshot } from "./types";
+import type { Health, SettingsView, SetupView, StatusSnapshot } from "./types";
 
 const HEALTH_REFRESH_MS = 60_000;
 
@@ -32,6 +32,22 @@ export function useHealth(enabled = true) {
     queryKey: queryKeys.health,
     queryFn: ({ signal }) => api.get<Health>("/api/health", { signal }),
     refetchInterval: HEALTH_REFRESH_MS,
+    enabled,
+  });
+}
+
+export function useSetup(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.setup,
+    queryFn: ({ signal }) => api.get<SetupView>("/api/setup", { signal }),
+    enabled,
+  });
+}
+
+export function useSettings(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.settings,
+    queryFn: ({ signal }) => api.get<SettingsView>("/api/settings", { signal }),
     enabled,
   });
 }
