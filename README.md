@@ -39,7 +39,7 @@ Honest limits: delivery/bounce charts stay empty until your provider feedback is
 **Needs:** Node.js ≥ 22.13, outbound SMTP (VPN is fine).
 
 ```bash
-git clone https://github.com/ojs393/Hermes.git MamaDirect
+git clone https://github.com/ojs393/Archer.git MamaDirect
 cd MamaDirect
 npm run setup
 ```
