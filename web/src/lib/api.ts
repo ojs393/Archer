@@ -15,7 +15,15 @@ export class ApiError extends Error {
 }
 
 export function isApiError(err: unknown, code?: string): err is ApiError {
-  return err instanceof ApiError && (code === undefined || err.code === code);
+  // Duck-type so Vitest/HMR module duplicates still match ApiError instances.
+  const ok =
+    err instanceof ApiError ||
+    (typeof err === "object" &&
+      err !== null &&
+      (err as Error).name === "ApiError" &&
+      typeof (err as ApiError).status === "number" &&
+      typeof (err as ApiError).code === "string");
+  return ok && (code === undefined || (err as ApiError).code === code);
 }
 
 type Method = "GET" | "POST" | "PUT" | "DELETE";

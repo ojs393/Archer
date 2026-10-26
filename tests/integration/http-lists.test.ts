@@ -232,21 +232,21 @@ describe("GET/DELETE /api/lists/:id", () => {
     const gate = new Promise<void>((resolve) => (release = resolve));
     h = await makeHarness({ createDomainChecker: () => async () => (await gate, "ok" as const) });
     const busy = (await upload(listFields, { content: CSV })).json().listId;
-    await waitFor(() => h.published.some((e) => e.name === "import" && e.data.phase === "checking_domains"));
-    const blocked = await h.app.inject({ method: "DELETE", url: `/api/lists/${busy}`, headers: mutating });
+    await waitFor(() => h!.published.some((e) => e.name === "import" && e.data.phase === "checking_domains"));
+    const blocked = await h!.app.inject({ method: "DELETE", url: `/api/lists/${busy}`, headers: mutating });
     expect(blocked.statusCode).toBe(409);
     expect(blocked.json().error.code).toBe("import_running");
     release();
-    await h.imports.idle();
+    await h!.imports.idle();
 
-    const templateId = Number(h.db.prepare("INSERT INTO templates (name, subject, html) VALUES ('T','S','<p>x</p>')").run().lastInsertRowid);
-    h.db.prepare("INSERT INTO campaigns (list_id, template_id, template_version, schedule_json) VALUES (?, ?, 1, '{}')").run(busy, templateId);
-    const inUse = await h.app.inject({ method: "DELETE", url: `/api/lists/${busy}`, headers: mutating });
+    const templateId = Number(h!.db.prepare("INSERT INTO templates (name, subject, html) VALUES ('T','S','<p>x</p>')").run().lastInsertRowid);
+    h!.db.prepare("INSERT INTO campaigns (list_id, template_id, template_version, schedule_json) VALUES (?, ?, 1, '{}')").run(busy, templateId);
+    const inUse = await h!.app.inject({ method: "DELETE", url: `/api/lists/${busy}`, headers: mutating });
     expect(inUse.statusCode).toBe(409);
     expect(inUse.json().error.code).toBe("in_use");
 
     const free = (await upload(listFields, { content: CSV })).json().listId;
-    await h.imports.idle();
+    await h!.imports.idle();
     const del = await h.app.inject({ method: "DELETE", url: `/api/lists/${free}`, headers: mutating });
     expect(del.statusCode).toBe(204);
     expect(getList(h.db, free)).toBeUndefined();

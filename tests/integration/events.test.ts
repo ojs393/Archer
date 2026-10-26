@@ -153,7 +153,12 @@ describe("GET /api/events", () => {
       const req = http.get({ host: "127.0.0.1", port, path: "/" }, (res) => {
         // Do not read the body — let Node buffer outbound frames on the response.
         res.on("aborted", () => {});
-        resolve(req.socket);
+        const sock = req.socket;
+        if (!sock) {
+          reject(new Error("missing socket"));
+          return;
+        }
+        resolve(sock);
       });
       req.on("error", reject);
     });

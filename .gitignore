@@ -1,10 +1,65 @@
+# Dependencies & build
 node_modules/
 dist/
+*.tsbuildinfo
+.vite/
+.turbo/
+.cache/
+
+# Runtime data (local installs)
 data/
 .env
 .env.*
 !.env.example
 *.log
+*.db
+*.db-wal
+*.db-shm
+
+# OS / editor
 .DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+.history/
+
+# Test / e2e artifacts
 playwright-report/
 test-results/
+blob-report/
+coverage/
+.nyc_output/
+
+# Agent / SDD / local planning (not part of the product)
+.superpowers/
+.cursor/
+.claude/
+.codex/
+.agent/
+.agents/
+.qodo/
+.windsurf/
+.gemini/
+agent-transcripts/
+docs/superpowers/
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+*.diff
+*.patch
+review-*.diff
+task-*-report.md
+task-*-brief.md
+task-*-decisions.md
+progress.md
+IMPLEMENTATION_PLAN.md
+TODO.md
+
+# Scratch / local only
+/tmp/
+*.partial
+incoming-*.csv
+*.local.*
+.worktrees/
