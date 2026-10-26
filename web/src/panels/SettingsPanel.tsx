@@ -27,6 +27,8 @@ export default function SettingsPanel() {
     mutationFn: () => api.post<SetupView>("/api/setup/reset"),
     onSuccess: (view) => {
       queryClient.setQueryData(queryKeys.setup, view);
+      // setupCompletedAt lives on settings too — keep wizard seed / UI in sync
+      void queryClient.invalidateQueries({ queryKey: queryKeys.settings });
       requestSetupWizard();
     },
   });

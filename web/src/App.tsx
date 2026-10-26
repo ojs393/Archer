@@ -48,16 +48,38 @@ function Shell() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const Panel = PANELS[tab];
   const roving = useRef(false);
+  /** User closed the wizard while setup was still incomplete; don't auto-reopen on refetch. */
+  const dismissedIncompleteRef = useRef(false);
+  const wasCompleteRef = useRef<boolean | null>(null);
 
   useEffect(() => {
-    if (setup.data && setup.data.complete === false) setWizardOpen(true);
+    if (!setup.data) return;
+    const complete = setup.data.complete;
+    if (complete) {
+      dismissedIncompleteRef.current = false;
+    } else if (wasCompleteRef.current === true) {
+      // complete → incomplete (e.g. Re-run / reset): allow auto-open again
+      dismissedIncompleteRef.current = false;
+    }
+    wasCompleteRef.current = complete;
+    if (!complete && !dismissedIncompleteRef.current) setWizardOpen(true);
   }, [setup.data]);
 
   useEffect(() => {
-    const open = () => setWizardOpen(true);
+    const open = () => {
+      dismissedIncompleteRef.current = false;
+      setWizardOpen(true);
+    };
     window.addEventListener(SETUP_EVENT, open);
     return () => window.removeEventListener(SETUP_EVENT, open);
   }, []);
+
+  function handleWizardOpenChange(open: boolean) {
+    if (!open && setup.data && setup.data.complete === false) {
+      dismissedIncompleteRef.current = true;
+    }
+    setWizardOpen(open);
+  }
 
   return (
     <Tabs
@@ -102,7 +124,7 @@ function Shell() {
         )}
       </main>
       <Toaster />
-      {ready ? <SetupWizard open={wizardOpen} onOpenChange={setWizardOpen} /> : null}
+      {ready ? <SetupWizard open={wizardOpen} onOpenChange={handleWizardOpenChange} /> : null}
     </Tabs>
   );
 }

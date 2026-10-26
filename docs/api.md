@@ -34,7 +34,7 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 | GET | /api/settings | — | SettingsView |
 | PUT | /api/settings | partial SettingsView fields + `smtp.pass?: string` (write-only) + `smtp.clearPass?: true` | SettingsView |
 | POST | /api/settings/smtp/test | — | `{ ok: boolean; message: string }` (updates Health.smtp) |
-| POST | /api/settings/dns/check | — (uses fromEmail's domain + dkimSelector) | `{ domain; ok; spf: {ok, record: string \| null, detail}; dkim: {ok, selector: string \| null, detail}; dmarc: {ok, record: string \| null, detail} }` (updates Health.dns) |
+| POST | /api/settings/dns/check | — (uses fromEmail's domain + dkimSelector) | `{ domain; ok; spf: {ok, record: string \| null, detail, expected: string \| null}; dkim: {ok, selector: string \| null, detail, expected: string \| null}; dmarc: {ok, record: string \| null, detail, expected: string \| null} }` (updates Health.dns) |
 | GET | /api/lists | — | ListRow[] |
 | POST | /api/lists/preview | multipart `file` (only the first 64 KiB is read) | `{ delimiter; headers: string[]; headerless: boolean; rows: string[][] (≤5); emailColumn: number }` |
 | POST | /api/lists | multipart `file` + fields `name`, `sourceLabel`, `consentText`, `consentConfirmed` ("true" required), `excludeRoles` ("true"/"false", default true), `emailColumn?` (name, or `#<index>`), `checkDomains` (default "true") | 202 `{ listId }`; import continues in background; progress via SSE `import` |
@@ -126,7 +126,7 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 - Unknown keys are rejected (400). `smtp.passSet` is accepted and ignored, so a client may send a `SettingsView` back unchanged.
 - `smtp.pass` must be 1–1024 characters without line breaks and representable in `.env`; it is written with `setEnvValue` (temp file + rename, mode 0600), registered for log redaction, and never stored in the database or returned.
 - `POST /api/settings/smtp/test` returns `{ ok: false }` with a "enter the … first" message, without touching `Health.smtp`, when host, user or password is missing. The whole test is capped at 45 s.
-- `POST /api/settings/dns/check` returns `DnsCheckResult` (see `server/dns/check.ts`). `Health.dns.detail` summarizes the failing parts.
+- `POST /api/settings/dns/check` returns `DnsCheckResult` (see `server/dns/check.ts`). Each of `spf` / `dkim` / `dmarc` includes `expected` — the value operators should publish (SES SPF uses `include:amazonses.com`; otherwise a generic SPF include; DMARC `v=DMARC1; p=none;`; DKIM the `{selector}._domainkey.{domain}` host). `record` is whatever was found (may be wrong when `ok` is false); clients should copy `expected`, not `record`. `Health.dns.detail` summarizes the failing parts.
 
 ### Lists
 - Multipart field order is free (fields may follow the file). The file part must be named `file`. The upload is written to `data/uploads/incoming-<random>.csv`, renamed to `<listId>-<random>.csv` once the fields validate, and deleted when the import ends (success or failure) or when the request is refused.

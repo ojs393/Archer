@@ -113,7 +113,8 @@ export function settingsRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post("/api/settings/dns/check", async () => {
     const s = getSettingsView(ctx.db, ctx.env);
     if (!s.fromEmail) throw new HttpError(400, "from_email_missing", "Set the from address first; its domain is what gets checked");
-    const result = await checkDomainAuth(emailDomain(s.fromEmail), s.dkimSelector, ctx.dnsResolver);
+    const spfExpected = s.provider === "ses" ? "v=spf1 include:amazonses.com ~all" : undefined;
+    const result = await checkDomainAuth(emailDomain(s.fromEmail), s.dkimSelector, ctx.dnsResolver, { spfExpected });
     ctx.health.set("dns", { status: result.ok ? "ok" : "fail", detail: dnsSummary(result), checkedAt: new Date().toISOString() });
     return result;
   });

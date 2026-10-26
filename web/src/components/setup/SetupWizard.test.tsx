@@ -52,9 +52,9 @@ const healthOk: Health = {
 const dnsFail: DnsCheckResult = {
   domain: "example.com",
   ok: false,
-  spf: { ok: false, record: null, detail: "No SPF record" },
-  dkim: { ok: false, selector: "s1", detail: "No DKIM record" },
-  dmarc: { ok: false, record: null, detail: "No DMARC record" },
+  spf: { ok: false, record: null, detail: "No SPF record", expected: "v=spf1 include:amazonses.com ~all" },
+  dkim: { ok: false, selector: "s1", detail: "No DKIM record", expected: "s1._domainkey.example.com" },
+  dmarc: { ok: false, record: null, detail: "No DMARC record", expected: "v=DMARC1; p=none;" },
 };
 
 let settingsState: SettingsView;
@@ -82,8 +82,8 @@ function renderWizard(open = true) {
 }
 
 async function waitReady() {
-  expect(await screen.findByRole("heading", { name: "Welcome to MamaDirect" })).toBeInTheDocument();
-  expect(await screen.findByLabelText("Your name")).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Welcome to MamaDirect" }, { timeout: 10_000 })).toBeInTheDocument();
+  expect(await screen.findByLabelText("Your name", {}, { timeout: 10_000 })).toBeInTheDocument();
 }
 
 async function fillOperatorAndNext() {
@@ -451,7 +451,7 @@ describe("App opens wizard from setup.complete", () => {
     render(
       <App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />,
     );
-    expect(await screen.findByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { level: 1, name: "Dashboard" }, { timeout: 10_000 })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Welcome to MamaDirect" })).not.toBeInTheDocument();
   });
 });

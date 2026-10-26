@@ -38,6 +38,9 @@ function DnsRow({
   record: string | null;
   expected: string;
 }) {
+  // Always copy the publish value when failing — never a bad found `record`.
+  const publish = expected;
+  const showCurrent = Boolean(record && record !== publish);
   return (
     <div className="flex flex-col gap-1.5 rounded-md border border-border px-3 py-2">
       <div className="flex items-center gap-2">
@@ -45,7 +48,12 @@ function DnsRow({
         <span className="text-sm font-medium">{label}</span>
         <span className="truncate text-xs text-muted-foreground">{detail}</span>
       </div>
-      {!ok ? <Copyable value={record ?? expected} /> : null}
+      {!ok ? (
+        <>
+          <Copyable value={publish} />
+          {showCurrent ? <p className="truncate text-xs text-muted-foreground">Current: {record}</p> : null}
+        </>
+      ) : null}
     </div>
   );
 }
@@ -108,21 +116,24 @@ export function DomainStep({
             ok={checkResult.spf.ok}
             detail={checkResult.spf.detail}
             record={checkResult.spf.record}
-            expected={expectedRecord("spf", domain, selector, draft.provider)}
+            expected={checkResult.spf.expected ?? expectedRecord("spf", domain, selector, draft.provider)}
           />
           <DnsRow
             label="DKIM"
             ok={checkResult.dkim.ok}
             detail={checkResult.dkim.detail}
             record={null}
-            expected={expectedRecord("dkim", checkResult.domain || domain, checkResult.dkim.selector ?? selector, draft.provider)}
+            expected={
+              checkResult.dkim.expected ??
+              expectedRecord("dkim", checkResult.domain || domain, checkResult.dkim.selector ?? selector, draft.provider)
+            }
           />
           <DnsRow
             label="DMARC"
             ok={checkResult.dmarc.ok}
             detail={checkResult.dmarc.detail}
             record={checkResult.dmarc.record}
-            expected={expectedRecord("dmarc", domain, selector, draft.provider)}
+            expected={checkResult.dmarc.expected ?? expectedRecord("dmarc", domain, selector, draft.provider)}
           />
         </div>
       ) : null}

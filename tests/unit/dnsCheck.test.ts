@@ -33,10 +33,16 @@ describe("checkDomainAuth", () => {
     const r = await checkDomainAuth("example.com", "s1", fakeResolver(GOOD));
     expect(r.ok).toBe(true);
     expect(r.domain).toBe("example.com");
-    expect(r.spf).toEqual({ ok: true, record: "v=spf1 include:_spf.provider.com ~all", detail: expect.any(String) });
+    expect(r.spf).toEqual({
+      ok: true,
+      record: "v=spf1 include:_spf.provider.com ~all",
+      detail: expect.any(String),
+      expected: "v=spf1 include:YOUR_PROVIDER ~all",
+    });
     expect(r.dmarc.ok).toBe(true);
     expect(r.dmarc.record).toBe("v=DMARC1; p=none; rua=mailto:d@example.com");
-    expect(r.dkim).toEqual({ ok: true, selector: "s1", detail: expect.any(String) });
+    expect(r.dmarc.expected).toBe("v=DMARC1; p=none;");
+    expect(r.dkim).toEqual({ ok: true, selector: "s1", detail: expect.any(String), expected: "s1._domainkey.example.com" });
   });
 
   it("fails DMARC when the record is missing", async () => {
@@ -52,7 +58,7 @@ describe("checkDomainAuth", () => {
   it("asks for a selector when none is configured, without querying DKIM", async () => {
     const resolver = fakeResolver(GOOD);
     const r = await checkDomainAuth("example.com", null, resolver);
-    expect(r.dkim).toEqual({ ok: false, selector: null, detail: "Enter your email provider's DKIM selector" });
+    expect(r.dkim).toEqual({ ok: false, selector: null, detail: "Enter your email provider's DKIM selector", expected: null });
     expect(r.ok).toBe(false);
     expect(resolver.asked.some((q) => q.includes("_domainkey"))).toBe(false);
   });
@@ -65,6 +71,16 @@ describe("checkDomainAuth", () => {
     );
     expect(r.spf.ok).toBe(false);
     expect(r.spf.detail).toMatch(/exactly one|more than one/i);
+    // found record is wrong to publish — expected stays the template
+    expect(r.spf.record).toBe("v=spf1 -all");
+    expect(r.spf.expected).toBe("v=spf1 include:YOUR_PROVIDER ~all");
+  });
+
+  it("uses a caller-supplied SPF expected (e.g. SES include)", async () => {
+    const r = await checkDomainAuth("example.com", "s1", fakeResolver(GOOD), {
+      spfExpected: "v=spf1 include:amazonses.com ~all",
+    });
+    expect(r.spf.expected).toBe("v=spf1 include:amazonses.com ~all");
   });
 
   it("does not mistake v=spf10 or a DMARC lookalike for a record", async () => {

@@ -261,7 +261,12 @@ describe("POST /api/settings/dns/check", () => {
     h = await makeHarness({ dnsResolver: resolverFor(records) });
     await put({ fromEmail: "news@example.com" });
     const res = await h.app.inject({ method: "POST", url: "/api/settings/dns/check", headers: mutating });
-    expect(res.json().dkim).toEqual({ ok: false, selector: null, detail: "Enter your email provider's DKIM selector" });
+    expect(res.json().dkim).toEqual({
+      ok: false,
+      selector: null,
+      detail: "Enter your email provider's DKIM selector",
+      expected: null,
+    });
   });
 
   it("needs a from address", async () => {

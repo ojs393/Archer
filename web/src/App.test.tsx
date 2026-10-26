@@ -1,7 +1,8 @@
 import { QueryClient } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { Health, SetupView, StatusSnapshot } from "@/lib/types";
+import type { Health, SettingsView, SetupView, StatusSnapshot } from "@/lib/types";
+import { requestSetupWizard } from "@/lib/setupEvent";
 
 class SilentEventSource {
   static instances: SilentEventSource[] = [];
@@ -24,6 +25,24 @@ const setup: SetupView = {
   regions: [],
 };
 
+const settings: SettingsView = {
+  provider: "ses",
+  sesRegion: "us-east-1",
+  operatorName: "Oliver",
+  organization: "",
+  setupCompletedAt: "2026-10-26T00:00:00.000Z",
+  fromName: "Oliver",
+  fromEmail: "news@example.com",
+  replyTo: null,
+  postalAddress: "1 Main St",
+  unsubMailbox: "unsub@example.com",
+  publicBaseUrl: null,
+  dkimSelector: "s1",
+  timezone: "UTC",
+  testInboxes: ["me@example.com"],
+  smtp: { host: "email-smtp.us-east-1.amazonaws.com", port: 587, secure: false, user: "AKIA", passSet: true },
+};
+
 const ROUTES: Record<string, unknown> = {
   "/api/status": status,
   "/api/health": health,
@@ -31,6 +50,7 @@ const ROUTES: Record<string, unknown> = {
   "/api/lists": [],
   "/api/templates": [],
   "/api/setup": setup,
+  "/api/settings": settings,
   "/api/analytics/summary": {
     totals: { recipients: 0, sent: 0, failed: 0, suppressed: 0, retry: 0, uncertain: 0, skipped: 0, pending: 0 },
     rates: { deliveryRate: 0, bounceRate: 0, rejectionRate: 0 },
@@ -48,14 +68,20 @@ const ROUTES: Record<string, unknown> = {
 
 let fetchMock: ReturnType<typeof vi.fn>;
 const fetchedUrls = () => fetchMock.mock.calls.map((c) => String(c[0]));
+/** Cold lazy panels after resetModules often exceed the 1s default. */
+const findTimeout = { timeout: 10_000 } as const;
 
 async function renderApp(hash = "") {
   window.history.replaceState(null, "", `/${hash}`);
   const { App } = await import("./App");
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const view = render(<App client={client} />);
-  await screen.findByRole("heading", { level: 1 });
-  return view;
+  await screen.findByRole("heading", { level: 1 }, findTimeout);
+  return { ...view, client };
+}
+
+function panelHeading(name: string) {
+  return screen.findByRole("heading", { level: 1, name }, findTimeout);
 }
 
 function shellTabs() {
@@ -69,6 +95,8 @@ function selectTab(name: string) {
 beforeEach(() => {
   vi.resetModules();
   SilentEventSource.instances = [];
+  ROUTES["/api/setup"] = setup;
+  ROUTES["/api/settings"] = settings;
   vi.stubGlobal("EventSource", SilentEventSource);
   fetchMock = vi.fn(async (url: string) => {
     if (url === "/api/session") return new Response(null, { status: 204 });
@@ -110,29 +138,29 @@ describe("App shell", () => {
   it("switches panels on tab click and records the tab in the hash", async () => {
     await renderApp();
     selectTab("Runs");
-    expect(await screen.findByRole("heading", { level: 1, name: "Runs" })).toBeInTheDocument();
+    expect(await panelHeading("Runs")).toBeInTheDocument();
     expect(window.location.hash).toBe("#/runs");
-    expect(await screen.findByText("No runs yet")).toBeInTheDocument();
+    expect(await screen.findByText("No runs yet", {}, findTimeout)).toBeInTheDocument();
 
     selectTab("Settings");
-    expect(await screen.findByRole("heading", { level: 1, name: "Settings" })).toBeInTheDocument();
+    expect(await panelHeading("Settings")).toBeInTheDocument();
     expect(window.location.hash).toBe("#/settings");
   });
 
   it("selects the tab named in the hash on load", async () => {
     await renderApp("#/templates");
     expect(shellTabs().getByRole("tab", { name: "Templates" })).toHaveAttribute("aria-selected", "true");
-    expect(await screen.findByRole("heading", { level: 1, name: "Templates" })).toBeInTheDocument();
+    expect(await panelHeading("Templates")).toBeInTheDocument();
   });
 
   it("follows back/forward navigation", async () => {
     await renderApp("#/audience");
-    await screen.findByRole("heading", { level: 1, name: "Audience" });
+    await panelHeading("Audience");
     act(() => {
       window.history.replaceState(null, "", "/#/runs");
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
-    expect(await screen.findByRole("heading", { level: 1, name: "Runs" })).toBeInTheDocument();
+    expect(await panelHeading("Runs")).toBeInTheDocument();
     expect(shellTabs().getByRole("tab", { name: "Runs" })).toHaveAttribute("aria-selected", "true");
   });
 
@@ -142,28 +170,28 @@ describe("App shell", () => {
     const dashboard = shellTabs().getByRole("tab", { name: "Dashboard" });
     act(() => dashboard.focus());
     fireEvent.keyDown(dashboard, { key: "ArrowRight" });
-    expect(await screen.findByRole("heading", { level: 1, name: "Runs" })).toBeInTheDocument();
+    expect(await panelHeading("Runs")).toBeInTheDocument();
     expect(window.location.hash).toBe("#/runs");
     fireEvent.keyDown(shellTabs().getByRole("tab", { name: "Runs" }), { key: "ArrowRight" });
-    expect(await screen.findByRole("heading", { level: 1, name: "Audience" })).toBeInTheDocument();
+    expect(await panelHeading("Audience")).toBeInTheDocument();
     expect(window.location.hash).toBe("#/audience");
     expect(window.history.length).toBe(start);
 
     selectTab("Templates");
-    expect(await screen.findByRole("heading", { level: 1, name: "Templates" })).toBeInTheDocument();
+    expect(await panelHeading("Templates")).toBeInTheDocument();
     expect(window.location.hash).toBe("#/templates");
     expect(window.history.length).toBe(start + 1);
   });
 
   it("canonicalises an unknown hash to the dashboard on every hashchange", async () => {
     await renderApp("#/runs");
-    await screen.findByRole("heading", { level: 1, name: "Runs" });
+    await panelHeading("Runs");
     act(() => {
       window.history.replaceState(null, "", "/#/no-such-tab");
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
     expect(window.location.hash).toBe("#/dashboard");
-    expect(await screen.findByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
+    expect(await panelHeading("Dashboard")).toBeInTheDocument();
     expect(shellTabs().getByRole("tab", { name: "Dashboard" })).toHaveAttribute("aria-selected", "true");
   });
 
@@ -185,5 +213,37 @@ describe("App shell", () => {
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />);
     expect(await screen.findByText("Cannot reach MamaDirect", {}, { timeout: 10_000 })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
+  });
+
+  it("auto-opens incomplete setup once; dismiss stays closed across refetch; SETUP_EVENT reopens", async () => {
+    const dismissable: SetupView = {
+      complete: false,
+      completedAt: null,
+      steps: { operator: true, provider: true, domain: false, addresses: true, testInboxes: false },
+      regions: [],
+    };
+    ROUTES["/api/setup"] = dismissable;
+    ROUTES["/api/settings"] = { ...settings, setupCompletedAt: null };
+
+    const { client } = await renderApp();
+    expect(await screen.findByRole("heading", { name: "Welcome to MamaDirect" }, findTimeout)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await waitFor(() => {
+      expect(screen.queryByRole("heading", { name: "Welcome to MamaDirect" })).not.toBeInTheDocument();
+    });
+
+    await act(async () => {
+      await client.invalidateQueries({ queryKey: ["setup"] });
+    });
+    await waitFor(() => {
+      expect(fetchedUrls().filter((u) => u === "/api/setup").length).toBeGreaterThan(1);
+    });
+    expect(screen.queryByRole("heading", { name: "Welcome to MamaDirect" })).not.toBeInTheDocument();
+
+    act(() => {
+      requestSetupWizard();
+    });
+    expect(await screen.findByRole("heading", { name: "Welcome to MamaDirect" }, findTimeout)).toBeInTheDocument();
   });
 });
