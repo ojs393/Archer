@@ -1,0 +1,87 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --canvas: 0 0% 98%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+
+    --primary: 221.2 83.2% 53.3%;
+    --primary-hover: 224.3 76.3% 48%;
+    --primary-active: 225.9 70.7% 40.2%;
+    --primary-foreground: 0 0% 100%;
+    --primary-subtle: 213.8 100% 96.9%;
+
+    --secondary: 0 0% 98%;
+    --secondary-foreground: 240 5.2% 33.9%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 10% 3.9%;
+    --destructive: 0 72.2% 50.6%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 240 5.9% 90%;
+    --input: 240 4.9% 83.9%;
+    --ring: 217.2 91.2% 59.8%;
+
+    --status-ok: 142.1 76.2% 36.3%;
+    --status-warn: 32.1 94.6% 43.7%;
+    --status-error: 0 72.2% 50.6%;
+    --status-info: 221.2 83.2% 53.3%;
+    --status-neutral: 240 5% 64.9%;
+
+    --radius: 0.75rem;
+    color-scheme: light;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply min-h-screen bg-canvas font-sans text-base text-foreground antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-semibold tracking-tight;
+  }
+
+  a {
+    @apply text-primary underline-offset-4 hover:underline;
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring) / 0.4);
+    outline-offset: 1px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
