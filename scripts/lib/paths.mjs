@@ -16,6 +16,6 @@ export function resolvePaths({ root, env }) {
     uploadsDir: path.join(dataDir, "uploads"),
     logsDir: path.join(dataDir, "logs"),
     backupsDir: path.join(dataDir, "backups"),
-    envPath: path.join(root, ".env"),
+    envPath: env.MAMADIRECT_ENV_FILE ? path.resolve(root, env.MAMADIRECT_ENV_FILE) : path.join(root, ".env"),
   };
 }
