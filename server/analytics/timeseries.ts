@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { AnalyticsBucket, AnalyticsPoint, AnalyticsTimeseries } from "../http/contract.ts";
+import { eventCoverageFrom } from "./coverage.ts";
 
 export const MAX_POINTS = 2_160;
 
@@ -48,5 +49,5 @@ export function analyticsTimeseries(
     const point = byKey.get(k);
     if (point) point[type] += n;
   }
-  return { bucket: q.bucket, points };
+  return { bucket: q.bucket, coverageFrom: eventCoverageFrom(db, q.campaignId), points };
 }

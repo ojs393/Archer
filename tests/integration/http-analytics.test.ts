@@ -316,6 +316,51 @@ describe("GET /api/analytics/feedback", () => {
   });
 });
 
+describe("event ring coverage", () => {
+  const trimThrough = (id: number) => h.db.prepare("DELETE FROM events WHERE id <= ?").run(id);
+  const eventId = (campaignId: number, at: string) =>
+    (h.db.prepare("SELECT id FROM events WHERE campaign_id = ? AND created_at = ? ORDER BY id LIMIT 1").get(campaignId, at) as { id: number }).id;
+
+  it("reports the oldest kept event in scope on timeseries and errors", async () => {
+    expect((await get("/api/analytics/timeseries")).json().coverageFrom).toBe("2026-10-20T08:00:00.000Z");
+    expect((await get("/api/analytics/errors")).json().coverageFrom).toBe("2026-10-20T08:00:00.000Z");
+    expect((await get(`/api/analytics/timeseries?campaignId=${ids.a}&bucket=day`)).json().coverageFrom).toBe("2026-10-26T10:00:00.000Z");
+    expect((await get(`/api/analytics/errors?campaignId=${ids.a}`)).json().coverageFrom).toBe("2026-10-26T10:00:00.000Z");
+    expect((await get(`/api/analytics/timeseries?campaignId=${ids.c}`)).json().coverageFrom).toBeNull();
+  });
+
+  it("moves coverageFrom forward once the ring has dropped older events", async () => {
+    trimThrough(eventId(ids.b, "2026-10-26T09:30:00.000Z"));
+    const ts = (await get("/api/analytics/timeseries")).json();
+    expect(ts.coverageFrom).toBe("2026-10-26T09:30:00.000Z");
+    expect(ts.points.find((p: { t: string }) => p.t === "2026-10-26T09:00:00.000Z").sent).toBe(2);
+    expect((await get("/api/analytics/errors")).json().coverageFrom).toBe("2026-10-26T09:30:00.000Z");
+    expect((await get(`/api/analytics/timeseries?campaignId=${ids.a}`)).json().coverageFrom).toBeNull();
+    expect((await get(`/api/analytics/errors?campaignId=${ids.a}`)).json()).toEqual({ coverageFrom: null, rows: [] });
+  });
+
+  it("falls back to the newest sent row for lastSendAt when no sent event is kept", async () => {
+    const setUpdated = h.db.prepare("UPDATE sends SET updated_at = ? WHERE campaign_id = ? AND contact_id = ?");
+    const contactsOf = (campaignId: number, state: string) =>
+      (h.db.prepare("SELECT contact_id FROM sends WHERE campaign_id = ? AND state = ? ORDER BY contact_id").all(campaignId, state) as { contact_id: number }[]).map(
+        (r) => r.contact_id,
+      );
+    const sentA = contactsOf(ids.a, "sent");
+    sentA.forEach((contactId, i) => setUpdated.run(`2026-09-0${i + 1}T10:00:00.000Z`, ids.a, contactId));
+    setUpdated.run("2026-09-30T00:00:00.000Z", ids.a, contactsOf(ids.a, "failed")[0]);
+    contactsOf(ids.b, "sent").forEach((contactId) => setUpdated.run("2026-09-20T00:00:00.000Z", ids.b, contactId));
+
+    trimThrough(eventId(ids.a, "2026-10-26T12:03:00.000Z"));
+    const scoped = (await get(`/api/analytics/summary?campaignId=${ids.a}`)).json();
+    expect(scoped.lastSendAt).toBe(`2026-09-0${sentA.length}T10:00:00.000Z`);
+    expect((await get(`/api/analytics/summary?campaignId=${ids.b}`)).json().lastSendAt).toBe("2026-10-26T09:45:00.000Z");
+
+    h.db.prepare("DELETE FROM events").run();
+    expect((await get("/api/analytics/summary")).json().lastSendAt).toBe("2026-09-20T00:00:00.000Z");
+    expect((await get(`/api/analytics/summary?campaignId=${ids.c}`)).json().lastSendAt).toBeNull();
+  });
+});
+
 describe("analytics scoping and security", () => {
   it.each(["summary", "timeseries", "errors", "runs"])("answers 404 for an unknown campaign on %s", async (route) => {
     const res = await get(`/api/analytics/${route}?campaignId=999`);

@@ -412,12 +412,15 @@ export interface AnalyticsPoint {
 
 export interface AnalyticsTimeseries {
   bucket: AnalyticsBucket;
+  /** Oldest kept event in scope: buckets before it have no data (not real zeros). null when there are no events. */
+  coverageFrom: string | null;
   points: AnalyticsPoint[];
 }
 
 export type AnalyticsErrorKind = "failed" | "suppressed" | "retry" | "uncertain";
 
 export interface AnalyticsErrors {
+  coverageFrom: string | null;
   rows: { kind: AnalyticsErrorKind; message: string; count: number; lastAt: string }[];
 }
 

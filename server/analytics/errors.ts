@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { AnalyticsErrorKind, AnalyticsErrors } from "../http/contract.ts";
 import { redact } from "../logger.ts";
+import { eventCoverageFrom } from "./coverage.ts";
 
 export const MAX_MESSAGE = 160;
 
@@ -45,5 +46,5 @@ export function analyticsErrors(db: DatabaseSync, q: { campaignId: number | null
     }
   }
   const rows = [...groups.values()].sort((a, b) => b.count - a.count || (a.lastAt < b.lastAt ? 1 : a.lastAt > b.lastAt ? -1 : 0));
-  return { rows: rows.slice(0, q.limit) };
+  return { coverageFrom: eventCoverageFrom(db, q.campaignId), rows: rows.slice(0, q.limit) };
 }
