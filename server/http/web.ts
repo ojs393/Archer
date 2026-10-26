@@ -15,7 +15,10 @@ const PLACEHOLDER = `<!doctype html>
 
 function isAppPath(url: string): boolean {
   const p = url.split(/[?#]/, 1)[0].toLowerCase();
-  return !(p === "/api" || p.startsWith("/api/") || p.startsWith("/u/"));
+  if (p === "/api" || p.startsWith("/api/") || p.startsWith("/u/")) return false;
+  // A missing file must 404: answering a stale script chunk with index.html breaks module loading.
+  if (p.startsWith("/assets/")) return false;
+  return !p.slice(p.lastIndexOf("/") + 1).includes(".");
 }
 
 export function registerWeb(app: FastifyInstance, opts: { webDir: string; sessionToken: string }): void {
