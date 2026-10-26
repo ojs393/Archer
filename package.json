@@ -14,6 +14,7 @@
     "build:web": "vite build",
     "dev:web": "vite",
     "build:icons": "node scripts/build-icons.mjs",
+    "capture:screenshots": "node scripts/capture-readme-shots.mjs",
     "typecheck": "tsc --noEmit && tsc --noEmit -p web/tsconfig.json",
     "test": "vitest run",
     "test:watch": "vitest",

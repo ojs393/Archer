@@ -5,6 +5,8 @@ dist/
 .vite/
 .turbo/
 .cache/
+.eslintcache
+.npm/
 
 # Runtime data (local installs)
 data/
@@ -15,10 +17,14 @@ data/
 *.db
 *.db-wal
 *.db-shm
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
 
 # OS / editor
 .DS_Store
 Thumbs.db
+Desktop.ini
 .idea/
 .vscode/
 *.swp
@@ -31,6 +37,7 @@ test-results/
 blob-report/
 coverage/
 .nyc_output/
+*.lcov
 
 # Agent / SDD / local planning (not part of the product)
 .superpowers/
@@ -42,6 +49,7 @@ coverage/
 .qodo/
 .windsurf/
 .gemini/
+.github/copilot*
 agent-transcripts/
 docs/superpowers/
 AGENTS.md
@@ -63,3 +71,4 @@ TODO.md
 incoming-*.csv
 *.local.*
 .worktrees/
+.DS_Store?
