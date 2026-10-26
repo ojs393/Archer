@@ -22,6 +22,7 @@ export function signToken(email: string, secret: string): string {
 }
 
 export function verifyToken(token: string, secret: string): string | null {
+  if (typeof token !== "string" || typeof secret !== "string") return null;
   if (secret.length < MIN_SECRET_LENGTH || token.length > MAX_TOKEN_LENGTH) return null;
   const match = TOKEN_SHAPE.exec(token);
   if (!match) return null;
@@ -44,7 +45,7 @@ function httpsBase(publicBaseUrl: string | null | undefined): string | null {
     return null;
   }
   if (url.protocol !== "https:" || url.search || url.hash) return null;
-  return publicBaseUrl;
+  return url.href;
 }
 
 export function unsubscribeMailto(mailbox: string, token: string): string {

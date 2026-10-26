@@ -5,6 +5,7 @@ export interface Classified {
   responseCode?: number;
   enhancedCode?: string;
   code?: string;
+  command?: string;
   message: string;
 }
 
@@ -15,25 +16,33 @@ const NETWORK_CODES = new Set([
 ]);
 const BARE_SUPPRESS_CODES = new Set([550, 551, 553]);
 const FAIL_CODES = new Set(["EENVELOPE", "EMESSAGE"]);
-const ENHANCED_STATUS = /\b([245])\.(\d{1,3})\.(\d{1,3})\b/;
+const SENDER_ENHANCED_CODES = new Set(["5.1.7", "5.1.8"]);
+const ENHANCED_STATUS = /^\d{3}[ -]([245])\.(\d{1,3})\.(\d{1,3})\b/m;
 const MAX_MESSAGE_LENGTH = 300;
 
 interface SmtpFields {
   responseCode?: number;
   code?: string;
+  command?: string;
   response?: string;
   message?: string;
 }
 
 function readFields(err: unknown): SmtpFields {
   if (typeof err !== "object" || err === null) return {};
-  const { responseCode, code, response, message } = err as Record<string, unknown>;
+  const { responseCode, code, command, response, message } = err as Record<string, unknown>;
   return {
     responseCode: typeof responseCode === "number" ? responseCode : undefined,
     code: typeof code === "string" ? code : undefined,
+    command: typeof command === "string" ? command : undefined,
     response: typeof response === "string" ? response : undefined,
     message: typeof message === "string" ? message : undefined,
   };
+}
+
+function enhancedCodeOf(response: string | undefined): string | undefined {
+  const match = response === undefined ? null : ENHANCED_STATUS.exec(response);
+  return match ? `${match[1]}.${match[2]}.${match[3]}` : undefined;
 }
 
 function oneLine(text: string): string {
@@ -46,16 +55,21 @@ function summarize(err: unknown, fields: SmtpFields): string {
   return oneLine(raw ?? "") || "Unknown error";
 }
 
-function kindOf({ responseCode, code }: SmtpFields, enhanced: RegExpExecArray | null): ErrorKind {
+function permanentKind(responseCode: number, command: string | undefined, enhanced: string | undefined): ErrorKind {
+  if (command === "MAIL FROM" || (enhanced !== undefined && SENDER_ENHANCED_CODES.has(enhanced))) return "config";
+  if (command !== undefined && command !== "RCPT TO") return "fail";
+  if (enhanced === undefined) return BARE_SUPPRESS_CODES.has(responseCode) ? "suppress" : "fail";
+  if (enhanced.startsWith("5.1.") || enhanced === "5.2.1") return "suppress";
+  return "fail";
+}
+
+function kindOf({ responseCode, code, command }: SmtpFields, enhanced: string | undefined): ErrorKind {
   if (code === "EAUTH" || (responseCode !== undefined && AUTH_RESPONSE_CODES.has(responseCode))) return "auth";
   if (code === "ETLS") return "config";
   if (code !== undefined && NETWORK_CODES.has(code)) return "network";
   if (responseCode !== undefined && responseCode >= 400 && responseCode <= 499) return "retry";
   if (responseCode !== undefined && responseCode >= 500 && responseCode <= 599) {
-    if (enhanced?.[1] === "5" && enhanced[2] === "1") return "suppress";
-    if (enhanced?.[1] === "5" && enhanced[2] === "7") return "fail";
-    if (!enhanced && BARE_SUPPRESS_CODES.has(responseCode)) return "suppress";
-    return "fail";
+    return permanentKind(responseCode, command, enhanced);
   }
   if (code !== undefined && FAIL_CODES.has(code)) return "fail";
   return "retry";
@@ -63,10 +77,11 @@ function kindOf({ responseCode, code }: SmtpFields, enhanced: RegExpExecArray | 
 
 export function classifySmtpError(err: unknown): Classified {
   const fields = readFields(err);
-  const enhanced = fields.response === undefined ? null : ENHANCED_STATUS.exec(fields.response);
+  const enhanced = enhancedCodeOf(fields.response);
   const result: Classified = { kind: kindOf(fields, enhanced), message: summarize(err, fields) };
   if (fields.responseCode !== undefined) result.responseCode = fields.responseCode;
-  if (enhanced) result.enhancedCode = enhanced[0];
+  if (enhanced !== undefined) result.enhancedCode = enhanced;
   if (fields.code !== undefined) result.code = fields.code;
+  if (fields.command !== undefined) result.command = fields.command;
   return result;
 }

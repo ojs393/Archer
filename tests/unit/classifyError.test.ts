@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { classifySmtpError, type ErrorKind } from "../../server/domain/classifyError.ts";
 
-function smtpErr(responseCode: number, response?: string, code?: string): Error {
-  return Object.assign(new Error(response ?? `SMTP ${responseCode}`), { responseCode, response, code });
+function smtpErr(responseCode: number, response?: string, code?: string, command?: string): Error {
+  return Object.assign(new Error(response ?? `SMTP ${responseCode}`), { responseCode, response, code, command });
 }
 
 describe("classifySmtpError", () => {
@@ -58,7 +58,7 @@ describe("classifySmtpError", () => {
       [550, "550 5.7.1 Message rejected as spam", "fail"],
       [554, "554 5.7.1 Relay access denied", "fail"],
       [552, "552 5.2.2 Mailbox full", "fail"],
-      [550, "550 5.2.1 Mailbox disabled", "fail"],
+      [550, "550 5.2.1 Mailbox disabled", "suppress"],
     ];
     for (const [responseCode, response, kind] of cases) {
       it(`${response} -> ${kind}`, () => expect(classifySmtpError(smtpErr(responseCode, response)).kind).toBe(kind));
@@ -66,6 +66,47 @@ describe("classifySmtpError", () => {
     it("nodemailer EENVELOPE rejection with 550 5.1.1 -> suppress", () =>
       expect(classifySmtpError(smtpErr(550, "550 5.1.1 <a@x.com>: Recipient address rejected", "EENVELOPE")).kind)
         .toBe("suppress"));
+  });
+
+  describe("SMTP command context", () => {
+    const cases: [string, Error, ErrorKind][] = [
+      ["550 5.1.8 bad outbound sender -> config", smtpErr(550, "550 5.1.8 Access denied, bad outbound sender"), "config"],
+      ["550 5.1.7 bad sender mailbox syntax -> config", smtpErr(550, "550 5.1.7 Invalid sender", undefined, "RCPT TO"), "config"],
+      ["553 at MAIL FROM -> config", smtpErr(553, "553 Sender address rejected", "EENVELOPE", "MAIL FROM"), "config"],
+      ["550 5.1.1 at MAIL FROM -> config", smtpErr(550, "550 5.1.1 Sender unknown", "EENVELOPE", "MAIL FROM"), "config"],
+      ["550 5.1.1 at RCPT TO -> suppress", smtpErr(550, "550 5.1.1 User unknown", "EENVELOPE", "RCPT TO"), "suppress"],
+      ["550 5.1.1 with no command -> suppress", smtpErr(550, "550 5.1.1 User unknown"), "suppress"],
+      ["550 5.2.1 at RCPT TO -> suppress", smtpErr(550, "550 5.2.1 Mailbox disabled", "EENVELOPE", "RCPT TO"), "suppress"],
+      ["bare 550 at RCPT TO -> suppress", smtpErr(550, "550 No such user", "EENVELOPE", "RCPT TO"), "suppress"],
+      ["bare 550 at DATA -> fail", smtpErr(550, "550 Message rejected", "EMESSAGE", "DATA"), "fail"],
+      ["550 5.1.1 at DATA -> fail", smtpErr(550, "550 5.1.1 Rejected", "EMESSAGE", "DATA"), "fail"],
+      ["550 5.1.1 at another command -> fail", smtpErr(550, "550 5.1.1 Rejected", undefined, "RSET"), "fail"],
+    ];
+    for (const [label, err, kind] of cases) {
+      it(label, () => expect(classifySmtpError(err).kind).toBe(kind));
+    }
+
+    it("exposes command when present", () => {
+      expect(classifySmtpError(smtpErr(550, "550 5.1.1 User unknown", "EENVELOPE", "RCPT TO")).command).toBe("RCPT TO");
+      expect(classifySmtpError(smtpErr(550, "550 5.1.1 User unknown")).command).toBeUndefined();
+    });
+  });
+
+  describe("enhanced code must follow the reply code", () => {
+    it("550 blocked 5.1.2.3 is a bare 550 with no enhanced code", () => {
+      const result = classifySmtpError(smtpErr(550, "550 blocked 5.1.2.3"));
+      expect(result.kind).toBe("suppress");
+      expect(result.enhancedCode).toBeUndefined();
+    });
+
+    it("554 blocked 5.1.2.3 is a bare 554 -> fail", () => {
+      expect(classifySmtpError(smtpErr(554, "554 blocked 5.1.2.3")).kind).toBe("fail");
+    });
+
+    it("multi-line response still parses", () => {
+      const result = classifySmtpError(smtpErr(550, "550-5.1.1 The email account does not exist\n550 5.1.1 Try again"));
+      expect(result).toMatchObject({ kind: "suppress", enhancedCode: "5.1.1" });
+    });
   });
 
   describe("bare 5xx", () => {

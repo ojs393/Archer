@@ -1,3 +1,4 @@
+import { createHmac } from "node:crypto";
 import { describe, it, expect } from "vitest";
 import {
   signToken,
@@ -99,6 +100,27 @@ describe("signToken / verifyToken", () => {
     expect(verifyToken(signToken(EMAIL, shortSecret + "a"), shortSecret)).toBeNull();
     expect(verifyToken(signToken(EMAIL, SECRET), "")).toBeNull();
   });
+
+  it("verifyToken returns null for a correctly MACed token when the secret is short", () => {
+    const shortSecret = "a".repeat(31);
+    const macPart = createHmac("sha256", shortSecret).update("mamadirect-unsub-v1:" + EMAIL, "utf8").digest("base64url");
+    const token = Buffer.from(EMAIL, "utf8").toString("base64url") + "." + macPart;
+    expect(verifyToken(token, shortSecret)).toBeNull();
+  });
+
+  describe("non-string inputs -> null without throwing", () => {
+    const token = signToken(EMAIL, SECRET);
+    const cases: [string, unknown, unknown][] = [
+      ["undefined token", undefined, SECRET],
+      ["number token", 42, SECRET],
+      ["undefined secret", token, undefined],
+      ["number secret", token, 42],
+      ["array-like secret", token, { length: 64 }],
+    ];
+    for (const [label, t, s] of cases) {
+      it(label, () => expect(verifyToken(t as string, s as string)).toBeNull());
+    }
+  });
 });
 
 describe("link builders", () => {
@@ -166,4 +188,32 @@ describe("listUnsubscribeHeaders", () => {
       expect(listUnsubscribeHeaders({ mailbox, token, publicBaseUrl })).toEqual({ "List-Unsubscribe": mailto });
     });
   }
+});
+
+describe("header-unsafe publicBaseUrl is normalized", () => {
+  const mailbox = "unsub@example.com";
+  const token = "abc_-123.def";
+  const bases = ["https://u.example.com/a\r\nX-Evil: 1", " https://u.example.com/a b>c,d", "https://u.example.com/a\tb/"];
+
+  for (const publicBaseUrl of bases) {
+    it(`headers for ${JSON.stringify(publicBaseUrl)} contain no CR/LF, tab, space or raw >`, () => {
+      const headers = listUnsubscribeHeaders({ mailbox, token, publicBaseUrl });
+      expect(Object.keys(headers).sort()).toEqual(["List-Unsubscribe", "List-Unsubscribe-Post"]);
+      const httpsPart = headers["List-Unsubscribe"].split(", <mailto:")[0];
+      expect(httpsPart).toMatch(/^<https:\/\/u\.example\.com\/[^\s<>]*\/u\/abc_-123\.def>$/);
+      for (const value of Object.values(headers)) expect(value).not.toMatch(/[\r\n\t]/);
+    });
+
+    it(`link for ${JSON.stringify(publicBaseUrl)} contains no CR/LF, whitespace or raw >`, () => {
+      const link = unsubscribeLink({ mailbox, token, publicBaseUrl });
+      expect(link).toMatch(/^https:\/\/u\.example\.com\//);
+      expect(link).not.toMatch(/[\s<>]/);
+      expect(link.endsWith("/u/abc_-123.def")).toBe(true);
+    });
+  }
+
+  it("percent-encodes rather than drops unsafe path characters", () => {
+    expect(unsubscribeLink({ mailbox, token, publicBaseUrl: " https://u.example.com/a b>c,d" }))
+      .toBe("https://u.example.com/a%20b%3Ec,d/u/abc_-123.def");
+  });
 });
