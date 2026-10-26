@@ -41,6 +41,20 @@ export class MissingVariableError extends Error {
   }
 }
 
+export type TemplatePart = "subject" | "html" | "text";
+
+export class MalformedTemplateError extends Error {
+  readonly part: TemplatePart;
+  readonly problems: { index: number; snippet: string }[];
+
+  constructor(part: TemplatePart, problems: { index: number; snippet: string }[]) {
+    super(`Malformed tag in ${part}: ${problems.map((p) => p.snippet).join(", ")}`);
+    this.name = "MalformedTemplateError";
+    this.part = part;
+    this.problems = problems;
+  }
+}
+
 const TAG_SOURCE = String.raw`\{\{\s*([a-zA-Z0-9_]+)\s*(?:\|\s*([^{}]*?)\s*)?\}\}`;
 const OPEN = "{{";
 const SNIPPET_MAX = 40;
@@ -54,6 +68,7 @@ const HTML_ESCAPES: Readonly<Record<string, string>> = {
 const HEADER_BREAKS = /\s*[\r\n\u2028\u2029]+\s*/g;
 const FIRST_NAME_HEADERS: ReadonlySet<string> = new Set(["first_name", "firstname", "first"]);
 const FULL_NAME_HEADERS: ReadonlySet<string> = new Set(["name", "full_name", "fullname"]);
+const BODY_END = /<\/body\s*>/gi;
 const FOOTER_KEYS = ["unsubscribe_url", "postal_address"] as const satisfies readonly BuiltinKey[];
 
 function tagPattern(flags = "g"): RegExp {
@@ -224,8 +239,8 @@ function htmlFooter(ctx: RenderContext): string {
 }
 
 function insertBeforeBodyEnd(html: string, footer: string): string {
-  const bodyEnd = html.toLowerCase().lastIndexOf("</body");
-  return bodyEnd < 0 ? html + footer : html.slice(0, bodyEnd) + footer + html.slice(bodyEnd);
+  const bodyEnd = [...html.matchAll(BODY_END)].at(-1)?.index;
+  return bodyEnd === undefined ? html + footer : html.slice(0, bodyEnd) + footer + html.slice(bodyEnd);
 }
 
 function textFooter(ctx: RenderContext): string {
@@ -237,6 +252,16 @@ export function renderEmail(
   contact: { email: string; fields: Readonly<Record<string, string>> },
   ctx: RenderContext,
 ): { subject: string; html: string; text: string } {
+  const parts: [TemplatePart, string | null][] = [
+    ["subject", template.subject],
+    ["html", template.html],
+    ["text", template.text],
+  ];
+  for (const [part, src] of parts) {
+    const problems = src === null ? [] : findMalformedTags(src);
+    if (problems.length > 0) throw new MalformedTemplateError(part, problems);
+  }
+
   const builtins: Record<BuiltinKey, string | null> = {
     email: contact.email,
     first_name: resolveFirstName(contact.fields, contact.email),

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   BUILTIN_KEYS,
+  MalformedTemplateError,
   MissingVariableError,
   detectVariables,
   escapeHtml,
@@ -337,6 +338,58 @@ describe("renderEmail", () => {
     expect(out.html.startsWith("<html><BODY><p>Hi</p><")).toBe(true);
     expect(out.html.endsWith("</BODY></html>")).toBe(true);
     expect(out.html.indexOf("Unsubscribe")).toBeLessThan(out.html.indexOf("</BODY>"));
+  });
+
+  it("inserts the html footer before </body> when values change length under lowercasing", () => {
+    const out = renderEmail(
+      template({ html: "<html><body><p>{{first_name}}</p></BODY></html>" }),
+      { email: "a@b.com", fields: { first_name: "İsmail İİ" } },
+      ctx,
+    );
+    expect(out.html).toBe(
+      "<html><body><p>İsmail İİ</p>" +
+        '<div style="margin-top:24px;font-family:Arial,Helvetica,sans-serif;font-size:12px;line-height:1.5;color:#64748b">' +
+        '1 Main St, Springfield<br><a href="https://mail.example.com/u?t=abc&amp;s=1" style="color:#059669">Unsubscribe</a></div>' +
+        "</BODY></html>",
+    );
+  });
+
+  describe("malformed templates", () => {
+    const parts = [
+      ["subject", { subject: "Hi {{ first name }}" }, 3, "{{ first name }}"],
+      ["html", { html: "<p>Hi {{x</p>" }, 6, "{{x</p>"],
+      ["text", { text: "Hi {{}}" }, 3, "{{}}"],
+    ] as const;
+
+    for (const [part, overrides, index, snippet] of parts) {
+      it(`throws MalformedTemplateError for a malformed tag in the ${part}`, () => {
+        let caught: unknown;
+        try {
+          renderEmail(template(overrides), contact, ctx);
+        } catch (error) {
+          caught = error;
+        }
+        expect(caught).toBeInstanceOf(MalformedTemplateError);
+        expect(caught).toBeInstanceOf(Error);
+        expect((caught as MalformedTemplateError).part).toBe(part);
+        expect((caught as MalformedTemplateError).problems).toEqual([{ index, snippet }]);
+      });
+    }
+
+    it("checks before rendering, so a missing variable elsewhere does not mask it", () => {
+      expect(() => renderEmail(template({ subject: "{{zip}}", text: "{{x" }), contact, ctx)).toThrow(MalformedTemplateError);
+    });
+
+    it("leaves well-formed templates unaffected", () => {
+      const out = renderEmail(
+        template({ subject: "{{ first_name | there }}", html: "<p>{{{city}}}</p>", text: "{{email}} {{x|}}" }),
+        contact,
+        ctx,
+      );
+      expect(out.subject).toBe("Jane");
+      expect(out.html.startsWith("<p>{Paris}</p>")).toBe(true);
+      expect(out.text.startsWith("jane.doe@acme.com\n\n--\n")).toBe(true);
+    });
   });
 
   it("generates text from html when no text part is supplied", () => {
