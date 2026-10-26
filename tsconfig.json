@@ -12,5 +12,5 @@
     "skipLibCheck": true,
     "types": ["node"]
   },
-  "include": ["server", "tests", "scripts/**/*.d.mts", "vitest.config.ts"]
+  "include": ["server", "tests", "scripts/**/*.d.mts", "vitest.config.ts", "vite.config.ts", "tailwind.config.ts"]
 }
