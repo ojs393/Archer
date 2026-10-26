@@ -6,6 +6,7 @@ import { ensureDataDirs, ensureSecrets, loadEnv } from "./env.mjs";
 import { projectRoot, resolvePaths } from "./paths.mjs";
 import { report } from "./report.mjs";
 import { run, runNpm } from "./run.mjs";
+import { webBuildCheck } from "./webBuild.mjs";
 
 const INSTALL_TIMEOUT_MS = 10 * 60_000;
 const INSTALL_RETRIES = 2;
@@ -137,6 +138,11 @@ export async function runChecks({ quick = false, forceInstall = false } = {}) {
   record(dataDirs(paths));
   record(secrets(paths.envPath));
   record(database(paths));
+  record(
+    results[0].fatal
+      ? { status: "SKIP", name: "web app", detail: "dependencies are missing" }
+      : await webBuildCheck(root),
+  );
 
   if (!quick) {
     const healthy = !results.some((r) => r.fatal);
