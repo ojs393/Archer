@@ -17,6 +17,27 @@ export function FeedbackTab() {
         </div>
       ) : feedback.isError || !feedback.data ? (
         <EmptyState icon={MessageSquareWarning} title="Could not load feedback" />
+      ) : feedback.data.available ? (
+        <div className="flex flex-col gap-4 px-6 py-8">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-secondary-foreground">Complaints</p>
+              <p className="text-3xl font-semibold tabular-nums">{feedback.data.complaints}</p>
+            </div>
+            <div>
+              <p className="text-sm text-secondary-foreground">Permanent bounces (SNS)</p>
+              <p className="text-3xl font-semibold tabular-nums">{feedback.data.bounces}</p>
+            </div>
+          </div>
+          <p className="text-sm text-secondary-foreground">{feedback.data.reason}</p>
+          <InfoHint label="About SES feedback">
+            <ol className="list-decimal space-y-2 pl-4 text-sm text-secondary-foreground">
+              {feedback.data.guidance.map((line) => (
+                <li key={line}>{line}</li>
+              ))}
+            </ol>
+          </InfoHint>
+        </div>
       ) : (
         <EmptyState icon={MessageSquareWarning} title={feedback.data.reason}>
           <InfoHint label="How to connect SES feedback">

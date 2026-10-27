@@ -62,7 +62,10 @@ const runs: AnalyticsRuns = {
 
 const feedback: AnalyticsFeedback = {
   available: false,
-  reason: "Spam complaints require SES SNS notifications. This version does not receive them.",
+  complaints: 0,
+  bounces: 0,
+  endpoint: "/sns",
+  reason: "No SES bounce or complaint notifications have been received yet. Point an SNS topic at the public listener POST /sns.",
   guidance: [
     "Open the Amazon SES console in the region you send from.",
     "Create an SNS topic for Archer feedback.",

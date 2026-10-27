@@ -209,7 +209,7 @@ export function templateRoutes(app: FastifyInstance, ctx: AppContext): void {
     const sendable = recipients.filter((to) => !isSuppressed(ctx.db, to));
     let messages: OutgoingMessage[];
     try {
-      messages = composeTestMessages(t, contact, sendable, getSenderConfig(ctx.db, ctx.env), today());
+      messages = composeTestMessages(ctx.db, t, contact, sendable, getSenderConfig(ctx.db, ctx.env), today());
     } catch (err) {
       return renderFailed(err);
     }

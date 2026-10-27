@@ -304,15 +304,27 @@ describe("GET /api/analytics/runs", () => {
 });
 
 describe("GET /api/analytics/feedback", () => {
-  it("says complaint data is unavailable and how to enable it, without numbers", async () => {
+  it("reports zero counts and setup guidance until SNS events arrive", async () => {
     const res = await get("/api/analytics/feedback");
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(Object.keys(body).sort()).toEqual(["available", "guidance", "reason"]);
+    expect(Object.keys(body).sort()).toEqual(["available", "bounces", "complaints", "endpoint", "guidance", "reason"]);
     expect(body.available).toBe(false);
-    expect(body.reason).toMatch(/SNS/);
+    expect(body.complaints).toBe(0);
+    expect(body.bounces).toBe(0);
+    expect(body.endpoint).toBe("/sns");
+    expect(body.reason).toMatch(/SNS|\/sns/);
     expect(body.guidance.length).toBeGreaterThanOrEqual(3);
     for (const line of body.guidance) expect(typeof line).toBe("string");
+  });
+
+  it("marks feedback available once SNS events are stored", async () => {
+    h.db.prepare("INSERT INTO feedback_events (kind, email, detail, message_id) VALUES ('complaint', 'a@x.com', 'abuse', 'm1')").run();
+    h.db.prepare("INSERT INTO feedback_events (kind, email, detail, message_id) VALUES ('bounce', 'b@x.com', 'Permanent', 'm2')").run();
+    const body = (await get("/api/analytics/feedback")).json();
+    expect(body.available).toBe(true);
+    expect(body.complaints).toBe(1);
+    expect(body.bounces).toBe(1);
   });
 });
 

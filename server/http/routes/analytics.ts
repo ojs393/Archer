@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { analyticsErrors } from "../../analytics/errors.ts";
-import { FEEDBACK } from "../../analytics/feedback.ts";
+import { getFeedback } from "../../analytics/feedback.ts";
 import { analyticsRuns } from "../../analytics/runs.ts";
 import { analyticsSummary } from "../../analytics/summary.ts";
 import { analyticsTimeseries } from "../../analytics/timeseries.ts";
@@ -45,5 +45,5 @@ export function analyticsRoutes(app: FastifyInstance, ctx: AppContext): void {
     return analyticsRuns(ctx.db, scope(q.campaignId));
   });
 
-  app.get("/api/analytics/feedback", async (): Promise<AnalyticsFeedback> => ({ ...FEEDBACK, guidance: [...FEEDBACK.guidance] }));
+  app.get("/api/analytics/feedback", async (): Promise<AnalyticsFeedback> => getFeedback(ctx.db));
 }

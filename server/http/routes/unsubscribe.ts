@@ -1,7 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { addSuppression } from "../../db/suppression.ts";
-import { verifyToken } from "../../domain/unsubscribe.ts";
+import { resolveToken } from "../../domain/unsubscribe.ts";
 import type { Logger } from "../../logger.ts";
 import type { Env } from "../context.ts";
 import { UNSUBSCRIBE_ROUTE } from "../security.ts";
@@ -78,7 +78,7 @@ export async function unsubscribePlugin(app: FastifyInstance, opts: UnsubscribeO
 
   const emailFor = (request: FastifyRequest) => {
     const { token } = request.params as { token?: unknown };
-    return verifyToken(typeof token === "string" ? token : "", opts.env.UNSUB_SECRET ?? "");
+    return resolveToken(opts.db, typeof token === "string" ? token : "", opts.env.UNSUB_SECRET ?? "");
   };
 
   app.get(UNSUBSCRIBE_ROUTE, async (request, reply) => {

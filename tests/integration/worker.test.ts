@@ -6,7 +6,7 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import { openDb } from "../../server/db/index.ts";
 import { addSuppression } from "../../server/db/suppression.ts";
 import type { Schedule } from "../../server/domain/schedule.ts";
-import { signToken } from "../../server/domain/unsubscribe.ts";
+import { resolveToken } from "../../server/domain/unsubscribe.ts";
 import { SendWorker, type SenderConfig, type WorkerDeps, type WorkerEvent } from "../../server/send/worker.ts";
 import { startFakeSmtp, type FakeSmtp } from "../fakeSmtp.ts";
 
@@ -259,7 +259,12 @@ describe("SendWorker — happy path", () => {
     expect(smtp.received).toHaveLength(1);
     expect(smtp.received[0].from).toBe("hello@mama.example");
     const raw = decodeRaw(smtp.received[0].raw);
-    const token = signToken(email, SECRET);
+    const tokenMatch = raw.match(/subject=unsubscribe%20([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/);
+    expect(tokenMatch).toBeTruthy();
+    const token = tokenMatch![1];
+    // Opaque: token must not embed the email (legacy was base64url(email).mac).
+    expect(token.startsWith(Buffer.from(email, "utf8").toString("base64url") + ".")).toBe(false);
+    expect(resolveToken(db, token, SECRET)).toBe(email);
     expect(raw).toMatch(/^From: Mama Direct <hello@mama\.example>$/m);
     expect(raw).toMatch(/^To: jane\.doe@example\.org$/m);
     expect(raw).toMatch(/^Reply-To: reply@mama\.example$/m);

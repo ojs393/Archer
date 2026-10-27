@@ -387,7 +387,10 @@ describe("POST /api/templates/:id/test-send", () => {
     expect(smtp.received.map((m) => m.to)).toEqual(TEST_INBOXES.map((to) => [to]));
     const raw = smtp.received[0].raw.replace(/\r?\n[ \t]+/g, " ");
     expect(raw).toMatch(/^Subject: \[TEST\] Hello Jane$/m);
-    expect(raw).toContain(`List-Unsubscribe: <mailto:unsub@mama.example?subject=unsubscribe%20${signToken(TEST_INBOXES[0], UNSUB_SECRET)}>`);
+    const tokenMatch = raw.match(/subject=unsubscribe%20([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/);
+    expect(tokenMatch).toBeTruthy();
+    expect(raw).toContain(`List-Unsubscribe: <mailto:unsub@mama.example?subject=unsubscribe%20${tokenMatch![1]}>`);
+    expect(tokenMatch![1].startsWith(Buffer.from(TEST_INBOXES[0], "utf8").toString("base64url") + ".")).toBe(false);
     expect((await get(`/api/templates/${view.id}`)).json().testedOk).toBe(true);
 
     await put(`/api/templates/${view.id}`, { subject: "Changed {{first_name | x}}" });

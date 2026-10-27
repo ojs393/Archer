@@ -443,9 +443,15 @@ export interface AnalyticsRuns {
 }
 
 export interface AnalyticsFeedback {
-  available: false;
+  available: boolean;
+  /** SES complaint notifications ingested via SNS (recipient count). */
+  complaints: number;
+  /** SES permanent-bounce notifications ingested via SNS (recipient count). */
+  bounces: number;
   reason: string;
   guidance: string[];
+  /** Path on the public listener that accepts SNS HTTPS subscriptions. */
+  endpoint: string;
 }
 
 export const ANALYTICS_MAX_DAYS = 90;

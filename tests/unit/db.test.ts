@@ -13,7 +13,19 @@ import {
 import { runMigrations } from "../../server/db/migrate.ts";
 import { getAllSettings, getSetting, setSetting } from "../../server/db/settings.ts";
 
-const TABLES = ["campaign_days", "campaigns", "contacts", "events", "lists", "sends", "settings", "suppression", "templates"];
+const TABLES = [
+  "campaign_days",
+  "campaigns",
+  "contacts",
+  "events",
+  "feedback_events",
+  "lists",
+  "sends",
+  "settings",
+  "suppression",
+  "templates",
+  "unsubscribe_tokens",
+];
 
 let dir: string;
 const open: DatabaseSync[] = [];

@@ -117,6 +117,27 @@ const MIGRATIONS: readonly string[] = [
   `
   CREATE INDEX events_type_created ON events (type, created_at);
   `,
+  // Opaque unsubscribe tokens (email stays in the DB; URLs carry only id + HMAC).
+  `
+  CREATE TABLE unsubscribe_tokens (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT ${NOW}
+  );
+  CREATE INDEX unsubscribe_tokens_email ON unsubscribe_tokens (email);
+  `,
+  // SES → SNS bounce/complaint ingest (public POST /sns).
+  `
+  CREATE TABLE feedback_events (
+    id INTEGER PRIMARY KEY,
+    kind TEXT NOT NULL CHECK (kind IN ('bounce', 'complaint')),
+    email TEXT NOT NULL,
+    detail TEXT,
+    message_id TEXT,
+    created_at TEXT NOT NULL DEFAULT ${NOW}
+  );
+  CREATE INDEX feedback_events_kind_created ON feedback_events (kind, created_at);
+  `,
 ];
 
 export function runMigrations(db: DatabaseSync): void {

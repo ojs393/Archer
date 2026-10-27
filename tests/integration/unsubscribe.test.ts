@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { afterEach, describe, expect, it } from "vitest";
 import { addSuppression, listSuppression } from "../../server/db/suppression.ts";
-import { signToken } from "../../server/domain/unsubscribe.ts";
+import { issueToken, signToken } from "../../server/domain/unsubscribe.ts";
 import { buildPublicServer } from "../../server/http/publicServer.ts";
 import { UNSUB_SECRET, authed, makeHarness, multipart, type Harness } from "./httpHarness.ts";
 
@@ -47,6 +47,15 @@ describe("unsubscribe on the main listener", () => {
     expect(res.headers["content-type"]).toMatch(/^text\/html/);
     expect(res.body).toMatch(/unsubscribed/i);
     expect(suppressed()).toEqual([{ email: "ann@example.com", reason: "unsubscribe", created_at: expect.any(String) }]);
+  });
+
+  it("accepts opaque tokens that never embed the email", async () => {
+    h = await makeHarness();
+    const token = issueToken(h.db, "opaque@example.com", UNSUB_SECRET);
+    expect(token.startsWith(Buffer.from("opaque@example.com", "utf8").toString("base64url") + ".")).toBe(false);
+    const res = await h.app.inject({ method: "POST", url: `/u/${token}`, headers: { host } });
+    expect(res.statusCode).toBe(200);
+    expect(suppressed()).toEqual([{ email: "opaque@example.com", reason: "unsubscribe", created_at: expect.any(String) }]);
   });
 
   it("accepts an RFC 8058 one-click POST (urlencoded, multipart, or no body), with no Origin or custom header", async () => {
@@ -126,7 +135,7 @@ describe("unsubscribe on the main listener", () => {
 });
 
 describe("public listener", () => {
-  it("serves /u/:token for any Host and exposes nothing else", async () => {
+  it("serves /u/:token and /sns for any Host and exposes nothing else", async () => {
     h = await makeHarness();
     pub = buildPublicServer({ db: h.db, env: h.env, log: { info() {}, warn() {}, error() {} } });
     await pub.ready();
@@ -145,6 +154,8 @@ describe("public listener", () => {
     });
     expect(done.statusCode).toBe(200);
     expect(suppressed().map((r) => r.email)).toEqual(["ann@example.com"]);
+
+    expect((await pub.inject({ method: "POST", url: "/sns", headers: tunnelHost, payload: "{" })).statusCode).toBeGreaterThanOrEqual(400);
 
     for (const [method, url] of [
       ["GET", "/api/settings"],

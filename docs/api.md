@@ -44,7 +44,8 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 | POST | /api/suppression | `{ email, reason?: "manual" }` | 201 `{ added: boolean }` |
 | DELETE | /api/suppression/:email | — | 204 |
 | GET | /api/suppression/export | — | `text/csv` download `email,reason,created_at` |
-| GET/POST | /u/:token | (public-safe, NOT under /api, no session/header checks; Host check relaxed only on the public listener) | GET: HTML page with a "Confirm unsubscribe" button (GET never mutates — link scanners prefetch). POST (form or `List-Unsubscribe=One-Click`): add suppression `unsubscribe`, HTML confirmation. Invalid token → 400 HTML. |
+| GET/POST | /u/:token | (public-safe, NOT under /api, no session/header checks; Host check relaxed only on the public listener) | GET: HTML page with a "Confirm unsubscribe" button (GET never mutates — link scanners prefetch). POST (form or `List-Unsubscribe=One-Click`): add suppression `unsubscribe`, HTML confirmation. Token is opaque `id.mac` (email in DB); legacy email-in-token links still verify. Invalid token → 400 HTML. |
+| POST | /sns | (public listener only) | Amazon SNS HTTPS endpoint for SES Bounce/Complaint. Verifies SNS signature, auto-confirms `SubscriptionConfirmation`, suppresses permanent bounces (`hard_bounce`) and complaints (`complaint`), records `feedback_events`. |
 
 ## Routes — 10B
 | Method | Path | Body / query | Response |
@@ -81,7 +82,7 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 | GET | /api/analytics/timeseries | `bucket?: hour \| day` (default hour), `days?: 1..90` (default 2 for hour, 30 for day), `campaignId?` | `{ bucket; coverageFrom: string \| null; points: { t; sent; failed; suppressed; retry; uncertain }[] }` |
 | GET | /api/analytics/errors | `limit?: 1..50` (default 10), `campaignId?` | `{ coverageFrom: string \| null; rows: { kind: "failed" \| "suppressed" \| "retry" \| "uncertain"; message; count; lastAt }[] }` |
 | GET | /api/analytics/runs | `campaignId?` | `{ rows: { id; name; status; recipients; sent; failed; suppressed; uncertain; deliveryRate; startedAt; finishedAt }[] }` (newest first, ≤ 100) |
-| GET | /api/analytics/feedback | — | `{ available: false; reason: string; guidance: string[] }` |
+| GET | /api/analytics/feedback | — | `{ available: boolean; complaints: number; bounces: number; endpoint: "/sns"; reason: string; guidance: string[] }` — `available` is true once any SNS feedback_events exist |
 | POST | /api/system/desktop-launcher | — | `{ ok: true; path }` (500 `launcher_failed` with the reason) |
 
 ## Implementation notes (10A)
@@ -143,7 +144,7 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 - Tokens up to 1024 characters are accepted (the router's parameter limit is raised to 2048).
 - Pages are served with `Cache-Control: no-store` and a strict CSP (`default-src 'none'; form-action 'self'`). The confirmation form posts to its own URL, so it works behind a tunnel.
 - POST accepts any body up to 16 KiB (urlencoded, multipart, or none). An address that is already suppressed keeps its original reason.
-- The public listener (`ARCHER_PUBLIC_PORT`) has no Host check and answers 404 to everything except `GET/POST /u/:token`; it never sets the session cookie.
+- The public listener (`ARCHER_PUBLIC_PORT`) has no Host check and answers 404 to everything except `GET/POST /u/:token` and `POST /sns`; it never sets the session cookie.
 
 ### Boot and runtime files
 - The lock is taken right after the data directories exist and before `.env` secrets are generated, so two simultaneous first starts cannot write different `UNSUB_SECRET`s.
@@ -204,7 +205,7 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 - `lastSendAt` is the newest `sent` event; when none is kept in the scope it falls back to the newest `updated_at` of a `sent` sends row (per run, through the `sends (campaign_id, state, …)` index), so it is only `null` when nothing was ever sent.
 - Timeseries buckets are UTC hours or days, oldest first, ending with the current bucket; every bucket in the window is present (zeros when empty), so a series has `days × 24` (hour) or `days` (day) points, at most 2,160. Migration 5 adds `events (type, created_at)`.
 - Errors group events of the four kinds by kind + normalized message: registered secrets masked, whitespace collapsed, email addresses (with or without `<…>`) replaced by `<email>`, ISO timestamps by `<time>`, the worker's `Retry n/m` counter dropped, then cut to 160 characters. Sorted by count, then most recent.
-- Feedback always answers `available: false`: complaint data needs SES feedback notifications through SNS, which Archer does not receive yet. No numbers are returned.
+- Feedback returns complaint/bounce counts from `feedback_events` (SNS ingest). Until the first event, `available` is false and `guidance` explains wiring SES → SNS → `POST /sns` on the public listener.
 
 ### Desktop launcher
 - Written to the desktop folder (`~/Desktop`; on Windows the folder PowerShell `[Environment]::GetFolderPath('Desktop')` reports (read as UTF-8), or, if that fails or is not an absolute path, `%USERPROFILE%\OneDrive\Desktop` when it exists, otherwise `<home>\Desktop`), created if missing, overwriting an earlier launcher. Every launcher puts the folder of the running Node.js first on `PATH` (a double-clicked launcher does not read the shell profile that usually does that) and then runs `npm start` in the project root.

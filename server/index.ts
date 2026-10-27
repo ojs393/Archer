@@ -63,7 +63,7 @@ async function listenPublic(db: DatabaseSync): Promise<FastifyInstance | null> {
   const app = buildPublicServer({ db, env: process.env });
   try {
     await app.listen({ host: HOST, port });
-    logger.info(`Public unsubscribe listener on http://${HOST}:${port} (only /u/:token)`);
+    logger.info(`Public listener on http://${HOST}:${port} (/u/:token, POST /sns)`);
     return app;
   } catch (err) {
     logger.error(`Could not start the public unsubscribe listener on port ${port}; continuing without it:`, err);

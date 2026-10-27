@@ -26,12 +26,12 @@ On boot, if the live DB is corrupt and no backup exists, the bad file is moved a
 ## Recommended host
 
 - Always-on laptop or mini PC on the operator’s LAN; VPN notes live in the design spec (keep the SMTP path stable).
-- Bind stays on `127.0.0.1` for the UI API; optional `ARCHER_PUBLIC_PORT` only exposes `/u/:token`.
+- Bind stays on `127.0.0.1` for the UI API; optional `ARCHER_PUBLIC_PORT` exposes `/u/:token` and `POST /sns`.
 - Free disk for DB + 7 daily backups + one rotated log; watch the backup log line if `VACUUM INTO` fails (usually disk full).
 
 ## Spam / complaint charts
 
-Complaint feedback needs SES event publishing (SNS). Until that exists, analytics feedback answers `available: false` with guidance — never fabricated rates.
+Point SES Bounce and Complaint notifications at an SNS topic, then subscribe that topic to HTTPS `https://<public-host>/sns` (the `ARCHER_PUBLIC_PORT` listener). Archer verifies the SNS signature, auto-confirms the subscription, suppresses permanent bounces and complaints, and shows counts on Dashboard → Feedback. Until the first event arrives, feedback answers `available: false` with setup guidance — never fabricated rates.
 
 ## Coming in Task 13
 

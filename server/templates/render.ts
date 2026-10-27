@@ -45,6 +45,7 @@ export function pickContact(
   return row ? { id: row.id, email: row.email, fields_json: row.fields_json } : null;
 }
 
+/** Preview uses a legacy-shaped token (no DB row) so clicking preview never writes tokens. */
 function previewUnsubscribeUrl(sender: SenderConfig, email: string): string {
   if (!sender.unsubMailbox.trim() && !sender.publicBaseUrl) return UNSUBSCRIBE_PLACEHOLDER;
   try {
@@ -70,6 +71,7 @@ export function previewTemplate(t: TemplateRecord, contact: SampleContact, sende
 
 /** Renders as `contact`, addressed to each inbox; the unsubscribe link belongs to the inbox, never to the contact. */
 export function composeTestMessages(
+  db: DatabaseSync,
   t: TemplateRecord,
   contact: SampleContact,
   inboxes: string[],
@@ -78,7 +80,7 @@ export function composeTestMessages(
 ): OutgoingMessage[] {
   const tpl = toTemplateRow(t);
   return inboxes.map((inbox) => {
-    const message = composeMessage(tpl, contact, sender, today, inbox);
+    const message = composeMessage(db, tpl, contact, sender, today, inbox);
     return { ...message, to: inbox, subject: TEST_PREFIX + message.subject };
   });
 }

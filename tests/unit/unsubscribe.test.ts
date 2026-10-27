@@ -1,17 +1,55 @@
 import { createHmac } from "node:crypto";
-import { describe, it, expect } from "vitest";
+import type { DatabaseSync } from "node:sqlite";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { openDb } from "../../server/db/index.ts";
 import {
+  issueToken,
+  listUnsubscribeHeaders,
+  resolveToken,
   signToken,
-  verifyToken,
-  unsubscribeMailto,
   unsubscribeHttpsUrl,
   unsubscribeLink,
-  listUnsubscribeHeaders,
+  unsubscribeMailto,
+  verifyToken,
 } from "../../server/domain/unsubscribe.ts";
 
 const SECRET = "k".repeat(40);
 const OTHER_SECRET = "z".repeat(40);
 const EMAIL = "jane.doe@example.com";
+
+describe("issueToken / resolveToken (opaque)", () => {
+  let db: DatabaseSync;
+  beforeEach(() => {
+    db = openDb(":memory:");
+  });
+  afterEach(() => {
+    db.close();
+  });
+
+  it("round-trips without putting the email in the token", () => {
+    const token = issueToken(db, EMAIL, SECRET);
+    expect(token.startsWith(Buffer.from(EMAIL, "utf8").toString("base64url") + ".")).toBe(false);
+    expect(token).toMatch(/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/);
+    expect(resolveToken(db, token, SECRET)).toBe(EMAIL);
+  });
+
+  it("normalizes the stored email", () => {
+    const token = issueToken(db, "  Jane.Doe@Example.COM ", SECRET);
+    expect(resolveToken(db, token, SECRET)).toBe("jane.doe@example.com");
+  });
+
+  it("rejects a tampered mac or unknown id", () => {
+    const token = issueToken(db, EMAIL, SECRET);
+    const [id, mac] = token.split(".");
+    expect(resolveToken(db, `${id}.${mac.slice(0, -1)}x`, SECRET)).toBeNull();
+    expect(resolveToken(db, `deadbeef.${mac}`, SECRET)).toBeNull();
+  });
+
+  it("still resolves legacy email-in-token links", () => {
+    const legacy = signToken(EMAIL, SECRET);
+    expect(resolveToken(db, legacy, SECRET)).toBe(EMAIL);
+  });
+});
 
 describe("signToken / verifyToken", () => {
   it("round-trips an email", () => {

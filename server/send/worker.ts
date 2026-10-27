@@ -406,7 +406,7 @@ export class SendWorker extends EventEmitter {
     if (!tpl || tpl.version !== c.template_version) return this.holdRow(c.id, row, "template_changed");
     let message: OutgoingMessage;
     try {
-      message = composeMessage(tpl, row, sender, longDate(this.now(), s.timezone));
+      message = composeMessage(this.db, tpl, row, sender, longDate(this.now(), s.timezone));
     } catch (err) {
       if (err instanceof MalformedTemplateError) return this.holdRow(c.id, row, "template_error");
       if (!(err instanceof MissingVariableError)) throw err;
