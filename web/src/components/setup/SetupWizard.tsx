@@ -288,7 +288,7 @@ export function SetupWizard({
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         hideClose={!canDismiss}
-        className="max-w-xl"
+        className="max-w-2xl"
         onEscapeKeyDown={(e) => {
           if (!canDismiss) e.preventDefault();
         }}

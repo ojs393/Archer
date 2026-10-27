@@ -42,16 +42,18 @@ function DnsRow({
   const publish = expected;
   const showCurrent = Boolean(record && record !== publish);
   return (
-    <div className="flex flex-col gap-1.5 rounded-md border border-border px-3 py-2">
-      <div className="flex items-center gap-2">
+    <div className="flex min-w-0 flex-col gap-1.5 rounded-md border border-border px-3 py-2">
+      <div className="flex min-w-0 flex-wrap items-center gap-2">
         <StatusDot tone={ok ? "ok" : "error"} />
-        <span className="text-sm font-medium">{label}</span>
-        <span className="truncate text-xs text-muted-foreground">{detail}</span>
+        <span className="shrink-0 text-sm font-medium">{label}</span>
+        <span className="min-w-0 flex-1 break-words text-xs text-muted-foreground [overflow-wrap:anywhere]">{detail}</span>
       </div>
       {!ok ? (
         <>
           <Copyable value={publish} />
-          {showCurrent ? <p className="truncate text-xs text-muted-foreground">Current: {record}</p> : null}
+          {showCurrent ? (
+            <p className="break-all text-xs text-muted-foreground [overflow-wrap:anywhere]">Current: {record}</p>
+          ) : null}
         </>
       ) : null}
     </div>

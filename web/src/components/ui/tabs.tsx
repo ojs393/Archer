@@ -8,7 +8,11 @@ const TabsList = React.forwardRef<
   React.ElementRef<typeof TabsPrimitive.List>,
   React.ComponentPropsWithoutRef<typeof TabsPrimitive.List>
 >(({ className, ...props }, ref) => (
-  <TabsPrimitive.List ref={ref} className={cn("flex h-10 items-stretch gap-1 text-muted-foreground", className)} {...props} />
+  <TabsPrimitive.List
+    ref={ref}
+    className={cn("flex h-10 max-w-full items-stretch gap-1 overflow-x-auto overscroll-x-contain text-muted-foreground", className)}
+    {...props}
+  />
 ));
 TabsList.displayName = TabsPrimitive.List.displayName;
 
@@ -38,7 +42,7 @@ const TabsContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
-    className={cn(focusRing, className)}
+    className={cn("min-w-0 focus-visible:outline-none", focusRing, className)}
     {...props}
   />
 ));

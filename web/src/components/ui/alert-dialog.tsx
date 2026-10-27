@@ -21,19 +21,25 @@ const AlertDialogContent = React.forwardRef<
   <AlertDialogPortal>
     <AlertDialogOverlay />
     <div className={viewportClass}>
-      <AlertDialogPrimitive.Content ref={ref} className={cn(panelClass, "max-w-md", className)} {...props} />
+      <AlertDialogPrimitive.Content ref={ref} className={cn(panelClass, "max-w-lg gap-4", className)} {...props} />
     </div>
   </AlertDialogPortal>
 ));
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName;
 
 const AlertDialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col gap-1.5", className)} {...props} />
+  <div className={cn("flex min-w-0 flex-col gap-1.5 pr-2", className)} {...props} />
 );
 AlertDialogHeader.displayName = "AlertDialogHeader";
 
 const AlertDialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)} {...props} />
+  <div
+    className={cn(
+      "sticky bottom-0 z-[1] -mx-6 -mb-6 mt-auto flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-background px-6 pb-6 pt-4 sm:flex-row sm:justify-end",
+      className,
+    )}
+    {...props}
+  />
 );
 AlertDialogFooter.displayName = "AlertDialogFooter";
 

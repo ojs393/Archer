@@ -121,7 +121,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         onOpenChange(next);
       }}
     >
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Import CSV</DialogTitle>
           <DialogDescription>Upload a CSV, map the email column, and confirm consent.</DialogDescription>
@@ -163,7 +163,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                   </SelectContent>
                 </Select>
               </FieldRow>
-              <div className="overflow-hidden rounded-md border border-border">
+              <div className="min-w-0 max-w-full rounded-md border border-border">
                 <Table>
                   <TableHeader>
                     <TableRow>

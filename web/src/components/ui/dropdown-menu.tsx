@@ -23,7 +23,7 @@ const DropdownMenuContent = React.forwardRef<
       align={align}
       collisionPadding={12}
       className={cn(
-        "z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[10rem] overflow-y-auto rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md",
+        "z-50 max-h-[var(--radix-dropdown-menu-content-available-height)] min-w-[10rem] max-w-[calc(100vw-1.5rem)] overflow-y-auto break-words rounded-lg border border-border bg-popover p-1 text-popover-foreground shadow-md [overflow-wrap:anywhere]",
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className,
       )}

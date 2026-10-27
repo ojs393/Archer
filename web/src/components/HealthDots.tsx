@@ -37,7 +37,7 @@ function HealthDot({ label, item }: { label: string; item: HealthItem | undefine
           {label}: {view.label}
         </TooltipContent>
       </Tooltip>
-      <PopoverContent align="end" className="w-72">
+      <PopoverContent align="end" className="w-[min(20rem,calc(100vw-1.5rem))]">
         <div className="flex items-center gap-2">
           <StatusDot tone={view.tone} />
           <span className="font-medium text-foreground">{label}</span>

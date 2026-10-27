@@ -85,17 +85,17 @@ export function TemplateEditor({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl">
+      <DialogContent className="max-w-5xl">
         <DialogHeader>
           <DialogTitle>{templateId === null ? "New template" : "Edit template"}</DialogTitle>
-          <DialogDescription className="flex items-center gap-1">
+          <DialogDescription className="flex flex-wrap items-center gap-1">
             HTML body with merge tags.
             <InfoHint label="Available variables">{VARS_HINT}</InfoHint>
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="flex flex-col gap-3">
+        <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+          <div className="flex min-w-0 flex-col gap-3">
             <FieldRow id="tpl-name" label="Name">
               <Input value={name} onChange={(e) => setName(e.target.value)} />
             </FieldRow>
@@ -111,11 +111,11 @@ export function TemplateEditor({
               </p>
             ) : null}
           </div>
-          <div className="flex flex-col gap-2">
+          <div className="flex min-w-0 flex-col gap-2">
             <p className="text-xs font-medium text-muted-foreground">Preview</p>
-            <p className="text-sm font-medium text-foreground">Subject: {subject || "—"}</p>
+            <p className="break-words text-sm font-medium text-foreground">Subject: {subject || "—"}</p>
             {/* XSS: templates are operator-authored on localhost; not sanitised for the preview pane. */}
-            <div className="max-h-[24rem] overflow-auto rounded-md border border-border bg-zinc-50 p-3">
+            <div className="max-h-[min(24rem,40dvh)] min-w-0 overflow-auto break-words rounded-md border border-border bg-zinc-50 p-3 [overflow-wrap:anywhere]">
               <div dangerouslySetInnerHTML={{ __html: previewHtml || "<p></p>" }} />
             </div>
           </div>

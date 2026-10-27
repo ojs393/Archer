@@ -11,12 +11,15 @@ const DialogClose = DialogPrimitive.Close;
 
 const overlayClass =
   "fixed inset-0 z-50 bg-zinc-950/40 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0";
+
+/** Shared shell for Dialog and AlertDialog — fills the viewport safely, scrolls inside the panel. */
 const panelClass = cn(
-  "relative z-50 grid max-h-[calc(100dvh-2rem)] w-full max-w-lg gap-4 overflow-y-auto rounded-lg border border-border bg-background p-6 shadow-lg",
+  "relative z-50 flex w-[min(100%,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] min-w-0 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg border border-border bg-background p-6 shadow-lg",
+  "max-w-lg break-words [overflow-wrap:anywhere]",
   "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
   "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 focus-visible:outline-none",
 );
-const viewportClass = "fixed inset-0 z-50 flex items-center justify-center p-4";
+const viewportClass = "fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center";
 
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
@@ -38,7 +41,7 @@ const DialogContent = React.forwardRef<
             <TooltipTrigger asChild>
               <DialogPrimitive.Close
                 className={cn(
-                  "absolute right-3 top-3 inline-flex h-8 w-8 items-center justify-center rounded-md text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900",
+                  "absolute right-3 top-3 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900",
                   focusRing,
                 )}
                 aria-label="Close"
@@ -56,12 +59,24 @@ const DialogContent = React.forwardRef<
 DialogContent.displayName = DialogPrimitive.Content.displayName;
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col gap-1.5 pr-8", className)} {...props} />
+  <div
+    className={cn(
+      "sticky top-0 z-[1] -mx-6 -mt-6 flex shrink-0 flex-col gap-1.5 border-b border-border bg-background px-6 pb-4 pt-6 pr-12",
+      className,
+    )}
+    {...props}
+  />
 );
 DialogHeader.displayName = "DialogHeader";
 
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-  <div className={cn("flex flex-col-reverse gap-2 sm:flex-row sm:justify-end", className)} {...props} />
+  <div
+    className={cn(
+      "sticky bottom-0 z-[1] -mx-6 -mb-6 mt-auto flex shrink-0 flex-col-reverse gap-2 border-t border-border bg-background px-6 pb-6 pt-4 sm:flex-row sm:justify-end",
+      className,
+    )}
+    {...props}
+  />
 );
 DialogFooter.displayName = "DialogFooter";
 

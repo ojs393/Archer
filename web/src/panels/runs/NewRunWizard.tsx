@@ -194,7 +194,7 @@ export function NewRunWizard({ open, onOpenChange }: { open: boolean; onOpenChan
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl" aria-describedby="new-run-desc">
+      <DialogContent className="max-w-4xl" aria-describedby="new-run-desc">
         <DialogHeader>
           <DialogTitle>New run</DialogTitle>
           <DialogDescription id="new-run-desc">Choose audience, template, and schedule, then start.</DialogDescription>

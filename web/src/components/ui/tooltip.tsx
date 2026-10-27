@@ -16,7 +16,7 @@ const TooltipContent = React.forwardRef<
       sideOffset={sideOffset}
       collisionPadding={collisionPadding}
       className={cn(
-        "z-50 max-w-xs select-none rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium text-white shadow-md",
+        "z-50 max-w-[min(20rem,calc(100vw-1.5rem))] break-words select-none rounded-md bg-zinc-900 px-2 py-1 text-xs font-medium text-white shadow-md [overflow-wrap:anywhere]",
         "data-[state=delayed-open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=delayed-open]:fade-in-0",
         className,
       )}
