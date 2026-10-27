@@ -4,7 +4,7 @@ import { runNpm } from "./run.mjs";
 
 const NAME = "web app";
 const BUILD_TIMEOUT_MS = 5 * 60_000;
-const CONFIG_FILES = ["vite.config.ts", "tailwind.config.ts", "package-lock.json"];
+const CONFIG_FILES = ["config/vite.config.ts", "config/tailwind.config.ts", "package-lock.json"];
 
 function newestFile(entry, newest) {
   let stat;

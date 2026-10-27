@@ -3,7 +3,8 @@ import { fileURLToPath } from "node:url";
 import type { Config } from "tailwindcss";
 import animate from "tailwindcss-animate";
 
-const web = path.join(path.dirname(fileURLToPath(import.meta.url)), "web");
+const root = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
+const web = path.join(root, "web");
 const token = (name: string) => `hsl(var(--${name}) / <alpha-value>)`;
 
 export default {

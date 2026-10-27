@@ -41,7 +41,7 @@ function execScript(execLine: string): string {
 
 describe("desktopDir", () => {
   it("uses ~/Desktop on macOS and Linux", () => {
-    expect(desktopDir({ platform: "darwin", homedir: "/Users/olive" })).toBe("/Users/olive/Desktop");
+    expect(desktopDir({ platform: "darwin", homedir: "/Users/example" })).toBe("/Users/example/Desktop");
     expect(desktopDir({ platform: "linux", homedir: "/home/olive" })).toBe("/home/olive/Desktop");
   });
 

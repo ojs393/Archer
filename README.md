@@ -32,7 +32,22 @@ Archer is a **local Node app**, not a hosted ESP. You clone it, run it on macOS,
 | Warm-up, daily caps, send windows, safety stops | Built-in design templates marketplace |
 | Desktop launcher (Mac / Windows / Linux) | A replacement for Mailchimp/Customer.io ops teams |
 
-Honest limits: delivery/bounce charts stay empty until your provider feedback is wired; the dashboard never invents numbers for rotated event history.
+Honest limits: delivery and bounce charts stay empty until provider feedback is wired; the dashboard never invents numbers for rotated event history.
+
+## Layout
+
+Root stays small on purpose: `README.md`, `package.json`, lockfile, `.gitignore`, `.env.example`, then folders.
+
+| Path | Role |
+|---|---|
+| `config/` | Vite, Vitest, Tailwind, TypeScript configs |
+| `server/` | HTTP API, send worker, SQLite |
+| `web/` | React UI |
+| `scripts/` | setup, doctor, icons |
+| `tests/` | unit + integration |
+| `docs/` | API, ops, screenshots |
+| `assets/icons/` | Desktop launcher icons |
+| `data/` | Local runtime only (gitignored) |
 
 ## Install
 

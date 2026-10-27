@@ -7,8 +7,9 @@ dist/
 .cache/
 .eslintcache
 .npm/
+.pnpm-store/
 
-# Runtime data (local installs)
+# Runtime data (never commit — local installs only)
 data/
 .env
 .env.*
@@ -20,6 +21,15 @@ data/
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm
+server.json
+
+# Secrets & credentials
+*.pem
+*.key
+*.p12
+*.pfx
+credentials*.json
+**/secrets/**
 
 # OS / editor
 .DS_Store
@@ -65,10 +75,11 @@ progress.md
 IMPLEMENTATION_PLAN.md
 TODO.md
 
-# Scratch / local only
+# Scratch / local uploads / temp CSV dumps
 /tmp/
 *.partial
 incoming-*.csv
+upload-*.csv
 *.local.*
 .worktrees/
 .DS_Store?

@@ -19,7 +19,7 @@ beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "archer-webbuild-"));
   write("web/index.html", T0);
   write("web/src/main.tsx", T0);
-  write("vite.config.ts", T0);
+  write("config/vite.config.ts", T0);
 });
 
 afterEach(() => {
@@ -46,8 +46,8 @@ describe("webBuildState", () => {
 
   it("is stale when the Vite config changed after the build", () => {
     write("dist/web/index.html", T0 + 10);
-    write("vite.config.ts", T0 + 20);
-    expect(webBuildState(root)).toMatchObject({ state: "stale", newest: "vite.config.ts" });
+    write("config/vite.config.ts", T0 + 20);
+    expect(webBuildState(root)).toMatchObject({ state: "stale", newest: path.join("config", "vite.config.ts") });
   });
 
   it("ignores dotfiles such as .DS_Store", () => {

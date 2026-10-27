@@ -1,11 +1,11 @@
 # Archer web app
 
-React 18 + TypeScript (strict) + Tailwind 3 + Radix/shadcn primitives, built by Vite into `dist/web`, which the backend serves at `/`. Sources live in `web/` (`index.html`, `src/`, `public/`); `vite.config.ts` and `tailwind.config.ts` sit at the repo root.
+React 18 + TypeScript (strict) + Tailwind 3 + Radix/shadcn primitives, built by Vite into `dist/web`, which the backend serves at `/`. Sources live in `web/` (`index.html`, `src/`, `public/`). Build configs live in `config/` (`vite.config.ts`, `tailwind.config.ts`, `vitest.config.ts`, server `tsconfig.json`).
 
 ## Scripts
 | Command | What it does |
 |---|---|
-| `npm start` | `doctor --quick` rebuilds `dist/web` when it is missing or older than any file under `web/`, `vite.config.ts`, `tailwind.config.ts` or `package-lock.json` (line `web app`: PASS / FIXED / FAIL; a failed build is reported but does not stop the server, which then serves the last good build or a placeholder page). |
+| `npm start` | `doctor --quick` rebuilds `dist/web` when it is missing or older than any file under `web/`, `config/vite.config.ts`, `config/tailwind.config.ts` or `package-lock.json` (line `web app`: PASS / FIXED / FAIL; a failed build is reported but does not stop the server, which then serves the last good build or a placeholder page). |
 | `npm run build:web` | Production build to `dist/web` (no source maps; panels are separate chunks). |
 | `npm run dev:web` | Vite dev server on `http://localhost:5173` with hot reload. |
 | `npm run build:icons` | Re-renders every icon from `web/public/brand/mark.svg` (outputs are committed). |
@@ -29,7 +29,7 @@ The dev server proxies `/api` and `/u/` to the backend port read from `data/serv
 - White surfaces on a `#fafafa` canvas, zinc text and borders, blue (`#2563eb` family) only for interactive elements and focus (solid 2 px blue-600 ring with 2 px white offset). Status colours (green/amber/red/blue/zinc) only on small dots and badges; red buttons only for destructive confirms in alert dialogs.
 - Labels are short nouns; longer explanations sit behind `InfoHint` (click to reveal). No emoji. Icons come from `lucide-react` (plus `BrandMark`).
 - Icon-only actions use `IconButton` (borderless 32 x 32, `aria-label` and tooltip from one `label` prop; `destructive` turns the hover red).
-- Tokens are CSS variables in `src/index.css`, mapped to Tailwind colours in `tailwind.config.ts`.
+- Tokens are CSS variables in `src/index.css`, mapped to Tailwind colours in `config/tailwind.config.ts`.
 
 ## Icons
 `web/public/brand/mark.svg` is the source of truth (the inline `BrandMark` component uses the same paths; a test keeps them in sync). `scripts/build-icons.mjs` (resvg-wasm, pure-JS ICO/ICNS writers) writes `web/public/brand/app-icon.svg` (white rounded square + hairline), `favicon.svg`, PNG favicons, apple-touch and PWA icons, `favicon.ico`, `site.webmanifest`, and `assets/icons/archer.{ico,icns}` + 512/1024 PNGs for the desktop launcher. Rounded icons (app icon, favicons, ICO, ICNS, launcher PNGs) have transparent corners; only the full-bleed maskable and apple-touch icons are opaque white. Sizes up to 48 px use a simplified mark (chosen by geometry: no highlight or band, every other feather, kept feathers thickened 1.08x from the wing base) scaled up 1.15x so the wings stay distinct from the dome.

@@ -5,10 +5,11 @@ import react from "@vitejs/plugin-react-swc";
 import autoprefixer from "autoprefixer";
 import tailwindcss from "tailwindcss";
 import { defineConfig } from "vite";
-import { resolvePaths } from "./scripts/lib/paths.mjs";
+import { resolvePaths } from "../scripts/lib/paths.mjs";
 import tailwindConfig from "./tailwind.config.ts";
 
-const root = path.dirname(fileURLToPath(import.meta.url));
+const configDir = path.dirname(fileURLToPath(import.meta.url));
+const root = path.join(configDir, "..");
 const DEFAULT_BACKEND_PORT = 5199;
 
 export const webAlias = { "@": path.join(root, "web", "src") };
