@@ -758,7 +758,7 @@ describe("SendWorker — user control always wins over the loop", () => {
     expect(smtp.received).toHaveLength(0);
   });
 
-  it("keeps a pause made during an in-flight send when an auth error arrives afterwards", async () => {
+  it("keeps a pause made during an in-flight send and aborts the SMTP attempt", async () => {
     const { campaignId } = seed(people(2));
     let worker: SendWorker | undefined;
     smtp.setMailFromBehavior(() => {
@@ -767,11 +767,13 @@ describe("SendWorker — user control always wins over the loop", () => {
     });
     worker = makeWorker();
     worker.start(campaignId);
-    await waitFor(() => events.some((e) => e.type === "error"), "auth error event");
-    await waitFor(() => worker.getActivity().inFlightSince === null, "in-flight to settle");
+    await waitFor(() => campaign(campaignId).status === "paused", "paused by user");
+    await waitFor(() => worker!.getActivity().inFlightSince === null, "in-flight to settle");
 
     expect(campaign(campaignId)).toMatchObject({ status: "paused", pause_reason: "user" });
-    expect(sends(campaignId).map((r) => [r.state, r.attempts])).toEqual(Array(2).fill(["pending", 0]));
+    // The in-flight row becomes uncertain (abort); the other stays pending. Nothing was delivered.
+    const states = sends(campaignId).map((r) => r.state).sort();
+    expect(states).toEqual(["pending", "uncertain"]);
     expect(smtp.received).toHaveLength(0);
   });
 });

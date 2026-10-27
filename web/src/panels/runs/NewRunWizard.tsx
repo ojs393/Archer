@@ -96,6 +96,8 @@ export function NewRunWizard({ open, onOpenChange }: { open: boolean; onOpenChan
   const [startError, setStartError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  /** Reuse this id on retry so a failed start does not create duplicate draft campaigns. */
+  const [createdCampaignId, setCreatedCampaignId] = useState<number | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -106,6 +108,7 @@ export function NewRunWizard({ open, onOpenChange }: { open: boolean; onOpenChan
     setTab("audience");
     setLaunchGates(null);
     setStartError(null);
+    setCreatedCampaignId(null);
     setHydrated(true);
   }, [open]);
 
@@ -162,13 +165,18 @@ export function NewRunWizard({ open, onOpenChange }: { open: boolean; onOpenChan
     setStartError(null);
     setLaunchGates(null);
     try {
-      const campaign = await create.mutateAsync({
-        listId: draft.listId,
-        templateId: draft.templateId,
-        schedule: draft.schedule,
-      });
+      let campaignId = createdCampaignId;
+      if (campaignId === null) {
+        const campaign = await create.mutateAsync({
+          listId: draft.listId,
+          templateId: draft.templateId,
+          schedule: draft.schedule,
+        });
+        campaignId = campaign.id;
+        setCreatedCampaignId(campaignId);
+      }
       try {
-        await start.mutateAsync(campaign.id);
+        await start.mutateAsync(campaignId);
       } catch (err) {
         if (isApiError(err, "gates_failed") && Array.isArray(err.details)) {
           setLaunchGates(err.details as Gate[]);
@@ -180,6 +188,7 @@ export function NewRunWizard({ open, onOpenChange }: { open: boolean; onOpenChan
       }
       clearDraft();
       setDraft(emptyDraft());
+      setCreatedCampaignId(null);
       onOpenChange(false);
       toast.success("Run started");
     } catch (err) {

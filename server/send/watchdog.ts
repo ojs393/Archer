@@ -56,6 +56,11 @@ export class Watchdog {
     this.log = opts.onLog ?? (() => {});
   }
 
+  /** Clear recovery debt after a successful send so flaky SMTP does not trip give-up. */
+  noteProgress(): void {
+    this.recoveries = [];
+  }
+
   start(): void {
     if (this.timer) return;
     this.lastTick = null;

@@ -7,8 +7,30 @@ import type { Env } from "../context.ts";
 import { UNSUBSCRIBE_ROUTE } from "../security.ts";
 
 export const UNSUBSCRIBE_BODY_LIMIT = 16 * 1024;
+/** Cap POST /u/:token when the public listener is tunnelled (per client IP). */
+const POST_RATE_WINDOW_MS = 60_000;
+const POST_RATE_MAX = 30;
 
 const PAGE_CSP = "default-src 'none'; style-src 'unsafe-inline'; form-action 'self'; base-uri 'none'; frame-ancestors 'none'";
+
+const postHits = new Map<string, number[]>();
+
+function clientKey(request: FastifyRequest): string {
+  return request.ip || "unknown";
+}
+
+function tooManyPosts(request: FastifyRequest): boolean {
+  const key = clientKey(request);
+  const now = Date.now();
+  const recent = (postHits.get(key) ?? []).filter((at) => now - at < POST_RATE_WINDOW_MS);
+  if (recent.length >= POST_RATE_MAX) {
+    postHits.set(key, recent);
+    return true;
+  }
+  recent.push(now);
+  postHits.set(key, recent);
+  return false;
+}
 
 const STYLE = `body{font-family:system-ui,-apple-system,"Segoe UI",sans-serif;background:#f8fafc;color:#0f172a;margin:0}
 main{max-width:32rem;margin:4rem auto;padding:2rem;background:#fff;border:1px solid #e2e8f0;border-radius:.75rem;box-shadow:0 1px 2px rgba(0,0,0,.05)}
@@ -74,6 +96,13 @@ export async function unsubscribePlugin(app: FastifyInstance, opts: UnsubscribeO
   });
 
   app.post(UNSUBSCRIBE_ROUTE, async (request, reply) => {
+    if (tooManyPosts(request)) {
+      return sendPage(
+        reply,
+        429,
+        page("Please try again shortly", "<p>Too many unsubscribe attempts from this network. Wait a minute and try once more.</p>"),
+      );
+    }
     const email = emailFor(request);
     if (!email) return sendPage(reply, 400, INVALID_PAGE);
     const added = addSuppression(opts.db, email, "unsubscribe");

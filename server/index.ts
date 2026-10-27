@@ -117,7 +117,13 @@ async function main(): Promise<number | null> {
   }, BACKUP_EVERY_MS).unref();
 
   const events = new EventHub();
-  const worker = new SendWorker({ db, getSenderConfig: () => getSenderConfig(db, process.env), sendTimeoutMs: DEFAULT_SEND_TIMEOUT_MS });
+  const progress = { note: () => {} };
+  const worker = new SendWorker({
+    db,
+    getSenderConfig: () => getSenderConfig(db, process.env),
+    sendTimeoutMs: DEFAULT_SEND_TIMEOUT_MS,
+    onProgress: () => progress.note(),
+  });
   const health = new HealthMonitor({
     db,
     worker,
@@ -141,6 +147,7 @@ async function main(): Promise<number | null> {
   }
 
   const watchdog = new Watchdog(worker, { sendTimeoutMs: DEFAULT_SEND_TIMEOUT_MS, onLog: (m) => logger.warn(m) });
+  progress.note = () => watchdog.noteProgress();
   watchdog.start();
 
   const sessionToken = randomBytes(32).toString("hex");

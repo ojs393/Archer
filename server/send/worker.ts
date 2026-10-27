@@ -48,6 +48,8 @@ export interface WorkerDeps {
   networkProbeIntervalMs?: number;
   sendTimeoutMs?: number;
   safety?: SafetyConfig;
+  /** Fired after a successful delivery — used by the watchdog to reset recovery counts. */
+  onProgress?: () => void;
   /** Test-only: override EventLog ring size / trim cadence. */
   eventLog?: { keep?: number; trimEvery?: number };
 }
@@ -115,6 +117,7 @@ export class SendWorker extends EventEmitter {
   private readonly networkProbeIntervalMs: number;
   private readonly sendTimeoutMs: number;
   private readonly safety: SafetyConfig;
+  private readonly onProgress: (() => void) | null;
 
   private campaignId: number | null = null;
   private status: CampaignStatus | null = null;
@@ -146,6 +149,7 @@ export class SendWorker extends EventEmitter {
     this.networkProbeIntervalMs = deps.networkProbeIntervalMs ?? 15_000;
     this.sendTimeoutMs = deps.sendTimeoutMs ?? DEFAULT_SEND_TIMEOUT_MS;
     this.safety = deps.safety ?? { window: 200, minSample: 50, threshold: 0.05 };
+    this.onProgress = deps.onProgress ?? null;
     this.heartbeatAt = this.now().getTime();
   }
 
@@ -180,7 +184,10 @@ export class SendWorker extends EventEmitter {
     const id = this.campaignId;
     if (id === null) return;
     if (this.isActive(id)) this.setStatus(id, "paused", reason);
+    // Abort in-flight SMTP too — nap-only abort left hung sends stuck after watchdog give-up.
+    this.iteration.abort();
     this.napCtl.abort();
+    this.rebuildTransport();
   }
 
   resume(): void {
@@ -195,7 +202,9 @@ export class SendWorker extends EventEmitter {
     if (id === null) return;
     const status = this.store.campaign(id)?.status;
     if (status !== undefined && status !== "completed" && status !== "stopped") this.setStatus(id, "stopped", null);
+    this.iteration.abort();
     this.napCtl.abort();
+    this.rebuildTransport();
   }
 
   requeueUncertain(campaignId: number, contactIds?: number[]): number {
@@ -293,6 +302,12 @@ export class SendWorker extends EventEmitter {
     const c = this.store.campaign(id);
     if (!c || !ACTIVE_STATUSES.has(c.status)) return "exit";
     this.status = c.status;
+    // Orphan `sending` rows (crash mid-mark, give-up hang) must not wait for an empty queue.
+    if (this.inFlightSince === null) {
+      for (const row of this.store.sendingRows(id)) {
+        this.markUncertain(id, row, "found mid-send with nothing in flight");
+      }
+    }
     const schedule = parseSchedule(c.schedule_json);
     this.delaySeconds = schedule.delaySeconds;
     const now = this.now();
@@ -487,6 +502,11 @@ export class SendWorker extends EventEmitter {
         ? [{ type: "sent", contactId: row.contact_id, email: row.email, message: `Sent to ${row.email}` }]
         : [],
     );
+    try {
+      this.onProgress?.();
+    } catch {
+      // Watchdog progress hooks must not break the send loop.
+    }
     return this.afterOutcome(id);
   }
 

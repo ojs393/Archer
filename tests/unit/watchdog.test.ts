@@ -170,6 +170,18 @@ describe("Watchdog — giving up", () => {
     expect(worker.calls).not.toContain("pause:watchdog_giveup");
   });
 
+  it("noteProgress clears recovery debt so a later stall does not give up early", () => {
+    const dog = watchdog({ maxRecoveries: 2, clockJumpMs: Infinity });
+    stall(dog);
+    stall(dog);
+    dog.noteProgress();
+    worker.activity.status = "running";
+    worker.activity.loopRunning = false;
+    dog.tick();
+    expect(worker.calls.filter((c) => c.startsWith("restartLoop"))).toHaveLength(3);
+    expect(worker.calls).not.toContain("pause:watchdog_giveup");
+  });
+
   it("gives a campaign resumed after a give-up fresh recoveries", () => {
     const dog = watchdog({ maxRecoveries: 1 });
     stall(dog);
