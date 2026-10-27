@@ -20,8 +20,8 @@ const isBuilt = fs.existsSync(path.join(builtWeb, "index.html"));
 
 describe("web app serving", () => {
   it("answers a missing asset with 404 instead of the app page", async () => {
-    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-web-"));
-    fs.writeFileSync(path.join(tmp, "index.html"), "<!doctype html><title>MamaDirect</title>");
+    tmp = fs.mkdtempSync(path.join(os.tmpdir(), "archer-web-"));
+    fs.writeFileSync(path.join(tmp, "index.html"), "<!doctype html><title>Archer</title>");
     fs.mkdirSync(path.join(tmp, "assets"));
     h = await makeHarness({ webDir: tmp });
     for (const url of ["/assets/Gone-abc123.js", "/assets/nested/x", "/favicon-999.png", "/old.css?v=1"]) {
@@ -31,14 +31,14 @@ describe("web app serving", () => {
     }
     const deep = await h.app.inject({ method: "GET", url: "/runs/7", headers: { host: authed.host } });
     expect(deep.statusCode).toBe(200);
-    expect(deep.body).toContain("<title>MamaDirect</title>");
+    expect(deep.body).toContain("<title>Archer</title>");
   });
 
   it.skipIf(!isBuilt)("serves the built dashboard from dist/web", async () => {
     h = await makeHarness({ webDir: builtWeb });
     const root = await h.app.inject({ method: "GET", url: "/", headers: { host: authed.host } });
     expect(root.statusCode).toBe(200);
-    expect(root.body).toContain("<title>MamaDirect</title>");
+    expect(root.body).toContain("<title>Archer</title>");
     expect(root.body).toContain('rel="manifest"');
 
     const script = /src="(\/assets\/index-[^"]+\.js)"/.exec(root.body)?.[1];

@@ -20,17 +20,17 @@ let events: WorkerEvent[];
 let savedEnv: string | undefined;
 
 beforeAll(() => {
-  savedEnv = process.env.MAMADIRECT_TEST_SMTP;
-  process.env.MAMADIRECT_TEST_SMTP = "1";
+  savedEnv = process.env.ARCHER_TEST_SMTP;
+  process.env.ARCHER_TEST_SMTP = "1";
 });
 
 afterAll(() => {
-  if (savedEnv === undefined) delete process.env.MAMADIRECT_TEST_SMTP;
-  else process.env.MAMADIRECT_TEST_SMTP = savedEnv;
+  if (savedEnv === undefined) delete process.env.ARCHER_TEST_SMTP;
+  else process.env.ARCHER_TEST_SMTP = savedEnv;
 });
 
 beforeEach(async () => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-watchdog-"));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-watchdog-"));
   db = openDb(path.join(dir, "app.db"));
   smtp = await startFakeSmtp();
   nowMs = START;

@@ -39,7 +39,7 @@ describe("HTTP security", () => {
     expect(h.db.prepare("SELECT COUNT(*) AS n FROM suppression").get()).toEqual({ n: 0 });
   });
 
-  it("rejects a POST without X-MamaDirect (403 missing_header)", async () => {
+  it("rejects a POST without X-Archer (403 missing_header)", async () => {
     h = await makeHarness();
     const res = await h.app.inject({
       method: "POST",
@@ -62,7 +62,7 @@ describe("HTTP security", () => {
 
   it("rejects a wrong cookie", async () => {
     h = await makeHarness();
-    const res = await h.app.inject({ method: "GET", url: "/api/health", headers: { host: authed.host, cookie: `md_session=${"b".repeat(64)}` } });
+    const res = await h.app.inject({ method: "GET", url: "/api/health", headers: { host: authed.host, cookie: `archer_session=${"b".repeat(64)}` } });
     expect(res.statusCode).toBe(401);
   });
 
@@ -71,14 +71,14 @@ describe("HTTP security", () => {
     const res = await h.app.inject({ method: "GET", url: "/api/session", headers: { host: authed.host } });
     expect(res.statusCode).toBe(204);
     const cookie = cookieOf(res);
-    expect(cookie).toContain(`md_session=${TOKEN}`);
+    expect(cookie).toContain(`archer_session=${TOKEN}`);
     expect(cookie).toMatch(/HttpOnly/i);
     expect(cookie).toMatch(/SameSite=Strict/i);
     expect(cookie).toMatch(/Path=\//);
     expect(res.body).toBe("");
 
-    const value = /md_session=([^;]+)/.exec(cookie)![1];
-    const health = await h.app.inject({ method: "GET", url: "/api/health", headers: { host: authed.host, cookie: `md_session=${value}` } });
+    const value = /archer_session=([^;]+)/.exec(cookie)![1];
+    const health = await h.app.inject({ method: "GET", url: "/api/health", headers: { host: authed.host, cookie: `archer_session=${value}` } });
     expect(health.statusCode).toBe(200);
   });
 
@@ -182,27 +182,27 @@ describe("HTTP security", () => {
     expect(res.statusCode).toBe(200);
     expect(res.headers["content-type"]).toMatch(/text\/html/);
     expect(res.body).toContain("npm run build:web");
-    expect(cookieOf(res)).toContain(`md_session=${TOKEN}`);
+    expect(cookieOf(res)).toContain(`archer_session=${TOKEN}`);
   });
 
   it("serves the built dashboard with SPA fallback and sets the cookie on index.html", async () => {
-    const webDir = fs.mkdtempSync(path.join(process.env.TMPDIR ?? "/tmp", "mamadirect-web-"));
-    fs.writeFileSync(path.join(webDir, "index.html"), "<!doctype html><title>MamaDirect</title>");
+    const webDir = fs.mkdtempSync(path.join(process.env.TMPDIR ?? "/tmp", "archer-web-"));
+    fs.writeFileSync(path.join(webDir, "index.html"), "<!doctype html><title>Archer</title>");
     fs.mkdirSync(path.join(webDir, "assets"));
     fs.writeFileSync(path.join(webDir, "assets", "app.js"), "console.log(1)");
     try {
       h = await makeHarness({ webDir });
       const root = await h.app.inject({ method: "GET", url: "/", headers: { host: authed.host } });
       expect(root.statusCode).toBe(200);
-      expect(root.body).toContain("<title>MamaDirect</title>");
-      expect(cookieOf(root)).toContain(`md_session=${TOKEN}`);
+      expect(root.body).toContain("<title>Archer</title>");
+      expect(cookieOf(root)).toContain(`archer_session=${TOKEN}`);
 
       const deep = await h.app.inject({ method: "GET", url: "/campaigns/3", headers: { host: authed.host } });
-      expect(deep.body).toContain("<title>MamaDirect</title>");
-      expect(cookieOf(deep)).toContain("md_session=");
+      expect(deep.body).toContain("<title>Archer</title>");
+      expect(cookieOf(deep)).toContain("archer_session=");
 
       const direct = await h.app.inject({ method: "GET", url: "/index.html", headers: { host: authed.host } });
-      expect(cookieOf(direct)).toContain("md_session=");
+      expect(cookieOf(direct)).toContain("archer_session=");
 
       const asset = await h.app.inject({ method: "GET", url: "/assets/app.js", headers: { host: authed.host } });
       expect(asset.statusCode).toBe(200);

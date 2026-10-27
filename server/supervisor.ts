@@ -71,13 +71,13 @@ export function runSupervisor(opts: SupervisorOptions = {}): SupervisorHandle {
     if (crashes.length >= maxCrashes) {
       const tail = lastStderr.length ? lastStderr.join("\n") : "(no error output)";
       log(
-        `MamaDirect server ${describeExit(code, signal)}. It crashed ${crashes.length} times within ${Math.round(crashWindowMs / 1000)}s, so the supervisor is giving up.\nLast error output:\n${tail}`,
+        `Archer server ${describeExit(code, signal)}. It crashed ${crashes.length} times within ${Math.round(crashWindowMs / 1000)}s, so the supervisor is giving up.\nLast error output:\n${tail}`,
       );
       finish(1, true);
       return;
     }
     const wait = backoffMs[Math.min(crashes.length - 1, backoffMs.length - 1)];
-    log(`MamaDirect server ${describeExit(code, signal)}; restarting in ${wait / 1000}s (crash ${crashes.length} of ${maxCrashes} allowed within ${Math.round(crashWindowMs / 1000)}s)`);
+    log(`Archer server ${describeExit(code, signal)}; restarting in ${wait / 1000}s (crash ${crashes.length} of ${maxCrashes} allowed within ${Math.round(crashWindowMs / 1000)}s)`);
     restartTimer = setTimeout(() => {
       restartTimer = null;
       if (!stopping) start();
@@ -126,7 +126,7 @@ export function runSupervisor(opts: SupervisorOptions = {}): SupervisorHandle {
     try {
       child.kill(again ? "SIGKILL" : signal);
     } catch (err) {
-      log(`Could not signal the MamaDirect server: ${err instanceof Error ? err.message : String(err)}`);
+      log(`Could not signal the Archer server: ${err instanceof Error ? err.message : String(err)}`);
     }
   };
 

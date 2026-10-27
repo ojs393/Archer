@@ -66,7 +66,7 @@ function writeMarkerDb(file: string, marker: string) {
 }
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-dblayer-"));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-dblayer-"));
 });
 
 afterEach(() => {
@@ -238,14 +238,14 @@ describe("checkIntegrity", () => {
 });
 
 describe("backup", () => {
-  it("writes mamadirect-YYYY-MM-DD.db containing the data", () => {
+  it("writes archer-YYYY-MM-DD.db containing the data", () => {
     const db = track(openDb(path.join(dir, "app.db")));
     setSetting(db, "marker", "hello");
     const backupsDir = path.join(dir, "backups");
 
     const file = backup(db, backupsDir, new Date("2026-10-25T23:30:00Z"));
 
-    expect(file).toBe(path.join(backupsDir, "mamadirect-2026-10-25.db"));
+    expect(file).toBe(path.join(backupsDir, "archer-2026-10-25.db"));
     const copy = track(openDb(file));
     expect(getSetting(copy, "marker")).toBe("hello");
   });
@@ -258,7 +258,7 @@ describe("backup", () => {
     const second = backup(db, backupsDir, new Date("2026-10-25T22:00:00Z"));
 
     expect(second).toBe(first);
-    expect(fs.readdirSync(backupsDir)).toEqual(["mamadirect-2026-10-25.db"]);
+    expect(fs.readdirSync(backupsDir)).toEqual(["archer-2026-10-25.db"]);
   });
 
   it("keeps only the seven newest daily backups", () => {
@@ -267,7 +267,7 @@ describe("backup", () => {
     for (let day = 1; day <= 9; day++) {
       backup(db, backupsDir, new Date(Date.UTC(2026, 9, day, 12)));
     }
-    const expected = [3, 4, 5, 6, 7, 8, 9].map((d) => `mamadirect-2026-10-0${d}.db`);
+    const expected = [3, 4, 5, 6, 7, 8, 9].map((d) => `archer-2026-10-0${d}.db`);
     expect(fs.readdirSync(backupsDir).sort()).toEqual(expected);
   });
 
@@ -293,7 +293,7 @@ describe("openDbWithRecovery", () => {
     const dbPath = path.join(dir, "app.db");
     const backupsDir = path.join(dir, "backups");
     fs.mkdirSync(backupsDir);
-    const good = path.join(backupsDir, "mamadirect-2026-10-24.db");
+    const good = path.join(backupsDir, "archer-2026-10-24.db");
     writeMarkerDb(good, "from-backup");
     fs.writeFileSync(dbPath, "not a sqlite database".repeat(200));
 

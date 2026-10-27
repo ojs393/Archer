@@ -82,7 +82,7 @@ function renderWizard(open = true) {
 }
 
 async function waitReady() {
-  expect(await screen.findByRole("heading", { name: "Welcome to MamaDirect" }, { timeout: 10_000 })).toBeInTheDocument();
+  expect(await screen.findByRole("heading", { name: "Welcome to Archer" }, { timeout: 10_000 })).toBeInTheDocument();
   expect(await screen.findByLabelText("Your name", {}, { timeout: 10_000 })).toBeInTheDocument();
 }
 
@@ -162,7 +162,7 @@ beforeEach(() => {
 
     if (path === "/api/system/desktop-launcher" && method === "POST") {
       posts.push({ path });
-      return json({ ok: true, path: "/Users/test/Desktop/MamaDirect.command" });
+      return json({ ok: true, path: "/Users/test/Desktop/Archer.command" });
     }
 
     if (path === "/api/setup/complete" && method === "POST") {
@@ -220,7 +220,7 @@ describe("SetupWizard", () => {
     expect(await screen.findByRole("heading", { name: "Provider" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Previous" }));
-    expect(await screen.findByRole("heading", { name: "Welcome to MamaDirect" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Welcome to Archer" })).toBeInTheDocument();
     expect(screen.getByLabelText("Your name")).toHaveValue("Oliver");
   });
 
@@ -271,7 +271,7 @@ describe("SetupWizard", () => {
     expect(await screen.findByRole("heading", { name: "Test inboxes" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add to Desktop" }));
     await waitFor(() => expect(posts.some((p) => p.path === "/api/system/desktop-launcher")).toBe(true));
-    expect(await screen.findByText(/MamaDirect\.command/)).toBeInTheDocument();
+    expect(await screen.findByText(/Archer\.command/)).toBeInTheDocument();
   });
 
   it("surfaces 409 missing steps from complete", async () => {
@@ -407,7 +407,7 @@ describe("App opens wizard from setup.complete", () => {
     render(
       <App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />,
     );
-    expect(await screen.findByRole("heading", { name: "Welcome to MamaDirect" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Welcome to Archer" })).toBeInTheDocument();
   });
 
   it("does not open the wizard when setup.complete is true", async () => {
@@ -452,6 +452,6 @@ describe("App opens wizard from setup.complete", () => {
       <App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />,
     );
     expect(await screen.findByRole("heading", { level: 1, name: "Dashboard" }, { timeout: 10_000 })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "Welcome to MamaDirect" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Welcome to Archer" })).not.toBeInTheDocument();
   });
 });

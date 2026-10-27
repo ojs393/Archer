@@ -8,8 +8,8 @@ let dir: string;
 let lockPath: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-lock-"));
-  lockPath = path.join(dir, "mamadirect.lock");
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-lock-"));
+  lockPath = path.join(dir, "archer.lock");
 });
 
 afterEach(() => {
@@ -106,9 +106,9 @@ describe("acquireInstanceLock", () => {
     const r = await acquireInstanceLock(lockPath, deps());
     expect(r.acquired).toBe(true);
     expect(read()).toMatchObject({ pid: 1000, port: null });
-    expect(fs.readdirSync(dir)).toEqual(["mamadirect.lock"]);
+    expect(fs.readdirSync(dir)).toEqual(["archer.lock"]);
     if (r.acquired) r.lock.setPort(5300);
-    expect(fs.readdirSync(dir)).toEqual(["mamadirect.lock"]);
+    expect(fs.readdirSync(dir)).toEqual(["archer.lock"]);
   });
 
   it("gives a stale lock to exactly one of two racing acquirers", async () => {
@@ -136,7 +136,7 @@ describe("acquireInstanceLock", () => {
     expect(results.find((r) => !r.acquired)).toMatchObject({ reason: "starting" });
     const owner = read().pid;
     expect(results[owner === 1000 ? 0 : 1].acquired).toBe(true);
-    expect(fs.readdirSync(dir)).toEqual(["mamadirect.lock"]);
+    expect(fs.readdirSync(dir)).toEqual(["archer.lock"]);
   });
 
   it("refuses, without taking over, when a live process holds the lock but does not answer", async () => {

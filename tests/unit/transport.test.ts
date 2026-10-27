@@ -20,30 +20,30 @@ function allText(err: unknown): string {
 describe("transportOptions — TLS verification (R17)", () => {
   let saved: string | undefined;
   beforeEach(() => {
-    saved = process.env.MAMADIRECT_TEST_SMTP;
+    saved = process.env.ARCHER_TEST_SMTP;
   });
   afterEach(() => {
-    if (saved === undefined) delete process.env.MAMADIRECT_TEST_SMTP;
-    else process.env.MAMADIRECT_TEST_SMTP = saved;
+    if (saved === undefined) delete process.env.ARCHER_TEST_SMTP;
+    else process.env.ARCHER_TEST_SMTP = saved;
   });
 
-  it.each(["127.0.0.1", "localhost"])("disables certificate checks only for %s with MAMADIRECT_TEST_SMTP=1", (host) => {
-    process.env.MAMADIRECT_TEST_SMTP = "1";
+  it.each(["127.0.0.1", "localhost"])("disables certificate checks only for %s with ARCHER_TEST_SMTP=1", (host) => {
+    process.env.ARCHER_TEST_SMTP = "1";
     expect(transportOptions(cfg({ host })).tls).toMatchObject({ rejectUnauthorized: false });
   });
 
-  it("keeps certificate checks for a remote host even with MAMADIRECT_TEST_SMTP=1", () => {
-    process.env.MAMADIRECT_TEST_SMTP = "1";
+  it("keeps certificate checks for a remote host even with ARCHER_TEST_SMTP=1", () => {
+    process.env.ARCHER_TEST_SMTP = "1";
     expect(transportOptions(cfg({ host: "smtp.example.com" })).tls).toMatchObject({ rejectUnauthorized: true });
   });
 
   it.each(["127.0.0.1", "localhost"])("keeps certificate checks for %s without the env flag", (host) => {
-    delete process.env.MAMADIRECT_TEST_SMTP;
+    delete process.env.ARCHER_TEST_SMTP;
     expect(transportOptions(cfg({ host })).tls).toMatchObject({ rejectUnauthorized: true });
   });
 
   it("requires the flag to be exactly '1'", () => {
-    process.env.MAMADIRECT_TEST_SMTP = "true";
+    process.env.ARCHER_TEST_SMTP = "true";
     expect(transportOptions(cfg()).tls).toMatchObject({ rejectUnauthorized: true });
   });
 });
@@ -85,12 +85,12 @@ describe("transport against the fake SMTP server", () => {
   let saved: string | undefined;
 
   beforeAll(() => {
-    saved = process.env.MAMADIRECT_TEST_SMTP;
-    process.env.MAMADIRECT_TEST_SMTP = "1";
+    saved = process.env.ARCHER_TEST_SMTP;
+    process.env.ARCHER_TEST_SMTP = "1";
   });
   afterAll(() => {
-    if (saved === undefined) delete process.env.MAMADIRECT_TEST_SMTP;
-    else process.env.MAMADIRECT_TEST_SMTP = saved;
+    if (saved === undefined) delete process.env.ARCHER_TEST_SMTP;
+    else process.env.ARCHER_TEST_SMTP = saved;
   });
   beforeEach(async () => {
     smtp = await startFakeSmtp({ user: "test", pass: PASS });

@@ -10,7 +10,7 @@ let dir: string;
 let envPath: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-envfile-"));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-envfile-"));
   envPath = path.join(dir, ".env");
 });
 
@@ -80,10 +80,10 @@ describe("setEnvValue", () => {
 });
 
 describe("resolvePaths env file override", () => {
-  it("honors MAMADIRECT_ENV_FILE", () => {
+  it("honors ARCHER_ENV_FILE", () => {
     const root = path.resolve("/proj");
-    expect(resolvePaths({ root, env: { MAMADIRECT_ENV_FILE: "/tmp/x.env" } }).envPath).toBe(path.resolve("/tmp/x.env"));
-    expect(resolvePaths({ root, env: { MAMADIRECT_ENV_FILE: "conf/.env" } }).envPath).toBe(path.join(root, "conf", ".env"));
-    expect(resolvePaths({ root, env: { MAMADIRECT_ENV_FILE: "" } }).envPath).toBe(path.join(root, ".env"));
+    expect(resolvePaths({ root, env: { ARCHER_ENV_FILE: "/tmp/x.env" } }).envPath).toBe(path.resolve("/tmp/x.env"));
+    expect(resolvePaths({ root, env: { ARCHER_ENV_FILE: "conf/.env" } }).envPath).toBe(path.join(root, "conf", ".env"));
+    expect(resolvePaths({ root, env: { ARCHER_ENV_FILE: "" } }).envPath).toBe(path.join(root, ".env"));
   });
 });

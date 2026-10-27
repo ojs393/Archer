@@ -26,7 +26,7 @@ describe("longevity invariants", () => {
     let db: DatabaseSync;
 
     beforeEach(() => {
-      dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-longevity-ring-"));
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-longevity-ring-"));
       db = openDb(path.join(dir, "app.db"));
     });
 
@@ -89,24 +89,24 @@ describe("longevity invariants", () => {
 
   describe("backup prune", () => {
     it("keeps exactly BACKUPS_KEPT when given more fake daily backups", () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-longevity-bak-"));
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-longevity-bak-"));
       try {
         for (let day = 1; day <= 10; day++) {
-          const name = `mamadirect-2026-10-${String(day).padStart(2, "0")}.db`;
+          const name = `archer-2026-10-${String(day).padStart(2, "0")}.db`;
           fs.writeFileSync(path.join(dir, name), "fake");
         }
         pruneBackups(dir);
         const left = fs.readdirSync(dir).filter((n) => n.endsWith(".db")).sort();
         expect(left).toHaveLength(BACKUPS_KEPT);
-        expect(left[0]).toBe("mamadirect-2026-10-04.db");
-        expect(left.at(-1)).toBe("mamadirect-2026-10-10.db");
+        expect(left[0]).toBe("archer-2026-10-04.db");
+        expect(left.at(-1)).toBe("archer-2026-10-10.db");
       } finally {
         fs.rmSync(dir, { recursive: true, force: true });
       }
     });
 
     it("runs wal recycle after a real backup without throwing", () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-longevity-bak2-"));
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-longevity-bak2-"));
       const db = openDb(path.join(dir, "app.db"));
       try {
         expect(() => backup(db, path.join(dir, "backups"), new Date("2026-10-26T12:00:00Z"))).not.toThrow();
@@ -119,7 +119,7 @@ describe("longevity invariants", () => {
 
   describe("log rotate", () => {
     it("leaves only app.log + app.log.1 after crossing the threshold", () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-longevity-log-"));
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-longevity-log-"));
       const logFile = path.join(dir, "app.log");
       try {
         const rotateBytes = 2_000;
@@ -145,17 +145,17 @@ describe("longevity invariants", () => {
     let savedEnv: string | undefined;
 
     beforeAll(() => {
-      savedEnv = process.env.MAMADIRECT_TEST_SMTP;
-      process.env.MAMADIRECT_TEST_SMTP = "1";
+      savedEnv = process.env.ARCHER_TEST_SMTP;
+      process.env.ARCHER_TEST_SMTP = "1";
     });
 
     afterAll(() => {
-      if (savedEnv === undefined) delete process.env.MAMADIRECT_TEST_SMTP;
-      else process.env.MAMADIRECT_TEST_SMTP = savedEnv;
+      if (savedEnv === undefined) delete process.env.ARCHER_TEST_SMTP;
+      else process.env.ARCHER_TEST_SMTP = savedEnv;
     });
 
     beforeEach(async () => {
-      dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-longevity-burst-"));
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-longevity-burst-"));
       db = openDb(path.join(dir, "app.db"));
       smtp = await startFakeSmtp();
       nowMs = START;
@@ -287,7 +287,7 @@ describe("longevity invariants", () => {
 
   describe("import temp cleanup", () => {
     it("ImportJobs deletes staged CSV; recycleUploads removes aged incoming orphans", async () => {
-      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-longevity-imp-"));
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-longevity-imp-"));
       const db = openDb(path.join(dir, "app.db"));
       const uploads = path.join(dir, "uploads");
       fs.mkdirSync(uploads);

@@ -154,10 +154,10 @@ describe("public listener", () => {
       ["POST", "/api/suppression"],
       ["GET", "/index.html"],
     ] as const) {
-      const res = await pub.inject({ method, url, headers: { ...tunnelHost, cookie: authed.cookie, "x-mamadirect": "1" } });
+      const res = await pub.inject({ method, url, headers: { ...tunnelHost, cookie: authed.cookie, "x-archer": "1" } });
       expect(res.statusCode, `${method} ${url}`).toBe(404);
       expect(res.headers["set-cookie"]).toBeUndefined();
-      expect(res.body).not.toContain("md_session");
+      expect(res.body).not.toContain("archer_session");
     }
   });
 });

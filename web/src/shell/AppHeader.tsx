@@ -28,9 +28,9 @@ export function AppHeader({ ready }: { ready: boolean }) {
   return (
     <header className="sticky top-0 z-40 h-14 border-b border-border bg-background">
       <div className="mx-auto flex h-full max-w-content items-center gap-2 px-3 sm:gap-6 sm:px-6">
-        <a href="#/dashboard" className="flex shrink-0 items-center gap-2 rounded-md text-foreground hover:no-underline" aria-label="MamaDirect home">
+        <a href="#/dashboard" className="flex shrink-0 items-center gap-2 rounded-md text-foreground hover:no-underline" aria-label="Archer home">
           <BrandMark size={28} />
-          <span className="text-[15px] font-semibold tracking-tight max-sm:hidden">MamaDirect</span>
+          <span className="text-[15px] font-semibold tracking-tight max-sm:hidden">Archer</span>
         </a>
         <TabsList aria-label="Sections" className="h-full min-w-0 gap-0 overflow-x-auto sm:gap-1">
           {TAB_IDS.map((id) => {

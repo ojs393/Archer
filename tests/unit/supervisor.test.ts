@@ -42,7 +42,7 @@ async function waitFor(check: () => boolean, label: string, timeoutMs = 5000): P
 }
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-supervisor-"));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-supervisor-"));
   spawnLog = path.join(dir, "spawns.log");
   logs = [];
   teed = [];

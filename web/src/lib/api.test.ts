@@ -36,16 +36,16 @@ describe("api", () => {
     expect(call(0).url).toBe("/api/status");
     expect(call(0).init.method).toBe("GET");
     expect(call(0).init.credentials).toBe("same-origin");
-    expect(headersOf(0).has("x-mamadirect")).toBe(false);
+    expect(headersOf(0).has("x-archer")).toBe(false);
   });
 
-  it("sends X-MamaDirect: 1 and a JSON body on non-GET requests", async () => {
+  it("sends X-Archer: 1 and a JSON body on non-GET requests", async () => {
     fetchMock.mockImplementation(async () => json(200, { id: 1 }));
     await mod.api.post("/api/campaigns", { listId: 1 });
     await mod.api.put("/api/settings", { fromName: "A" });
     fetchMock.mockImplementation(async () => noContent());
     await mod.api.del("/api/lists/3");
-    for (const i of [0, 1, 2]) expect(headersOf(i).get("x-mamadirect")).toBe("1");
+    for (const i of [0, 1, 2]) expect(headersOf(i).get("x-archer")).toBe("1");
     expect(call(0).init.method).toBe("POST");
     expect(call(1).init.method).toBe("PUT");
     expect(call(2).init.method).toBe("DELETE");
@@ -61,7 +61,7 @@ describe("api", () => {
     await expect(mod.api.upload("/api/lists", form)).resolves.toEqual({ listId: 9 });
     expect(call(0).init.method).toBe("POST");
     expect(call(0).init.body).toBe(form);
-    expect(headersOf(0).get("x-mamadirect")).toBe("1");
+    expect(headersOf(0).get("x-archer")).toBe("1");
     expect(headersOf(0).has("content-type")).toBe(false);
   });
 

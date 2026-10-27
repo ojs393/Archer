@@ -45,7 +45,7 @@ const STEPS = [
 type StepIndex = 0 | 1 | 2 | 3 | 4;
 
 function stepTitle(index: StepIndex): string {
-  if (index === 0) return "Welcome to MamaDirect";
+  if (index === 0) return "Welcome to Archer";
   return STEPS[index].label;
 }
 
@@ -300,10 +300,10 @@ export function SetupWizard({
         }}
       >
         <DialogHeader>
-          {step === 0 ? <BrandMark size={40} title="MamaDirect" className="mb-2" /> : null}
+          {step === 0 ? <BrandMark size={40} title="Archer" className="mb-2" /> : null}
           <DialogTitle>{stepTitle(step)}</DialogTitle>
           <DialogDescription className="sr-only">
-            First-run setup for MamaDirect. Step {step + 1} of {STEPS.length}.
+            First-run setup for Archer. Step {step + 1} of {STEPS.length}.
           </DialogDescription>
         </DialogHeader>
 

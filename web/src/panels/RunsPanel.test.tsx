@@ -90,7 +90,7 @@ describe("RunsPanel", () => {
     expect(await screen.findByText("Autumn · Promo")).toBeInTheDocument();
     expect(screen.getByText("3/8")).toBeInTheDocument();
   });
-  it("opens the New Run wizard from the header and from mamadirect:new-run", async () => {
+  it("opens the New Run wizard from the header and from archer:new-run", async () => {
     renderRuns();
     await screen.findByRole("heading", { name: "Runs" });
     fireEvent.click(screen.getByRole("button", { name: "New run" }));
@@ -103,7 +103,7 @@ describe("RunsPanel", () => {
   it("blocks Start when launch gates fail and lists the failures", async () => {
     startShouldFailGates = true;
     campaignsState = [];
-    sessionStorage.setItem("mamadirect:run-draft", JSON.stringify({ listId: 1, templateId: 2, mode: "window", schedule }));
+    sessionStorage.setItem("archer:run-draft", JSON.stringify({ listId: 1, templateId: 2, mode: "window", schedule }));
     renderRuns();
     fireEvent.click(await screen.findByRole("button", { name: "New run" }));
     const dialog = await screen.findByRole("dialog");

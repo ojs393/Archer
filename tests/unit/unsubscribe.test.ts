@@ -103,7 +103,7 @@ describe("signToken / verifyToken", () => {
 
   it("verifyToken returns null for a correctly MACed token when the secret is short", () => {
     const shortSecret = "a".repeat(31);
-    const macPart = createHmac("sha256", shortSecret).update("mamadirect-unsub-v1:" + EMAIL, "utf8").digest("base64url");
+    const macPart = createHmac("sha256", shortSecret).update("archer-unsub-v1:" + EMAIL, "utf8").digest("base64url");
     const token = Buffer.from(EMAIL, "utf8").toString("base64url") + "." + macPart;
     expect(verifyToken(token, shortSecret)).toBeNull();
   });

@@ -39,7 +39,7 @@ interface Call extends RequestOptions {
 }
 
 const SESSION_PATH = "/api/session";
-const NETWORK_MESSAGE = "Cannot reach MamaDirect. Check that it is still running.";
+const NETWORK_MESSAGE = "Cannot reach Archer. Check that it is still running.";
 
 let session: Promise<void> | null = null;
 
@@ -117,7 +117,7 @@ async function parse<T>(res: Response): Promise<T> {
 async function request<T>(method: Method, path: string, call: Call = {}, retried = false): Promise<T> {
   const headers: Record<string, string> = { Accept: "application/json" };
   let body: BodyInit | undefined;
-  if (method !== "GET") headers["X-MamaDirect"] = "1";
+  if (method !== "GET") headers["X-Archer"] = "1";
   if (call.body instanceof FormData) {
     body = call.body;
   } else if (call.body !== undefined) {

@@ -53,11 +53,11 @@ async function listenMain(build: (port: number) => FastifyInstance): Promise<{ a
 }
 
 async function listenPublic(db: DatabaseSync): Promise<FastifyInstance | null> {
-  const raw = process.env.MAMADIRECT_PUBLIC_PORT;
+  const raw = process.env.ARCHER_PUBLIC_PORT;
   if (!raw) return null;
   const port = Number(raw);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    logger.error(`MAMADIRECT_PUBLIC_PORT=${raw} is not a valid port; the public unsubscribe listener is off`);
+    logger.error(`ARCHER_PUBLIC_PORT=${raw} is not a valid port; the public unsubscribe listener is off`);
     return null;
   }
   const app = buildPublicServer({ db, env: process.env });
@@ -74,20 +74,20 @@ async function listenPublic(db: DatabaseSync): Promise<FastifyInstance | null> {
 
 async function main(): Promise<number | null> {
   ensureDataDirs(config);
-  const lockPath = path.join(config.dataDir, "mamadirect.lock");
+  const lockPath = path.join(config.dataDir, "archer.lock");
   const infoPath = path.join(config.dataDir, "server.json");
   const held = await acquireInstanceLock(lockPath);
   if (!held.acquired) {
     const where = held.port ? `http://${HOST}:${held.port}` : "(still starting)";
     if (held.reason === "unresponsive") {
       console.error(
-        `Another MamaDirect process (pid ${held.pid}) holds ${lockPath} but is not answering at ${where}. ` +
-          "Stop that process, or delete the lock file if it is not MamaDirect, then start again.",
+        `Another Archer process (pid ${held.pid}) holds ${lockPath} but is not answering at ${where}. ` +
+          "Stop that process, or delete the lock file if it is not Archer, then start again.",
       );
       return 1;
     }
-    const starting = held.pid === null ? "MamaDirect is already starting" : `MamaDirect is already starting (pid ${held.pid})`;
-    console.log(held.reason === "running" ? `MamaDirect is already running at ${where}` : starting);
+    const starting = held.pid === null ? "Archer is already starting" : `Archer is already starting (pid ${held.pid})`;
+    console.log(held.reason === "running" ? `Archer is already running at ${where}` : starting);
     return 0;
   }
   const { lock } = held;
@@ -168,17 +168,17 @@ async function main(): Promise<number | null> {
 
   const url = `http://${HOST}:${port}`;
   writeServerInfo(infoPath, { pid: process.pid, port, url });
-  logger.info(`MamaDirect running at ${url}`);
-  if (process.env.MAMADIRECT_NO_OPEN !== "1") openBrowser(url);
+  logger.info(`Archer running at ${url}`);
+  if (process.env.ARCHER_NO_OPEN !== "1") openBrowser(url);
   return null;
 }
 
 process.on("uncaughtException", (err) => {
-  logger.error("Uncaught exception; exiting so the supervisor can restart MamaDirect:", err);
+  logger.error("Uncaught exception; exiting so the supervisor can restart Archer:", err);
   process.exit(1);
 });
 process.on("unhandledRejection", (err) => {
-  logger.error("Unhandled promise rejection; exiting so the supervisor can restart MamaDirect:", err);
+  logger.error("Unhandled promise rejection; exiting so the supervisor can restart Archer:", err);
   process.exit(1);
 });
 
@@ -187,7 +187,7 @@ main().then(
     if (code !== null) process.exit(code);
   },
   (err: unknown) => {
-    logger.error("MamaDirect failed to start:", err);
+    logger.error("Archer failed to start:", err);
     process.exit(1);
   },
 );

@@ -10,13 +10,13 @@ let h: Harness;
 let savedTestSmtp: string | undefined;
 
 beforeAll(() => {
-  savedTestSmtp = process.env.MAMADIRECT_TEST_SMTP;
-  process.env.MAMADIRECT_TEST_SMTP = "1";
+  savedTestSmtp = process.env.ARCHER_TEST_SMTP;
+  process.env.ARCHER_TEST_SMTP = "1";
 });
 
 afterAll(() => {
-  if (savedTestSmtp === undefined) delete process.env.MAMADIRECT_TEST_SMTP;
-  else process.env.MAMADIRECT_TEST_SMTP = savedTestSmtp;
+  if (savedTestSmtp === undefined) delete process.env.ARCHER_TEST_SMTP;
+  else process.env.ARCHER_TEST_SMTP = savedTestSmtp;
 });
 
 afterEach(async () => {

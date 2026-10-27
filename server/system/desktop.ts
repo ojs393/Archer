@@ -26,7 +26,7 @@ export interface LauncherResult {
   platform: NodeJS.Platform;
 }
 
-const NAME = "MamaDirect";
+const NAME = "Archer";
 const EXECUTABLE = 0o755;
 const POWERSHELL_TIMEOUT_MS = 20_000;
 const CONTROL = /[\u0000-\u001f\u007f]/;
@@ -55,7 +55,7 @@ export async function windowsDesktopDir(run: (script: string) => Promise<string>
 }
 
 function checkPath(label: string, value: string): void {
-  if (CONTROL.test(value)) throw new Error(`The ${label} contains a line break or control character; move MamaDirect to a simpler folder`);
+  if (CONTROL.test(value)) throw new Error(`The ${label} contains a line break or control character; move Archer to a simpler folder`);
 }
 
 /** Escapes for the inside of a POSIX shell double-quoted string. */
@@ -82,7 +82,7 @@ function macScript(root: string, bin: string): string {
 function linuxEntry(root: string, bin: string, icon: string | null): string {
   const script = `export PATH="${shDouble(bin)}:$PATH"; cd "${shDouble(root)}" && npm start`;
   const exec = `bash -lc "${script.replace(/[\\"$`]/g, "\\$&")}"`.replace(/\\/g, "\\\\").replace(/%/g, "%%");
-  const lines = ["[Desktop Entry]", "Type=Application", `Name=${NAME}`, "Comment=Start MamaDirect and open the dashboard", `Exec=${exec}`];
+  const lines = ["[Desktop Entry]", "Type=Application", `Name=${NAME}`, "Comment=Start Archer and open the dashboard", `Exec=${exec}`];
   if (icon) lines.push(`Icon=${icon.replace(/\\/g, "\\\\")}`);
   lines.push("Terminal=true", "Categories=Network;Email;", "");
   return lines.join("\n");

@@ -11,9 +11,9 @@ const run = promisify(execFile);
 
 describe("self-test script", () => {
   it("sends a mini-campaign to the in-process fake SMTP server, prints PASS and cleans up", async () => {
-    const guardDir = path.join(os.tmpdir(), `mamadirect-selftest-guard-${process.pid}-${Date.now()}`);
-    const env: NodeJS.ProcessEnv = { ...process.env, MAMADIRECT_DATA_DIR: guardDir };
-    delete env.MAMADIRECT_TEST_SMTP;
+    const guardDir = path.join(os.tmpdir(), `archer-selftest-guard-${process.pid}-${Date.now()}`);
+    const env: NodeJS.ProcessEnv = { ...process.env, ARCHER_DATA_DIR: guardDir };
+    delete env.ARCHER_TEST_SMTP;
     const started = Date.now();
     const { stdout } = await run(
       process.execPath,

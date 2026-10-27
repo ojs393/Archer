@@ -2,7 +2,7 @@ import { createHmac, timingSafeEqual } from "node:crypto";
 
 const MIN_SECRET_LENGTH = 32;
 const MAX_TOKEN_LENGTH = 1024;
-const MAC_CONTEXT = "mamadirect-unsub-v1:";
+const MAC_CONTEXT = "archer-unsub-v1:";
 const TOKEN_SHAPE = /^([A-Za-z0-9_-]+)\.([A-Za-z0-9_-]+)$/;
 
 interface LinkOptions {

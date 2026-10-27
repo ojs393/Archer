@@ -44,7 +44,7 @@ describe("run", () => {
   });
 
   it("reports a command that cannot be spawned", async () => {
-    const r = await run("mamadirect-no-such-binary", [], { ...quiet, timeoutMs: 10_000 });
+    const r = await run("archer-no-such-binary", [], { ...quiet, timeoutMs: 10_000 });
     expect(r.ok).toBe(false);
     expect(r.code).toBeNull();
     expect(r.error).toMatch(/ENOENT/);

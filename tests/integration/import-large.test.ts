@@ -26,7 +26,7 @@ async function writeLargeCsv(file: string): Promise<void> {
 }
 
 beforeAll(async () => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-large-"));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-large-"));
   db = openDb(path.join(dir, "app.db"));
 });
 

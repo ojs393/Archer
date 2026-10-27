@@ -9,28 +9,28 @@ describe("resolvePaths", () => {
   it("derives data dir from project root, not cwd", () => {
     const p = resolvePaths({ root, env: {} });
     expect(p.dataDir).toBe(path.join(root, "data"));
-    expect(p.dbPath).toBe(path.join(root, "data", "mamadirect.db"));
+    expect(p.dbPath).toBe(path.join(root, "data", "archer.db"));
     expect(p.uploadsDir).toBe(path.join(root, "data", "uploads"));
     expect(p.logsDir).toBe(path.join(root, "data", "logs"));
     expect(p.backupsDir).toBe(path.join(root, "data", "backups"));
     expect(p.envPath).toBe(path.join(root, ".env"));
   });
 
-  it("honors MAMADIRECT_DATA_DIR override", () => {
-    const p = resolvePaths({ root, env: { MAMADIRECT_DATA_DIR: "/custom" } });
+  it("honors ARCHER_DATA_DIR override", () => {
+    const p = resolvePaths({ root, env: { ARCHER_DATA_DIR: "/custom" } });
     expect(p.dataDir).toBe(path.resolve("/custom"));
-    expect(p.dbPath).toBe(path.join(path.resolve("/custom"), "mamadirect.db"));
+    expect(p.dbPath).toBe(path.join(path.resolve("/custom"), "archer.db"));
     expect(p.envPath).toBe(path.join(root, ".env"));
   });
 
-  it("resolves a relative MAMADIRECT_DATA_DIR against the project root, not cwd", () => {
-    const p = resolvePaths({ root, env: { MAMADIRECT_DATA_DIR: path.join("var", "md") } });
+  it("resolves a relative ARCHER_DATA_DIR against the project root, not cwd", () => {
+    const p = resolvePaths({ root, env: { ARCHER_DATA_DIR: path.join("var", "md") } });
     expect(p.dataDir).toBe(path.join(root, "var", "md"));
-    expect(p.dbPath).toBe(path.join(root, "var", "md", "mamadirect.db"));
+    expect(p.dbPath).toBe(path.join(root, "var", "md", "archer.db"));
   });
 
-  it("ignores an empty MAMADIRECT_DATA_DIR", () => {
-    const p = resolvePaths({ root, env: { MAMADIRECT_DATA_DIR: "" } });
+  it("ignores an empty ARCHER_DATA_DIR", () => {
+    const p = resolvePaths({ root, env: { ARCHER_DATA_DIR: "" } });
     expect(p.dataDir).toBe(path.join(root, "data"));
   });
 });

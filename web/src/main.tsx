@@ -4,7 +4,7 @@ import { App } from "./App";
 import "./index.css";
 
 const root = document.getElementById("root");
-if (!root) throw new Error("MamaDirect: #root element missing from index.html");
+if (!root) throw new Error("Archer: #root element missing from index.html");
 
 createRoot(root).render(
   <StrictMode>

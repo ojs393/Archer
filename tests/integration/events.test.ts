@@ -105,7 +105,7 @@ describe("GET /api/events", () => {
     await h.app.listen({ host: "127.0.0.1", port });
     const received = await new Promise<string>((resolve, reject) => {
       const req = http.get(
-        { host: "127.0.0.1", port, path: "/api/events", headers: { host: `127.0.0.1:${port}`, cookie: `md_session=${TOKEN}` } },
+        { host: "127.0.0.1", port, path: "/api/events", headers: { host: `127.0.0.1:${port}`, cookie: `archer_session=${TOKEN}` } },
         (res) => {
           let body = "";
           res.setEncoding("utf8");
@@ -178,7 +178,7 @@ describe("GET /api/events", () => {
     await h.app.listen({ host: "127.0.0.1", port });
     const ended = new Promise<void>((resolve) => {
       http.get(
-        { host: "127.0.0.1", port, path: "/api/events", headers: { host: `127.0.0.1:${port}`, cookie: `md_session=${TOKEN}` } },
+        { host: "127.0.0.1", port, path: "/api/events", headers: { host: `127.0.0.1:${port}`, cookie: `archer_session=${TOKEN}` } },
         (res) => {
           res.resume();
           res.on("end", () => resolve());

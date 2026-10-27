@@ -1,4 +1,4 @@
-# MamaDirect HTTP API
+# Archer HTTP API
 
 Request schemas (zod 4) and response types live in `server/http/contract.ts`; import types from there rather than redeclaring them. The contract below is binding; "Implementation notes (10A)", "(10B)" and "(10C)" at the end record what the implementation adds or clarifies. Contract changes: `CampaignView.schedule` is nullable (see "Status and health"); `POST /api/templates/:id/test-send` also accepts an optional `listId`; `resume` re-runs the launch gates (see "Campaigns").
 
@@ -6,8 +6,8 @@ Request schemas (zod 4) and response types live in `server/http/contract.ts`; im
 - All API routes are under `/api`, JSON in/out unless stated. Errors: HTTP 4xx/5xx with body `{ "error": { "code": string, "message": string, "details"?: unknown } }`. Validation errors: 400, code `invalid_request`, details = zod issues.
 - Security (enforced by a Fastify onRequest hook in 10A):
   - Host header must be `127.0.0.1:<port>`, `localhost:<port>`, or `[::1]:<port>` → else 403 `bad_host` (DNS-rebinding guard).
-  - For non-GET/HEAD: `Origin` (if present) must be `http://127.0.0.1:<port>` / `http://localhost:<port>` / `http://[::1]:<port>` (or the Vite dev origin from env `MAMADIRECT_DEV_ORIGIN`) → else 403 `bad_origin`; and header `X-MamaDirect: 1` must be present → else 403 `missing_header` (forces a CORS preflight for any cross-site attempt; the server never answers CORS).
-  - Every `/api/*` route except `GET /api/session` requires cookie `md_session` equal to the per-process random token (32 bytes hex, generated at boot) → else 401 `no_session`. Cookie: `HttpOnly; SameSite=Strict; Path=/`. Compare in constant time.
+  - For non-GET/HEAD: `Origin` (if present) must be `http://127.0.0.1:<port>` / `http://localhost:<port>` / `http://[::1]:<port>` (or the Vite dev origin from env `ARCHER_DEV_ORIGIN`) → else 403 `bad_origin`; and header `X-Archer: 1` must be present → else 403 `missing_header` (forces a CORS preflight for any cross-site attempt; the server never answers CORS).
+  - Every `/api/*` route except `GET /api/session` requires cookie `archer_session` equal to the per-process random token (32 bytes hex, generated at boot) → else 401 `no_session`. Cookie: `HttpOnly; SameSite=Strict; Path=/`. Compare in constant time.
   - The cookie is set by `GET /api/session` (204) and when serving `index.html`.
 - Secrets (SMTP password, UNSUB_SECRET, session token) never appear in any response body or log.
 - Server-Sent Events: `GET /api/events` (`text/event-stream`), comment ping every 15 s. Event names: `worker` (WorkerEvent from server/send/worker.ts), `import` (ImportEvent), `status` (StatusSnapshot, sent on connect and on every worker status event), `health` (Health, on change).
@@ -90,7 +90,7 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 - The guard runs as a root `onRequest` hook, so it covers static files, the SPA fallback and unmatched paths (a foreign Host gets 403 `bad_host` even on a 404 path). Routes are classified by the matched route pattern, not the raw URL: only the `/u/:token` route skips the Origin/header/session checks, and any path that starts with `/api` (case-insensitive, percent-decoded) needs the session even when no route matches.
 - Rejected requests get `Connection: close`, so a refused multi-GB upload is not read.
 - Every response also carries `X-Frame-Options: DENY`, `Content-Security-Policy: frame-ancestors 'none'` (anti-clickjacking: the Host check alone does not stop another site framing `http://127.0.0.1:<port>`), `X-Content-Type-Options: nosniff` and `Referrer-Policy: no-referrer`; `/api/*` responses are `Cache-Control: no-store`.
-- Vite dev proxy: use `changeOrigin: true` so the Host header arriving here is `127.0.0.1:<port>`; set `MAMADIRECT_DEV_ORIGIN` to the Vite origin (for example `http://localhost:5173`).
+- Vite dev proxy: use `changeOrigin: true` so the Host header arriving here is `127.0.0.1:<port>`; set `ARCHER_DEV_ORIGIN` to the Vite origin (for example `http://localhost:5173`).
 - A JSON request with `Content-Type: application/json` and an empty body is treated as no body (so clients may always send that header). `__proto__`/`constructor` keys are rejected.
 - 500 responses never include the error message or stack; details go to `data/logs/app.log` with secrets redacted.
 
@@ -143,14 +143,14 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 - Tokens up to 1024 characters are accepted (the router's parameter limit is raised to 2048).
 - Pages are served with `Cache-Control: no-store` and a strict CSP (`default-src 'none'; form-action 'self'`). The confirmation form posts to its own URL, so it works behind a tunnel.
 - POST accepts any body up to 16 KiB (urlencoded, multipart, or none). An address that is already suppressed keeps its original reason.
-- The public listener (`MAMADIRECT_PUBLIC_PORT`) has no Host check and answers 404 to everything except `GET/POST /u/:token`; it never sets the session cookie.
+- The public listener (`ARCHER_PUBLIC_PORT`) has no Host check and answers 404 to everything except `GET/POST /u/:token`; it never sets the session cookie.
 
 ### Boot and runtime files
 - The lock is taken right after the data directories exist and before `.env` secrets are generated, so two simultaneous first starts cannot write different `UNSUB_SECRET`s.
 - The lock file is created with its content in one step (temp file + hard link), so it is never seen half-written. A stale lock is renamed aside, re-checked, and deleted only if it is still the file judged stale (otherwise it is put back), so two racing starts end with exactly one owner. An unreadable lock younger than 2 s counts as "starting".
-- `data/mamadirect.lock` (`{ pid, port, startedAt }`): a second start prints `MamaDirect is already running at http://127.0.0.1:<port>` and exits 0 when the holder is alive and answers `GET /api/session`, or "already starting" (exit 0) during its first 60 s. A lock whose pid is dead, whose `startedAt` predates the last reboot, or that is unreadable is taken over. A live holder that does not answer after 60 s is not taken over (two senders on one database could duplicate mail): the second start prints how to recover and exits 1.
+- `data/archer.lock` (`{ pid, port, startedAt }`): a second start prints `Archer is already running at http://127.0.0.1:<port>` and exits 0 when the holder is alive and answers `GET /api/session`, or "already starting" (exit 0) during its first 60 s. A lock whose pid is dead, whose `startedAt` predates the last reboot, or that is unreadable is taken over. A live holder that does not answer after 60 s is not taken over (two senders on one database could duplicate mail): the second start prints how to recover and exits 1.
 - `data/server.json` (`{ pid, port, url }`) is written once listening and removed on exit.
-- Env: `PORT` (default 5199, next free port if busy), `MAMADIRECT_DATA_DIR`, `MAMADIRECT_ENV_FILE` (path to `.env`), `MAMADIRECT_NO_OPEN=1`, `MAMADIRECT_PUBLIC_PORT`, `MAMADIRECT_DEV_ORIGIN`.
+- Env: `PORT` (default 5199, next free port if busy), `ARCHER_DATA_DIR`, `ARCHER_ENV_FILE` (path to `.env`), `ARCHER_NO_OPEN=1`, `ARCHER_PUBLIC_PORT`, `ARCHER_DEV_ORIGIN`.
 
 ## Implementation notes (10B)
 
@@ -162,7 +162,7 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 - Preview: `pick` defaults to `first`; `next` without `afterContactId` is `first`; `next` wraps to the first contact; an empty list falls back to the synthetic contact. Settings that are not filled in render as `[postal address not set]` and `#unsubscribe`. 422 `render_failed` details: `{ variable }` or `{ part, problems }`. Unknown list → 404.
 
 ### Link check
-- Links are taken from `href`/`src` attributes (HTML entities decoded) and bare `http(s)://` URLs in the text part, de-duplicated. `mailto:`, `tel:`, relative and `#` links are skipped, and so is an `href` that is exactly `{{unsubscribe_url}}` (MamaDirect builds that link itself). Any other link containing `{{` is listed with `ok: false`, `error: "contains a template variable; it cannot be checked"` and needs an acknowledgement.
+- Links are taken from `href`/`src` attributes (HTML entities decoded) and bare `http(s)://` URLs in the text part, de-duplicated. `mailto:`, `tel:`, relative and `#` links are skipped, and so is an `href` that is exactly `{{unsubscribe_url}}` (Archer builds that link itself). Any other link containing `{{` is listed with `ok: false`, `error: "contains a template variable; it cannot be checked"` and needs an acknowledgement.
 - Each link: HEAD, then GET (body discarded once headers arrive) after a network error or 403/405/501; up to 5 redirects followed by hand; 10 s per request; 4 links at a time. Hosts that are `localhost`/`*.localhost` or resolve to a loopback, private, link-local or unique-local address (checked for every resolved address, and again on every redirect hop) are never fetched: `error: "private address"`.
 - `POST /link-check` answers 409 `template_changed` if the template was edited while the check ran. Acknowledgements are kept when the same version is checked again and dropped for a new version. `POST /link-ack`: 409 `no_link_check` when there is no check for the current version; 404 for a URL that is not in it.
 
@@ -204,11 +204,11 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 - `lastSendAt` is the newest `sent` event; when none is kept in the scope it falls back to the newest `updated_at` of a `sent` sends row (per run, through the `sends (campaign_id, state, …)` index), so it is only `null` when nothing was ever sent.
 - Timeseries buckets are UTC hours or days, oldest first, ending with the current bucket; every bucket in the window is present (zeros when empty), so a series has `days × 24` (hour) or `days` (day) points, at most 2,160. Migration 5 adds `events (type, created_at)`.
 - Errors group events of the four kinds by kind + normalized message: registered secrets masked, whitespace collapsed, email addresses (with or without `<…>`) replaced by `<email>`, ISO timestamps by `<time>`, the worker's `Retry n/m` counter dropped, then cut to 160 characters. Sorted by count, then most recent.
-- Feedback always answers `available: false`: complaint data needs SES feedback notifications through SNS, which MamaDirect does not receive yet. No numbers are returned.
+- Feedback always answers `available: false`: complaint data needs SES feedback notifications through SNS, which Archer does not receive yet. No numbers are returned.
 
 ### Desktop launcher
 - Written to the desktop folder (`~/Desktop`; on Windows the folder PowerShell `[Environment]::GetFolderPath('Desktop')` reports (read as UTF-8), or, if that fails or is not an absolute path, `%USERPROFILE%\OneDrive\Desktop` when it exists, otherwise `<home>\Desktop`), created if missing, overwriting an earlier launcher. Every launcher puts the folder of the running Node.js first on `PATH` (a double-clicked launcher does not read the shell profile that usually does that) and then runs `npm start` in the project root.
-  - macOS: `MamaDirect.command` (bash, mode 755). No custom icon is set on the file.
-  - Linux: `MamaDirect.desktop` (mode 755, `Terminal=true`, `Exec=bash -lc "…"` escaped per the Desktop Entry spec, `Icon=` the 512 px PNG when it exists). Some desktops also ask the user to "Allow launching" the first time.
-  - Windows: `MamaDirect.cmd` (UTF-8 without BOM; `chcp 65001 >nul` right after `@echo off` so cmd.exe reads non-ASCII paths correctly; `call npm start`, then `if errorlevel 1 pause` so a failure stays on screen), plus a best-effort `MamaDirect.lnk` with the `.ico` icon made through PowerShell `WScript.Shell` (a failure there is ignored). PowerShell literals double `'` and the curly quotes U+2018–U+201B.
-- Icons are read from `assets/icons/` (`mamadirect.icns`, `mamadirect.ico`, `mamadirect-512.png`). Paths with a line break or control character (and, on Windows, a double quote) are refused with 500 `launcher_failed`; so is any write error, with its reason in the message.
+  - macOS: `Archer.command` (bash, mode 755). No custom icon is set on the file.
+  - Linux: `Archer.desktop` (mode 755, `Terminal=true`, `Exec=bash -lc "…"` escaped per the Desktop Entry spec, `Icon=` the 512 px PNG when it exists). Some desktops also ask the user to "Allow launching" the first time.
+  - Windows: `Archer.cmd` (UTF-8 without BOM; `chcp 65001 >nul` right after `@echo off` so cmd.exe reads non-ASCII paths correctly; `call npm start`, then `if errorlevel 1 pause` so a failure stays on screen), plus a best-effort `Archer.lnk` with the `.ico` icon made through PowerShell `WScript.Shell` (a failure there is ignored). PowerShell literals double `'` and the curly quotes U+2018–U+201B.
+- Icons are read from `assets/icons/` (`archer.icns`, `archer.ico`, `archer-512.png`). Paths with a line break or control character (and, on Windows, a double quote) are refused with 500 `launcher_failed`; so is any write error, with its reason in the message.

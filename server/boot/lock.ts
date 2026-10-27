@@ -41,14 +41,14 @@ export function isPidAlive(pid: number): boolean {
   }
 }
 
-export function probeMamaDirect(port: number): Promise<boolean> {
+export function probeArcher(port: number): Promise<boolean> {
   return new Promise((resolve) => {
     const req = http.get(
       { host: "127.0.0.1", port, path: "/api/session", headers: { host: `127.0.0.1:${port}` }, timeout: PROBE_TIMEOUT_MS },
       (res) => {
         res.resume();
         const cookies = res.headers["set-cookie"] ?? [];
-        resolve(res.statusCode === 204 && cookies.some((c) => c.startsWith("md_session=")));
+        resolve(res.statusCode === 204 && cookies.some((c) => c.startsWith("archer_session=")));
       },
     );
     req.on("timeout", () => req.destroy());
@@ -61,7 +61,7 @@ const DEFAULT_DEPS: LockDeps = {
   now: Date.now,
   bootTime: () => Date.now() - os.uptime() * 1000,
   isAlive: isPidAlive,
-  probe: probeMamaDirect,
+  probe: probeArcher,
 };
 
 interface LockFile {

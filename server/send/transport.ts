@@ -33,7 +33,7 @@ const REDACTED = "***";
 const DATA_ACCEPTED = /^354[ -]/;
 
 function allowSelfSigned(host: string): boolean {
-  return process.env.MAMADIRECT_TEST_SMTP === "1" && LOCAL_HOSTS.has(host.toLowerCase());
+  return process.env.ARCHER_TEST_SMTP === "1" && LOCAL_HOSTS.has(host.toLowerCase());
 }
 
 export function transportOptions(cfg: SmtpConfig): SMTPPoolOptions & { pool: true } {

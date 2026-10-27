@@ -1,6 +1,6 @@
 import { lazy, type ComponentType } from "react";
 
-const RELOAD_KEY = "mamadirect:chunk-reload-at";
+const RELOAD_KEY = "archer:chunk-reload-at";
 const RELOAD_COOLDOWN_MS = 30_000;
 
 /** A code-split chunk could not be loaded even after reloading the page. */

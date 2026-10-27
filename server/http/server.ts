@@ -81,7 +81,7 @@ export function buildServer(deps: ServerDeps): FastifyInstance {
   app.register(fastifyMultipart, {
     limits: { fileSize: ctx.uploadLimitBytes ?? UPLOAD_LIMIT, files: 1, fields: 20, fieldSize: 64 * 1024, parts: 21 },
   });
-  app.addHook("onRequest", securityHook({ port: ctx.port, sessionToken: ctx.sessionToken, devOrigin: ctx.env.MAMADIRECT_DEV_ORIGIN }));
+  app.addHook("onRequest", securityHook({ port: ctx.port, sessionToken: ctx.sessionToken, devOrigin: ctx.env.ARCHER_DEV_ORIGIN }));
   applySecurityHeaders(app);
   app.setErrorHandler(errorHandler(ctx.log));
 

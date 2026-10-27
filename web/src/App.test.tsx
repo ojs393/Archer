@@ -115,7 +115,7 @@ afterEach(() => {
 describe("App shell", () => {
   it("renders the brand and exactly five tabs, dashboard selected by default", async () => {
     await renderApp();
-    expect(screen.getByRole("banner")).toHaveTextContent("MamaDirect");
+    expect(screen.getByRole("banner")).toHaveTextContent("Archer");
     const tabs = shellTabs().getAllByRole("tab");
     expect(tabs.map((t) => t.getAttribute("aria-label"))).toEqual(["Dashboard", "Runs", "Audience", "Templates", "Settings"]);
     expect(shellTabs().getByRole("tab", { name: "Dashboard" })).toHaveAttribute("aria-selected", "true");
@@ -211,7 +211,7 @@ describe("App shell", () => {
     window.history.replaceState(null, "", "/");
     const { App } = await import("./App");
     render(<App client={new QueryClient({ defaultOptions: { queries: { retry: false } } })} />);
-    expect(await screen.findByText("Cannot reach MamaDirect", {}, { timeout: 10_000 })).toBeInTheDocument();
+    expect(await screen.findByText("Cannot reach Archer", {}, { timeout: 10_000 })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
@@ -226,11 +226,11 @@ describe("App shell", () => {
     ROUTES["/api/settings"] = { ...settings, setupCompletedAt: null };
 
     const { client } = await renderApp();
-    expect(await screen.findByRole("heading", { name: "Welcome to MamaDirect" }, findTimeout)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Welcome to Archer" }, findTimeout)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "Welcome to MamaDirect" })).not.toBeInTheDocument();
+      expect(screen.queryByRole("heading", { name: "Welcome to Archer" })).not.toBeInTheDocument();
     });
 
     await act(async () => {
@@ -239,11 +239,11 @@ describe("App shell", () => {
     await waitFor(() => {
       expect(fetchedUrls().filter((u) => u === "/api/setup").length).toBeGreaterThan(1);
     });
-    expect(screen.queryByRole("heading", { name: "Welcome to MamaDirect" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Welcome to Archer" })).not.toBeInTheDocument();
 
     act(() => {
       requestSetupWizard();
     });
-    expect(await screen.findByRole("heading", { name: "Welcome to MamaDirect" }, findTimeout)).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Welcome to Archer" }, findTimeout)).toBeInTheDocument();
   });
 });

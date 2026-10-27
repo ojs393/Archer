@@ -19,7 +19,7 @@ import { startFakeSmtp, type FakeSmtp } from "./testing/fakeSmtp.ts";
 const RUN_TIMEOUT_MS = 25_000;
 const EXIT_GRACE_MS = 5_000;
 const CLOCK_START = Date.parse("2026-01-07T12:00:00Z");
-const POSTAL = "MamaDirect self-test, PO Box 0, Nowhere";
+const POSTAL = "Archer self-test, PO Box 0, Nowhere";
 const CSV = "email,first_name\r\nann@selftest.example,Ann\r\nbob@selftest.example,\r\ncy@selftest.example,Cy\r\n";
 const EXPECTED_SUBJECTS = ["Hello Ann", "Hello Cy", "Hello there"];
 const SCHEDULE: Schedule = {
@@ -77,13 +77,13 @@ async function sendMiniCampaign(dir: string, smtp: FakeSmtp, check: (name: strin
     const templateId = createTemplate(db, {
       name: "Self-test",
       subject: "Hello {{first_name | there}}",
-      html: "<p>Hi {{first_name | there}},</p><p>This is the MamaDirect self-test.</p>",
+      html: "<p>Hi {{first_name | there}},</p><p>This is the Archer self-test.</p>",
     });
     const campaignId = await createCampaign(db, { listId, templateId, templateVersion: 1, schedule: SCHEDULE });
 
     const sender: SenderConfig = {
       smtp: { host: "127.0.0.1", port: smtp.port, secure: false, user: "test", pass: "test", connectionTimeoutMs: 5_000, greetingTimeoutMs: 5_000, socketTimeoutMs: 10_000 },
-      fromName: "MamaDirect self-test",
+      fromName: "Archer self-test",
       fromEmail: "sender@selftest.example",
       replyTo: null,
       postalAddress: POSTAL,
@@ -128,9 +128,9 @@ async function sendMiniCampaign(dir: string, smtp: FakeSmtp, check: (name: strin
 }
 
 export async function runSelfTest(log: Log = (line) => console.log(line)): Promise<boolean> {
-  const previous = process.env.MAMADIRECT_TEST_SMTP;
-  process.env.MAMADIRECT_TEST_SMTP = "1";
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-selftest-"));
+  const previous = process.env.ARCHER_TEST_SMTP;
+  process.env.ARCHER_TEST_SMTP = "1";
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-selftest-"));
   log(`Self-test directory: ${dir}`);
   let failures = 0;
   const check = (name: string, ok: boolean, detail: string) => {
@@ -146,8 +146,8 @@ export async function runSelfTest(log: Log = (line) => console.log(line)): Promi
   } finally {
     await smtp?.close();
     fs.rmSync(dir, { recursive: true, force: true });
-    if (previous === undefined) delete process.env.MAMADIRECT_TEST_SMTP;
-    else process.env.MAMADIRECT_TEST_SMTP = previous;
+    if (previous === undefined) delete process.env.ARCHER_TEST_SMTP;
+    else process.env.ARCHER_TEST_SMTP = previous;
   }
   const ok = failures === 0;
   log(ok ? "PASS self-test: a 3-message campaign went through the local fake SMTP server" : `FAIL self-test: ${failures} check(s) failed`);

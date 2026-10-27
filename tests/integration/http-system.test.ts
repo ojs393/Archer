@@ -24,13 +24,13 @@ const harnessWithDesktop = (pick: (dir: string) => string) => {
 };
 
 describe("POST /api/system/desktop-launcher", () => {
-  it("writes a launcher for this platform that starts MamaDirect from the project root", async () => {
+  it("writes a launcher for this platform that starts Archer from the project root", async () => {
     const target = harnessWithDesktop((root) => path.join(root, "Desktop"));
     h = await makeHarness({ build: target.build });
     const res = await h.app.inject({ method: "POST", url: "/api/system/desktop-launcher", headers: mutating });
     expect(res.statusCode).toBe(200);
     const body = res.json();
-    expect(body).toEqual({ ok: true, path: expect.stringMatching(/MamaDirect\.(command|desktop|cmd)$/) });
+    expect(body).toEqual({ ok: true, path: expect.stringMatching(/Archer\.(command|desktop|cmd)$/) });
     expect(path.dirname(body.path)).toBe(target.desktop);
     const text = fs.readFileSync(body.path, "utf8");
     expect(text).toContain(h.paths.root);
@@ -52,7 +52,7 @@ describe("POST /api/system/desktop-launcher", () => {
   it("keeps the header and session checks", async () => {
     h = await makeHarness();
     expect((await h.app.inject({ method: "POST", url: "/api/system/desktop-launcher", headers: authed })).statusCode).toBe(403);
-    const noSession = { host: mutating.host, origin: mutating.origin, "x-mamadirect": "1" };
+    const noSession = { host: mutating.host, origin: mutating.origin, "x-archer": "1" };
     expect((await h.app.inject({ method: "POST", url: "/api/system/desktop-launcher", headers: noSession })).statusCode).toBe(401);
   });
 });

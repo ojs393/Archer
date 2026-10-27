@@ -2,7 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import type { IncomingHttpHeaders } from "node:http";
 import type { FastifyReply, FastifyRequest } from "fastify";
 
-export const SESSION_COOKIE = "md_session";
+export const SESSION_COOKIE = "archer_session";
 export const UNSUBSCRIBE_ROUTE = "/u/:token";
 const SESSION_ROUTE = "/api/session";
 const LOOPBACK_HOSTS = ["127.0.0.1", "localhost", "[::1]"];
@@ -26,9 +26,9 @@ export type GuardCode = "bad_host" | "bad_origin" | "missing_header" | "no_sessi
 export type GuardVerdict = { ok: true } | { ok: false; status: 401 | 403; code: GuardCode; message: string };
 
 const REJECTIONS: Record<GuardCode, { status: 401 | 403; message: string }> = {
-  bad_host: { status: 403, message: "Open MamaDirect at the address it printed (http://127.0.0.1:<port>)" },
+  bad_host: { status: 403, message: "Open Archer at the address it printed (http://127.0.0.1:<port>)" },
   bad_origin: { status: 403, message: "Cross-site requests are not allowed" },
-  missing_header: { status: 403, message: "Missing X-MamaDirect request header" },
+  missing_header: { status: 403, message: "Missing X-Archer request header" },
   no_session: { status: 401, message: "Session expired; reload the page" },
 };
 
@@ -97,7 +97,7 @@ export function checkRequest(req: GuardInput, cfg: GuardConfig): GuardVerdict {
       if (dev) allowed.push(dev);
       if (!allowed.includes(origin.toLowerCase())) return reject("bad_origin");
     }
-    if (single(req.headers["x-mamadirect"]) !== "1") return reject("missing_header");
+    if (single(req.headers["x-archer"]) !== "1") return reject("missing_header");
   }
 
   const isApi = (req.route ?? "").startsWith("/api") || pathOf(req.url).startsWith("/api");

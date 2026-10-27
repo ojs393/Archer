@@ -7,7 +7,7 @@ import { installArgs, missingDependencies } from "../../../scripts/lib/deps.mjs"
 let root: string;
 
 beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-deps-"));
+  root = fs.mkdtempSync(path.join(os.tmpdir(), "archer-deps-"));
   fs.writeFileSync(
     path.join(root, "package.json"),
     JSON.stringify({ dependencies: { a: "1.0.0" }, devDependencies: { "@s/b": "^2.0.0" } }),

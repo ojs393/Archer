@@ -24,7 +24,7 @@ import { buildSchedule, defaultLocalTimezone, type ScheduleMode } from "./schedu
 
 const TABS = ["audience", "template", "schedule", "review"] as const;
 type TabId = (typeof TABS)[number];
-const DRAFT_KEY = "mamadirect:run-draft";
+const DRAFT_KEY = "archer:run-draft";
 
 type Draft = {
   listId: number | null;

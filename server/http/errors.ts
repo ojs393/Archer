@@ -49,6 +49,6 @@ export function errorHandler(log: Logger) {
     const status = typeof fe.statusCode === "number" ? fe.statusCode : 500;
     if (status >= 400 && status < 500) return sendError(reply, status, "bad_request", "The request could not be processed");
     log.error(`HTTP ${request.method} ${request.routeOptions.url ?? "(unmatched)"} failed:`, err);
-    return sendError(reply, 500, "internal", "Something went wrong on the server; details are in the MamaDirect log");
+    return sendError(reply, 500, "internal", "Something went wrong on the server; details are in the Archer log");
   };
 }

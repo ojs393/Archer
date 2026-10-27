@@ -65,7 +65,7 @@ const feedback: AnalyticsFeedback = {
   reason: "Spam complaints require SES SNS notifications. This version does not receive them.",
   guidance: [
     "Open the Amazon SES console in the region you send from.",
-    "Create an SNS topic for MamaDirect feedback.",
+    "Create an SNS topic for Archer feedback.",
     "Wire Bounce and Complaint notifications to that topic.",
   ],
 };
@@ -152,7 +152,7 @@ describe("DashboardPanel", () => {
     }
   });
 
-  it("dispatches mamadirect:new-run from the Runs empty state", async () => {
+  it("dispatches archer:new-run from the Runs empty state", async () => {
     fetchMock.mockImplementation(async (url: string) => {
       const path = String(url).split("?")[0];
       if (path === "/api/session") return new Response(null, { status: 204 });

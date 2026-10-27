@@ -80,8 +80,8 @@ describe("committed icon set", () => {
   });
 
   it.each([
-    ["mamadirect-512.png", 512],
-    ["mamadirect-1024.png", 1024],
+    ["archer-512.png", 512],
+    ["archer-1024.png", 1024],
   ])("assets/icons/%s is %i px square", (name, size) => {
     expect(pngDims(fs.readFileSync(asset(name)))).toEqual([size, size]);
   });
@@ -90,12 +90,12 @@ describe("committed icon set", () => {
     expect(icoSizes(fs.readFileSync(pub("favicon.ico")))).toEqual([16, 32, 48]);
   });
 
-  it("mamadirect.ico embeds 16 to 256 px PNGs", () => {
-    expect(icoSizes(fs.readFileSync(asset("mamadirect.ico")))).toEqual([16, 24, 32, 48, 64, 128, 256]);
+  it("archer.ico embeds 16 to 256 px PNGs", () => {
+    expect(icoSizes(fs.readFileSync(asset("archer.ico")))).toEqual([16, 24, 32, 48, 64, 128, 256]);
   });
 
-  it("mamadirect.icns has every retina and standard entry", () => {
-    expect(icnsEntries(fs.readFileSync(asset("mamadirect.icns")))).toEqual({
+  it("archer.icns has every retina and standard entry", () => {
+    expect(icnsEntries(fs.readFileSync(asset("archer.icns")))).toEqual({
       ic07: 128,
       ic08: 256,
       ic09: 512,
@@ -135,15 +135,15 @@ describe("committed icon set", () => {
       (name) => expectRoundedTransparent(fs.readFileSync(pub(name)), name),
     );
 
-    it.each(["mamadirect-512.png", "mamadirect-1024.png"])("assets/icons/%s has transparent corners", (name) =>
+    it.each(["archer-512.png", "archer-1024.png"])("assets/icons/%s has transparent corners", (name) =>
       expectRoundedTransparent(fs.readFileSync(asset(name)), name),
     );
 
     it("every ICO and ICNS entry has transparent corners and an opaque centre", () => {
       const entries = [
         ...icoImages(fs.readFileSync(pub("favicon.ico"))).map((png, i) => [`favicon.ico #${i}`, png] as const),
-        ...icoImages(fs.readFileSync(asset("mamadirect.ico"))).map((png, i) => [`mamadirect.ico #${i}`, png] as const),
-        ...icnsImages(fs.readFileSync(asset("mamadirect.icns"))).map(([type, png]) => [`mamadirect.icns ${type}`, png] as const),
+        ...icoImages(fs.readFileSync(asset("archer.ico"))).map((png, i) => [`archer.ico #${i}`, png] as const),
+        ...icnsImages(fs.readFileSync(asset("archer.icns"))).map(([type, png]) => [`archer.icns ${type}`, png] as const),
       ];
       expect(entries).toHaveLength(3 + 7 + 8);
       for (const [label, png] of entries) expectRoundedTransparent(png, label);
@@ -159,8 +159,8 @@ describe("committed icon set", () => {
   it("site.webmanifest lists the 192, 512 and maskable icons on white", () => {
     const manifest = JSON.parse(fs.readFileSync(pub("site.webmanifest"), "utf8"));
     expect(manifest).toMatchObject({
-      name: "MamaDirect",
-      short_name: "MamaDirect",
+      name: "Archer",
+      short_name: "Archer",
       display: "standalone",
       theme_color: "#ffffff",
       background_color: "#ffffff",

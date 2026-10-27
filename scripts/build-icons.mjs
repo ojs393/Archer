@@ -50,8 +50,8 @@ function appPng(size) {
 }
 
 const manifest = {
-  name: "MamaDirect",
-  short_name: "MamaDirect",
+  name: "Archer",
+  short_name: "Archer",
   start_url: "/",
   display: "standalone",
   theme_color: "#ffffff",
@@ -75,9 +75,9 @@ const outputs = [
   [path.join(publicDir, "icon-maskable-512.png"), render(maskableIcon, 512, { opaque: true })],
   [path.join(publicDir, "favicon.ico"), encodeIco([16, 32, 48].map(appPng))],
   [path.join(publicDir, "site.webmanifest"), `${JSON.stringify(manifest, null, 2)}\n`],
-  [path.join(assetsDir, "mamadirect.ico"), encodeIco([16, 24, 32, 48, 64, 128, 256].map(appPng))],
+  [path.join(assetsDir, "archer.ico"), encodeIco([16, 24, 32, 48, 64, 128, 256].map(appPng))],
   [
-    path.join(assetsDir, "mamadirect.icns"),
+    path.join(assetsDir, "archer.icns"),
     encodeIcns(
       [
         ["ic07", 128],
@@ -91,8 +91,8 @@ const outputs = [
       ].map(([type, size]) => ({ type, png: appPng(size) })),
     ),
   ],
-  [path.join(assetsDir, "mamadirect-512.png"), appPng(512)],
-  [path.join(assetsDir, "mamadirect-1024.png"), appPng(1024)],
+  [path.join(assetsDir, "archer-512.png"), appPng(512)],
+  [path.join(assetsDir, "archer-1024.png"), appPng(1024)],
 ];
 
 let written = 0;

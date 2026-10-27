@@ -7,7 +7,7 @@ import { recycleUploads } from "../../server/boot/uploads.ts";
 let dir: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-uploads-"));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-uploads-"));
 });
 
 afterEach(() => {
@@ -36,7 +36,7 @@ describe("recycleUploads", () => {
 
   it("removes stale .partial orphans past the TTL", () => {
     const now = new Date("2026-10-26T12:00:00.000Z");
-    touch("mamadirect-2026-10-01.db.partial", now.getTime() - 10);
+    touch("archer-2026-10-01.db.partial", now.getTime() - 10);
     expect(recycleUploads(dir, { maxAgeMs: 5, now })).toBe(1);
     expect(fs.readdirSync(dir)).toEqual([]);
   });

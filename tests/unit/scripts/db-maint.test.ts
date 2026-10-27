@@ -13,8 +13,8 @@ let dbPath: string;
 let backupsDir: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-db-"));
-  dbPath = path.join(dir, "mamadirect.db");
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-db-"));
+  dbPath = path.join(dir, "archer.db");
   backupsDir = path.join(dir, "backups");
   fs.mkdirSync(backupsDir);
 });
@@ -103,7 +103,7 @@ describe("restoreLatestBackup", () => {
 
     expect(r).toEqual({ restored: true, from: path.join(backupsDir, "new.db") });
     expect(readMarker(dbPath)).toBe("new");
-    const aside = fs.readdirSync(dir).filter((f) => f.startsWith("mamadirect.db.corrupt-"));
+    const aside = fs.readdirSync(dir).filter((f) => f.startsWith("archer.db.corrupt-"));
     expect(aside).toHaveLength(1);
   });
 

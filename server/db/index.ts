@@ -14,7 +14,7 @@ export { runMigrations } from "./migrate.ts";
 export { transaction } from "./transaction.ts";
 
 export const BACKUPS_KEPT = 7;
-const BACKUP_NAME = /^mamadirect-\d{4}-\d{2}-\d{2}\.db$/;
+const BACKUP_NAME = /^archer-\d{4}-\d{2}-\d{2}\.db$/;
 
 export interface RecoveredDb {
   db: DatabaseSync;
@@ -46,7 +46,7 @@ export function checkIntegrity(db: DatabaseSync): boolean {
   return rows.length === 1 && rows[0]?.integrity_check === "ok";
 }
 
-/** Keep only the newest BACKUPS_KEPT daily `mamadirect-YYYY-MM-DD.db` files. */
+/** Keep only the newest BACKUPS_KEPT daily `archer-YYYY-MM-DD.db` files. */
 export function pruneBackups(backupsDir: string): void {
   let names: string[];
   try {
@@ -60,7 +60,7 @@ export function pruneBackups(backupsDir: string): void {
 
 export function backup(db: DatabaseSync, backupsDir: string, now: Date = new Date()): string {
   fs.mkdirSync(backupsDir, { recursive: true });
-  const target = path.join(backupsDir, `mamadirect-${now.toISOString().slice(0, 10)}.db`);
+  const target = path.join(backupsDir, `archer-${now.toISOString().slice(0, 10)}.db`);
   if (!fs.existsSync(target)) {
     const staging = `${target}.partial`;
     fs.rmSync(staging, { force: true });

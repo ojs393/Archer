@@ -19,8 +19,8 @@ describe("BrandMark", () => {
     const svg = container.querySelector("svg")!;
     expect(svg).toHaveAttribute("aria-hidden", "true");
     expect(svg).toHaveAttribute("width", "28");
-    rerender(<BrandMark size={40} title="MamaDirect" />);
-    expect(container.querySelector("svg")).toHaveAttribute("aria-label", "MamaDirect");
+    rerender(<BrandMark size={40} title="Archer" />);
+    expect(container.querySelector("svg")).toHaveAttribute("aria-label", "Archer");
     expect(container.querySelectorAll("path")).toHaveLength(14);
   });
 });

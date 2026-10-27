@@ -27,7 +27,7 @@ export async function getFreePort(preferred: number): Promise<number> {
 
 function buildConfig() {
   const root = projectRoot();
-  const env = loadEnv(resolvePaths({ root, env: { MAMADIRECT_ENV_FILE: process.env.MAMADIRECT_ENV_FILE } }).envPath);
+  const env = loadEnv(resolvePaths({ root, env: { ARCHER_ENV_FILE: process.env.ARCHER_ENV_FILE } }).envPath);
   const paths = resolvePaths({ root, env: process.env });
   return { ...paths, port: Number(process.env.PORT) || DEFAULT_PORT, env };
 }

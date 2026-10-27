@@ -13,7 +13,7 @@ let dir: string;
 let db: DatabaseSync;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-import-"));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-import-"));
   db = openDb(path.join(dir, "app.db"));
 });
 

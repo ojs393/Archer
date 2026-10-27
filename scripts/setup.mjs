@@ -3,7 +3,7 @@
 import { checkNode } from "./lib/node.mjs";
 import { report } from "./lib/report.mjs";
 
-console.log("MamaDirect setup\n");
+console.log("Archer setup\n");
 
 if (report(checkNode()).fatal) {
   console.log("\nInstall Node.js with the command above, open a new terminal, then run: npm run setup");
@@ -18,4 +18,4 @@ if (!ok) {
   process.exit(1);
 }
 
-console.log("\nSetup complete. Start MamaDirect with:\n\n  npm start\n");
+console.log("\nSetup complete. Start Archer with:\n\n  npm start\n");

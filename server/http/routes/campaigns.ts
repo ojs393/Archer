@@ -136,7 +136,7 @@ export function campaignRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post("/api/campaigns/:id/pause", async (request): Promise<CampaignView> => {
     const c = requireCampaign(request.params);
     if (!ACTIVE_STATUSES.has(c.status)) throw invalidState("Only a sending campaign can be paused");
-    if (!isWorkerCampaign(c.id)) throw new HttpError(409, "conflict", "The send worker is not running this campaign; restart MamaDirect");
+    if (!isWorkerCampaign(c.id)) throw new HttpError(409, "conflict", "The send worker is not running this campaign; restart Archer");
     ctx.worker.pause(USER_PAUSE_REASON);
     return view(c.id);
   });

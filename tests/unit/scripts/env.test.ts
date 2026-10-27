@@ -9,7 +9,7 @@ let dir: string;
 let envPath: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-env-"));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-env-"));
   envPath = path.join(dir, ".env");
 });
 

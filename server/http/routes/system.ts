@@ -6,9 +6,9 @@ import type { DesktopLauncherResult } from "../contract.ts";
 import { HttpError } from "../errors.ts";
 
 const ICONS: Partial<Record<NodeJS.Platform, string>> = {
-  darwin: "mamadirect.icns",
-  win32: "mamadirect.ico",
-  linux: "mamadirect-512.png",
+  darwin: "archer.icns",
+  win32: "archer.ico",
+  linux: "archer-512.png",
 };
 
 export function systemRoutes(app: FastifyInstance, ctx: AppContext): void {

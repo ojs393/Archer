@@ -11,7 +11,7 @@ let root: string;
 let bin: string;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-desktop-"));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-desktop-"));
   desktop = path.join(dir, "Desktop");
   root = path.join(dir, `Mama "Direct" it's $HOME 100%`);
   bin = path.join(dir, "node bin");
@@ -55,9 +55,9 @@ describe("desktopDir", () => {
 });
 
 describe("createDesktopLauncher on macOS", () => {
-  it("writes an executable MamaDirect.command that starts MamaDirect in the project root", async () => {
+  it("writes an executable Archer.command that starts Archer in the project root", async () => {
     const result = await createDesktopLauncher({ projectRoot: root, iconPath: path.join(dir, "missing.icns"), platform: "darwin", desktopDir: desktop, nodeBinDir: bin });
-    expect(result).toEqual({ path: path.join(desktop, "MamaDirect.command"), platform: "darwin" });
+    expect(result).toEqual({ path: path.join(desktop, "Archer.command"), platform: "darwin" });
     const text = fs.readFileSync(result.path, "utf8");
     expect(text).toBe(
       [
@@ -79,7 +79,7 @@ describe("createDesktopLauncher on macOS", () => {
 
   it("overwrites an existing launcher and keeps it executable", async () => {
     fs.mkdirSync(desktop);
-    fs.writeFileSync(path.join(desktop, "MamaDirect.command"), "old", { mode: 0o600 });
+    fs.writeFileSync(path.join(desktop, "Archer.command"), "old", { mode: 0o600 });
     const { path: file } = await createDesktopLauncher({ projectRoot: root, iconPath: "", platform: "darwin", desktopDir: desktop, nodeBinDir: bin });
     expect(fs.readFileSync(file, "utf8")).toContain("npm start");
     if (process.platform !== "win32") expect(fs.statSync(file).mode & 0o777).toBe(0o755);
@@ -87,15 +87,15 @@ describe("createDesktopLauncher on macOS", () => {
 });
 
 describe("createDesktopLauncher on Linux", () => {
-  it("writes an executable MamaDirect.desktop with an escaped Exec line and the icon", async () => {
+  it("writes an executable Archer.desktop with an escaped Exec line and the icon", async () => {
     const icon = path.join(root, "icon 512.png");
     fs.writeFileSync(icon, "png");
     const result = await createDesktopLauncher({ projectRoot: root, iconPath: icon, platform: "linux", desktopDir: desktop, nodeBinDir: bin });
-    expect(result).toEqual({ path: path.join(desktop, "MamaDirect.desktop"), platform: "linux" });
+    expect(result).toEqual({ path: path.join(desktop, "Archer.desktop"), platform: "linux" });
     const lines = fs.readFileSync(result.path, "utf8").split("\n");
     expect(lines).toContain("[Desktop Entry]");
     expect(lines).toContain("Type=Application");
-    expect(lines).toContain("Name=MamaDirect");
+    expect(lines).toContain("Name=Archer");
     expect(lines).toContain("Terminal=true");
     expect(lines).toContain(`Icon=${icon}`);
     const exec = lines.find((l) => l.startsWith("Exec="))!.slice("Exec=".length);
@@ -122,7 +122,7 @@ describe("createDesktopLauncher on Windows", () => {
   const winRoot = "C:\\Users\\Olive Smith\\Mama Direct 100%";
   const winBin = "C:\\Program Files\\nodejs";
 
-  it("writes MamaDirect.cmd and asks PowerShell for a shortcut with the icon", async () => {
+  it("writes Archer.cmd and asks PowerShell for a shortcut with the icon", async () => {
     const scripts: string[] = [];
     const icon = path.join(dir, "o'brien.ico");
     fs.writeFileSync(icon, "ico");
@@ -134,7 +134,7 @@ describe("createDesktopLauncher on Windows", () => {
       nodeBinDir: winBin,
       runPowerShell: async (script) => (scripts.push(script), ""),
     });
-    const cmd = path.join(desktop, "MamaDirect.cmd");
+    const cmd = path.join(desktop, "Archer.cmd");
     expect(result).toEqual({ path: cmd, platform: "win32" });
     expect(fs.readFileSync(cmd, "utf8")).toBe(
       [
@@ -148,7 +148,7 @@ describe("createDesktopLauncher on Windows", () => {
     );
     expect(scripts).toHaveLength(1);
     expect(scripts[0]).toContain("WScript.Shell");
-    expect(scripts[0]).toContain(`CreateShortcut('${path.join(desktop, "MamaDirect.lnk").replace(/'/g, "''")}')`);
+    expect(scripts[0]).toContain(`CreateShortcut('${path.join(desktop, "Archer.lnk").replace(/'/g, "''")}')`);
     expect(scripts[0]).toContain(`TargetPath = '${cmd.replace(/'/g, "''")}'`);
     expect(scripts[0]).toContain("WorkingDirectory = 'C:\\Users\\Olive Smith\\Mama Direct 100%'");
     expect(scripts[0]).toContain(`IconLocation = '${icon.replace(/'/g, "''")}'`);
@@ -166,13 +166,13 @@ describe("createDesktopLauncher on Windows", () => {
         throw new Error("powershell missing");
       },
     });
-    expect(result.path).toBe(path.join(desktop, "MamaDirect.cmd"));
+    expect(result.path).toBe(path.join(desktop, "Archer.cmd"));
     expect(fs.existsSync(result.path)).toBe(true);
   });
 
   it("writes a non-ASCII project path intact as UTF-8 without a BOM", async () => {
     const result = await createDesktopLauncher({
-      projectRoot: "C:\\Users\\José Müller\\Документы\\MamaDirect",
+      projectRoot: "C:\\Users\\José Müller\\Документы\\Archer",
       iconPath: "",
       platform: "win32",
       desktopDir: desktop,
@@ -183,7 +183,7 @@ describe("createDesktopLauncher on Windows", () => {
     expect(bytes.subarray(0, 9).toString("latin1")).toBe("@echo off");
     const lines = bytes.toString("utf8").split("\r\n");
     expect(lines[1]).toBe("chcp 65001 >nul");
-    expect(lines).toContain('cd /d "C:\\Users\\José Müller\\Документы\\MamaDirect" && call npm start');
+    expect(lines).toContain('cd /d "C:\\Users\\José Müller\\Документы\\Archer" && call npm start');
     expect(lines).toContain('set "PATH=C:\\Users\\José Müller\\nodejs;%PATH%"');
     expect(lines.indexOf("if errorlevel 1 pause")).toBe(lines.findIndex((l) => l.includes("npm start")) + 1);
   });
@@ -214,7 +214,7 @@ describe("createDesktopLauncher on Windows", () => {
         return script.includes("GetFolderPath") ? `${desktop}\r\n` : "";
       },
     });
-    expect(result.path).toBe(path.join(desktop, "MamaDirect.cmd"));
+    expect(result.path).toBe(path.join(desktop, "Archer.cmd"));
     expect(fs.existsSync(result.path)).toBe(true);
     expect(scripts[0]).toContain("[Environment]::GetFolderPath('Desktop')");
   });

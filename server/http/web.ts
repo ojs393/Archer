@@ -6,9 +6,9 @@ import { notFound } from "./errors.ts";
 import { setSessionCookie } from "./routes/session.ts";
 
 const PLACEHOLDER = `<!doctype html>
-<html lang="en"><head><meta charset="utf-8"><title>MamaDirect</title></head>
+<html lang="en"><head><meta charset="utf-8"><title>Archer</title></head>
 <body style="font-family:system-ui,sans-serif;max-width:40rem;margin:4rem auto;color:#0f172a">
-<h1>MamaDirect is running</h1>
+<h1>Archer is running</h1>
 <p>Dashboard not built yet &mdash; run <code>npm run build:web</code>, then reload this page.</p>
 </body></html>
 `;

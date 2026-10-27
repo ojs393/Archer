@@ -23,10 +23,10 @@ export const UNSUB_SECRET = "u".repeat(64);
 
 export const authed = {
   host: `127.0.0.1:${PORT}`,
-  cookie: `md_session=${TOKEN}`,
+  cookie: `archer_session=${TOKEN}`,
 } as const;
 
-export const mutating = { ...authed, origin: ORIGIN, "x-mamadirect": "1" } as const;
+export const mutating = { ...authed, origin: ORIGIN, "x-archer": "1" } as const;
 
 export interface Harness {
   app: FastifyInstance;
@@ -59,7 +59,7 @@ export interface HarnessOptions {
 }
 
 export async function makeHarness(opts: HarnessOptions = {}): Promise<Harness> {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-http-"));
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-http-"));
   const paths = resolvePaths({ root: dir, env: {} });
   ensureDataDirs(paths);
   const db = openDb(paths.dbPath);
@@ -187,7 +187,7 @@ export function multipart(
   fields: Record<string, string>,
   file?: { name?: string; filename?: string; content: string | Buffer; type?: string },
 ): { payload: Buffer; headers: Record<string, string> } {
-  const boundary = `----mamadirect${Math.random().toString(16).slice(2)}`;
+  const boundary = `----archer${Math.random().toString(16).slice(2)}`;
   const parts: Buffer[] = [];
   for (const [name, value] of Object.entries(fields)) {
     parts.push(Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`));

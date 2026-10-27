@@ -19,7 +19,7 @@ export function checkNode(version = process.versions.node, platform = process.pl
   return {
     status: "FAIL",
     name: "node",
-    detail: `${shown}; MamaDirect needs >= ${MIN_NODE_VERSION}`,
+    detail: `${shown}; Archer needs >= ${MIN_NODE_VERSION}`,
     hint: nodeInstallHint(platform),
     fatal: true,
   };

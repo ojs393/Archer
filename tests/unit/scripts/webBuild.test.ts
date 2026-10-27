@@ -16,7 +16,7 @@ function write(rel: string, at: number): void {
 const T0 = 1_700_000_000;
 
 beforeEach(() => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-webbuild-"));
+  root = fs.mkdtempSync(path.join(os.tmpdir(), "archer-webbuild-"));
   write("web/index.html", T0);
   write("web/src/main.tsx", T0);
   write("vite.config.ts", T0);

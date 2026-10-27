@@ -103,7 +103,7 @@ function Shell() {
           <Card>
             <EmptyState
               icon={Unplug}
-              title="Cannot reach MamaDirect"
+              title="Cannot reach Archer"
               action={{ label: "Retry", icon: RotateCw, onClick: () => void session.refetch() }}
             />
           </Card>

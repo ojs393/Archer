@@ -66,15 +66,15 @@ describe("server boot", () => {
   it(
     "boots, serves the API, refuses a second instance, and shuts down cleanly on SIGTERM",
     async () => {
-      dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-boot-"));
+      dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-boot-"));
       const dataDir = path.join(dir, "data");
       const envFile = path.join(dir, "test.env");
       const port = await getFreePort(30_000 + Math.floor(Math.random() * 20_000));
       const env: NodeJS.ProcessEnv = {
         ...process.env,
-        MAMADIRECT_DATA_DIR: dataDir,
-        MAMADIRECT_ENV_FILE: envFile,
-        MAMADIRECT_NO_OPEN: "1",
+        ARCHER_DATA_DIR: dataDir,
+        ARCHER_ENV_FILE: envFile,
+        ARCHER_NO_OPEN: "1",
         PORT: String(port),
       };
       delete env.UNSUB_SECRET;
@@ -89,19 +89,19 @@ describe("server boot", () => {
         first,
       );
       expect(info).toEqual({ pid: first.child.pid, port, url: `http://127.0.0.1:${port}` });
-      expect(fs.existsSync(path.join(dataDir, "mamadirect.lock"))).toBe(true);
-      await until(() => first.output().includes(`MamaDirect running at http://127.0.0.1:${port}`), 10_000, "banner", first);
+      expect(fs.existsSync(path.join(dataDir, "archer.lock"))).toBe(true);
+      await until(() => first.output().includes(`Archer running at http://127.0.0.1:${port}`), 10_000, "banner", first);
 
       const secrets = parseEnv(fs.readFileSync(envFile, "utf8"));
       expect(secrets.UNSUB_SECRET).toMatch(/^[0-9a-f]{64}$/);
       if (process.platform !== "win32") expect(fs.statSync(envFile).mode & 0o777).toBe(0o600);
-      expect(fs.existsSync(path.join(dataDir, "mamadirect.db"))).toBe(true);
-      expect(fs.readdirSync(path.join(dataDir, "backups")).some((f) => /^mamadirect-\d{4}-\d{2}-\d{2}\.db$/.test(f))).toBe(true);
+      expect(fs.existsSync(path.join(dataDir, "archer.db"))).toBe(true);
+      expect(fs.readdirSync(path.join(dataDir, "backups")).some((f) => /^archer-\d{4}-\d{2}-\d{2}\.db$/.test(f))).toBe(true);
 
       const session = await request(port, "/api/session");
       expect(session.status).toBe(204);
       const cookie = String(session.headers["set-cookie"]?.[0] ?? "").split(";")[0];
-      expect(cookie).toMatch(/^md_session=[0-9a-f]{64}$/);
+      expect(cookie).toMatch(/^archer_session=[0-9a-f]{64}$/);
       const health = await request(port, "/api/health", { cookie });
       expect(health.status).toBe(200);
       expect(JSON.parse(health.body)).toHaveProperty("worker");
@@ -111,14 +111,14 @@ describe("server boot", () => {
       const second = start(env);
       const secondCode = await Promise.race([second.exited, new Promise<"hung">((r) => setTimeout(() => r("hung"), BOOT_TIMEOUT_MS))]);
       expect(secondCode).toBe(0);
-      expect(second.output()).toContain(`MamaDirect is already running at http://127.0.0.1:${port}`);
+      expect(second.output()).toContain(`Archer is already running at http://127.0.0.1:${port}`);
       expect(fs.existsSync(infoPath)).toBe(true);
 
       first.child.kill("SIGTERM");
       const firstCode = await Promise.race([first.exited, new Promise<"hung">((r) => setTimeout(() => r("hung"), 40_000))]);
       expect(firstCode, first.output()).toBe(0);
       expect(fs.existsSync(infoPath)).toBe(false);
-      expect(fs.existsSync(path.join(dataDir, "mamadirect.lock"))).toBe(false);
+      expect(fs.existsSync(path.join(dataDir, "archer.lock"))).toBe(false);
       expect(first.output()).not.toContain(secrets.UNSUB_SECRET);
     },
     BOOT_TIMEOUT_MS * 3,

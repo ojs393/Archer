@@ -33,7 +33,7 @@ describe("checkNode", () => {
     expect(checkNode("20.18.1", "win32")).toEqual({
       status: "FAIL",
       name: "node",
-      detail: "v20.18.1; MamaDirect needs >= 22.13.0",
+      detail: "v20.18.1; Archer needs >= 22.13.0",
       hint: "winget install OpenJS.NodeJS.LTS",
       fatal: true,
     });

@@ -10,12 +10,12 @@ function req(over: Partial<GuardInput> & { headers?: GuardInput["headers"] } = {
     url: "/api/health",
     route: "/api/health",
     ...over,
-    headers: { host: "127.0.0.1:5199", cookie: `md_session=${TOKEN}`, ...over.headers },
+    headers: { host: "127.0.0.1:5199", cookie: `archer_session=${TOKEN}`, ...over.headers },
   };
 }
 
 const post = (headers: GuardInput["headers"] = {}, url = "/api/suppression") =>
-  req({ method: "POST", url, route: url, headers: { origin: "http://127.0.0.1:5199", "x-mamadirect": "1", ...headers } });
+  req({ method: "POST", url, route: url, headers: { origin: "http://127.0.0.1:5199", "x-archer": "1", ...headers } });
 
 describe("Host guard (DNS rebinding)", () => {
   it.each(["127.0.0.1:5199", "localhost:5199", "LOCALHOST:5199", "[::1]:5199"])("allows %s", (host) => {
@@ -73,12 +73,12 @@ describe("Origin + header guard (localhost CSRF)", () => {
     expect(checkRequest(post({ origin }), { ...cfg, devOrigin: "http://localhost:5173/" })).toEqual({ ok: true });
   });
 
-  it.each([undefined, "0", "true", ""])("requires X-MamaDirect: 1 (got %j)", (value) => {
-    expect(checkRequest(post({ "x-mamadirect": value }), cfg)).toMatchObject({ ok: false, status: 403, code: "missing_header" });
+  it.each([undefined, "0", "true", ""])("requires X-Archer: 1 (got %j)", (value) => {
+    expect(checkRequest(post({ "x-archer": value }), cfg)).toMatchObject({ ok: false, status: 403, code: "missing_header" });
   });
 
   it.each(["PUT", "DELETE", "PATCH", "OPTIONS"])("applies to %s", (method) => {
-    expect(checkRequest(req({ method, headers: { origin: "http://evil.example", "x-mamadirect": "1" } }), cfg)).toMatchObject({
+    expect(checkRequest(req({ method, headers: { origin: "http://evil.example", "x-archer": "1" } }), cfg)).toMatchObject({
       code: "bad_origin",
     });
   });
@@ -94,7 +94,7 @@ describe("session guard", () => {
     expect(checkRequest(req({ headers: { cookie: undefined } }), cfg)).toMatchObject({ ok: false, status: 401, code: "no_session" });
   });
 
-  it.each([`md_session=${"e".repeat(64)}`, "md_session=short", "md_session=", "other=1", `md_session_x=${TOKEN}`])(
+  it.each([`archer_session=${"e".repeat(64)}`, "archer_session=short", "archer_session=", "other=1", `archer_session_x=${TOKEN}`])(
     "rejects cookie %j",
     (cookie) => {
       expect(checkRequest(req({ headers: { cookie } }), cfg)).toMatchObject({ code: "no_session" });
@@ -102,13 +102,13 @@ describe("session guard", () => {
   );
 
   it("accepts the cookie among others", () => {
-    expect(checkRequest(req({ headers: { cookie: `a=1; md_session=${TOKEN}; b=2` } }), cfg)).toEqual({ ok: true });
+    expect(checkRequest(req({ headers: { cookie: `a=1; archer_session=${TOKEN}; b=2` } }), cfg)).toEqual({ ok: true });
   });
 
   it("exempts only GET /api/session", () => {
     expect(checkRequest(req({ url: "/api/session", route: "/api/session", headers: { cookie: undefined } }), cfg)).toEqual({ ok: true });
     expect(
-      checkRequest(req({ method: "POST", url: "/api/session", route: "/api/session", headers: { cookie: undefined, "x-mamadirect": "1" } }), cfg),
+      checkRequest(req({ method: "POST", url: "/api/session", route: "/api/session", headers: { cookie: undefined, "x-archer": "1" } }), cfg),
     ).toMatchObject({ code: "no_session" });
   });
 
@@ -136,7 +136,7 @@ describe("helpers", () => {
   });
 
   it("reads every value of a repeated cookie and tolerates bad encoding", () => {
-    expect(readCookies("a=1; md_session=x; md_session=%E0%A4%A", "md_session")).toEqual(["x", "%E0%A4%A"]);
-    expect(readCookies(undefined, "md_session")).toEqual([]);
+    expect(readCookies("a=1; archer_session=x; archer_session=%E0%A4%A", "archer_session")).toEqual(["x", "%E0%A4%A"]);
+    expect(readCookies(undefined, "archer_session")).toEqual([]);
   });
 });

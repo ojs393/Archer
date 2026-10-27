@@ -138,7 +138,7 @@ export class EventStream {
       try {
         fn(data);
       } catch (err) {
-        console.error(`MamaDirect: "${name}" event listener failed`, err);
+        console.error(`Archer: "${name}" event listener failed`, err);
       }
     }
   }

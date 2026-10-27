@@ -116,7 +116,7 @@ function placed(group, { translateY = 0, scale = 1 }) {
 }
 
 function svgDocument(body) {
-  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CANVAS} ${CANVAS}" role="img" aria-label="MamaDirect">\n${body}\n</svg>\n`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CANVAS} ${CANVAS}" role="img" aria-label="Archer">\n${body}\n</svg>\n`;
 }
 
 export function appIconSvg(group, placement) {

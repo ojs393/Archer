@@ -10,7 +10,7 @@ let dir: string;
 let db: DatabaseSync;
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-elog-"));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-elog-"));
   db = openDb(path.join(dir, "app.db"));
   db.prepare(
     "INSERT INTO lists (name, source_label, consent_text, consent_at, status) VALUES ('L','s','ok','2026-01-01','ready')",

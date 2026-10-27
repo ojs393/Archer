@@ -1,5 +1,5 @@
 /**
- * One-shot: start MamaDirect on a temp data dir, seed demo content, write README screenshots.
+ * One-shot: start Archer on a temp data dir, seed demo content, write README screenshots.
  * Not part of normal install — run only when refreshing docs/screenshots.
  */
 import { spawn } from "node:child_process";
@@ -14,7 +14,7 @@ const root = projectRoot();
 const outDir = path.join(root, "docs", "screenshots");
 const port = 5299;
 const base = `http://127.0.0.1:${port}`;
-const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-shots-"));
+const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-shots-"));
 
 fs.mkdirSync(outDir, { recursive: true });
 
@@ -40,7 +40,7 @@ async function api(cookie, method, urlPath, body) {
   const headers = {
     Accept: "application/json",
     Cookie: cookie,
-    "X-MamaDirect": "1",
+    "X-Archer": "1",
     Origin: base,
   };
   let payload;
@@ -61,8 +61,8 @@ async function sessionCookie() {
   const res = await fetch(`${base}/api/session`);
   if (!res.ok && res.status !== 204) throw new Error(`session ${res.status}`);
   const raw = res.headers.getSetCookie?.() ?? [];
-  const line = raw.find((c) => c.startsWith("md_session=")) ?? res.headers.get("set-cookie");
-  if (!line) throw new Error("no md_session cookie");
+  const line = raw.find((c) => c.startsWith("archer_session=")) ?? res.headers.get("set-cookie");
+  if (!line) throw new Error("no archer_session cookie");
   return line.split(";")[0];
 }
 
@@ -132,8 +132,8 @@ const child = spawn(
     env: {
       ...process.env,
       PORT: String(port),
-      MAMADIRECT_DATA_DIR: dataDir,
-      MAMADIRECT_NO_OPEN: "1",
+      ARCHER_DATA_DIR: dataDir,
+      ARCHER_NO_OPEN: "1",
       UNSUB_SECRET: "s".repeat(64),
     },
     stdio: ["ignore", "pipe", "pipe"],
@@ -156,8 +156,8 @@ try {
   const context = await browser.newContext({ viewport: { width: 1280, height: 800 }, deviceScaleFactor: 2 });
   await context.addCookies([
     {
-      name: "md_session",
-      value: cookie.replace(/^md_session=/, ""),
+      name: "archer_session",
+      value: cookie.replace(/^archer_session=/, ""),
       domain: "127.0.0.1",
       path: "/",
     },

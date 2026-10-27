@@ -11,7 +11,7 @@ let logFile: string;
 let lines: string[];
 
 beforeEach(() => {
-  dir = fs.mkdtempSync(path.join(os.tmpdir(), "mamadirect-log-"));
+  dir = fs.mkdtempSync(path.join(os.tmpdir(), "archer-log-"));
   logFile = path.join(dir, "logs", "app.log");
   lines = [];
 });

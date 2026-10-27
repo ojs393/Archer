@@ -1,8 +1,8 @@
 <p align="center">
-  <img src=".github/assets/logo.png" width="112" alt="MamaDirect logo">
+  <img src=".github/assets/logo.png" width="112" alt="Archer logo">
 </p>
 
-<h1 align="center">MamaDirect</h1>
+<h1 align="center">Archer</h1>
 
 <p align="center">
   <strong>Local-first bulk email for a spare domain.</strong><br>
@@ -23,7 +23,7 @@
 
 ## What it is
 
-MamaDirect is a **local Node app**, not a hosted ESP. You clone it, run it on macOS, Linux, or Windows, and open a dashboard on `127.0.0.1`. Data stays in a SQLite database under `data/` on your machine.
+Archer is a **local Node app**, not a hosted ESP. You clone it, run it on macOS, Linux, or Windows, and open a dashboard on `127.0.0.1`. Data stays in a SQLite database under `data/` on your machine.
 
 | You get | You do not get |
 |---|---|
@@ -39,8 +39,8 @@ Honest limits: delivery/bounce charts stay empty until your provider feedback is
 **Needs:** Node.js ≥ 22.13, outbound SMTP (VPN is fine).
 
 ```bash
-git clone https://github.com/ojs393/Archer.git MamaDirect
-cd MamaDirect
+git clone https://github.com/ojs393/Archer.git Archer
+cd Archer
 npm run setup
 ```
 
@@ -109,9 +109,9 @@ From setup (**Add to Desktop**) or Settings:
 
 | OS | What you get |
 |---|---|
-| macOS | `MamaDirect.command` + app icon (`.icns`) |
-| Windows | `MamaDirect.cmd` (+ `.lnk` with `.ico` when possible) |
-| Linux | `MamaDirect.desktop` |
+| macOS | `Archer.command` + app icon (`.icns`) |
+| Windows | `Archer.cmd` (+ `.lnk` with `.ico` when possible) |
+| Linux | `Archer.desktop` |
 
 Icons live in `assets/icons/` and `web/public/`. Regenerate with `npm run build:icons`.
 
@@ -135,7 +135,7 @@ Disk under `data/`: SQLite (+ WAL), uploads, logs, backups.
 ## Security
 
 - Binds to `127.0.0.1` only.
-- Session cookie + CSRF (`X-MamaDirect`) on mutating routes.
+- Session cookie + CSRF (`X-Archer`) on mutating routes.
 - SMTP password write-only; secrets redacted from logs.
 - Do not expose the port to the public internet without a reverse proxy and auth you trust.
 

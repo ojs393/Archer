@@ -27,7 +27,7 @@ export class PanelBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    console.error("MamaDirect: panel crashed", error, info.componentStack);
+    console.error("Archer: panel crashed", error, info.componentStack);
   }
 
   private retry = () => {
