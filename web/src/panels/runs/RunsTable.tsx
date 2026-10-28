@@ -113,11 +113,20 @@ export function RunsTable({
               <TableCell>{formatDateTime(row.startedAt)}</TableCell>
               <TableCell>
                 <div className="flex justify-end gap-0.5" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
-                  <IconButton label="Start" icon={Play} disabled={!canStart || busy} onClick={() => onStart(row.id)} />
-                  <IconButton label="Pause" icon={Pause} disabled={!canPause || busy} onClick={() => onPause(row.id)} />
-                  <IconButton label="Resume" icon={Play} disabled={!canResume || busy} onClick={() => onResume(row.id)} />
-                  <IconButton label="Cancel" icon={Square} destructive disabled={!canCancel || busy} onClick={() => onCancel(row.id)} />
-                  <IconButton label="Open details" icon={Eye} onClick={() => onSelect(row.id)} />
+                  {/* Only render actions that apply to this status — Start and Resume never both show. */}
+                  {canStart ? (
+                    <IconButton label="Start" icon={Play} disabled={busy} onClick={() => onStart(row.id)} />
+                  ) : null}
+                  {canPause ? (
+                    <IconButton label="Pause" icon={Pause} disabled={busy} onClick={() => onPause(row.id)} />
+                  ) : null}
+                  {canResume ? (
+                    <IconButton label="Resume" icon={Play} disabled={busy} onClick={() => onResume(row.id)} />
+                  ) : null}
+                  {canCancel ? (
+                    <IconButton label="Cancel" icon={Square} destructive disabled={busy} onClick={() => onCancel(row.id)} />
+                  ) : null}
+                  <IconButton label="Preview" icon={Eye} onClick={() => onSelect(row.id)} />
                 </div>
               </TableCell>
             </TableRow>

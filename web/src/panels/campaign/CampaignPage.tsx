@@ -100,50 +100,58 @@ export default function CampaignPage({ id, tab }: { id: number; tab: CampaignTab
         )}
         {view ? <StatusPill status={view.status} detail={view.pauseReason} /> : null}
         <div className="ml-auto flex flex-wrap items-center gap-1.5">
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={!view || view.status !== "draft" || busy}
-            loading={start.isPending}
-            onClick={() => void run("start")}
-          >
-            <Play aria-hidden />
-            Start
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={!view || !ACTIVE.has(view.status) || busy}
-            loading={pause.isPending}
-            onClick={() => void run("pause")}
-          >
-            <Pause aria-hidden />
-            Pause
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={!view || !PAUSED.has(view.status) || busy}
-            loading={resume.isPending}
-            onClick={() => void run("resume")}
-          >
-            <Play aria-hidden />
-            Resume
-          </Button>
-          <Button
-            type="button"
-            size="sm"
-            variant="secondary"
-            disabled={!view || view.status === "completed" || view.status === "stopped" || busy}
-            loading={stop.isPending}
-            onClick={() => void run("stop")}
-          >
-            <Square aria-hidden />
-            Cancel
-          </Button>
+          {view?.status === "draft" ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={busy}
+              loading={start.isPending}
+              onClick={() => void run("start")}
+            >
+              <Play aria-hidden />
+              Start
+            </Button>
+          ) : null}
+          {view && ACTIVE.has(view.status) ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={busy}
+              loading={pause.isPending}
+              onClick={() => void run("pause")}
+            >
+              <Pause aria-hidden />
+              Pause
+            </Button>
+          ) : null}
+          {view && PAUSED.has(view.status) ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={busy}
+              loading={resume.isPending}
+              onClick={() => void run("resume")}
+            >
+              <Play aria-hidden />
+              Resume
+            </Button>
+          ) : null}
+          {view && view.status !== "completed" && view.status !== "stopped" ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              disabled={busy}
+              loading={stop.isPending}
+              onClick={() => void run("stop")}
+            >
+              <Square aria-hidden />
+              Cancel
+            </Button>
+          ) : null}
         </div>
       </div>
 
