@@ -17,6 +17,7 @@ export function FinishStep({
   launcherError,
   launching,
   onAddDesktop,
+  showDesktop = true,
 }: {
   draft: SetupDraft;
   onChange: (patch: Partial<SetupDraft>) => void;
@@ -25,6 +26,8 @@ export function FinishStep({
   launcherError: string | null;
   launching: boolean;
   onAddDesktop: () => void;
+  /** Settings page hosts desktop launcher in the App card instead. */
+  showDesktop?: boolean;
 }) {
   const [pending, setPending] = useState("");
 
@@ -100,30 +103,32 @@ export function FinishStep({
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-2">
-        <div className="flex min-h-6 items-center gap-1">
-          <span className="text-sm font-medium text-foreground">Desktop launcher</span>
-          <InfoHint label="About Add to Desktop">
-            Writes a one-click starter on your Desktop that runs npm start in this project. Safe to skip — you can add
-            it later from Settings.
-          </InfoHint>
+      {showDesktop ? (
+        <div className="flex flex-col gap-2">
+          <div className="flex min-h-6 items-center gap-1">
+            <span className="text-sm font-medium text-foreground">Desktop launcher</span>
+            <InfoHint label="About Add to Desktop">
+              Writes a one-click starter on your Desktop that runs npm start in this project. Safe to skip — you can add
+              it later from Settings.
+            </InfoHint>
+          </div>
+          <Button type="button" variant="secondary" loading={launching} onClick={onAddDesktop}>
+            {launching ? null : <AppWindow aria-hidden="true" />}
+            Add to Desktop
+          </Button>
+          {launcherPath ? (
+            <p role="status" className="flex items-start gap-1.5 text-sm text-muted-foreground">
+              <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-ok" aria-hidden="true" strokeWidth={3} />
+              <span className="break-all">{launcherPath}</span>
+            </p>
+          ) : null}
+          {launcherError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {launcherError}
+            </p>
+          ) : null}
         </div>
-        <Button type="button" variant="secondary" loading={launching} onClick={onAddDesktop}>
-          {launching ? null : <AppWindow aria-hidden="true" />}
-          Add to Desktop
-        </Button>
-        {launcherPath ? (
-          <p role="status" className="flex items-start gap-1.5 text-sm text-muted-foreground">
-            <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-status-ok" aria-hidden="true" strokeWidth={3} />
-            <span className="break-all">{launcherPath}</span>
-          </p>
-        ) : null}
-        {launcherError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {launcherError}
-          </p>
-        ) : null}
-      </div>
+      ) : null}
     </div>
   );
 }

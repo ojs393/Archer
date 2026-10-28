@@ -85,7 +85,7 @@ export function RunsTable({
                 <div className="flex flex-wrap gap-1">
                   {(row.tags ?? []).length ? (
                     row.tags.map((t) => (
-                      <Badge key={t} variant={isFolderTag(t) ? "solid" : "default"}>
+                      <Badge key={t} size="sm" variant={isFolderTag(t) ? "solid" : "default"}>
                         {tagLabel(t)}
                       </Badge>
                     ))

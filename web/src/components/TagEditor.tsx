@@ -69,16 +69,16 @@ export function TagEditor({
         )}
       >
         {value.map((tag) => (
-          <Badge key={tag} variant={isFolderTag(tag) ? "solid" : "info"} className="gap-1 pr-0.5">
+          <Badge key={tag} size="sm" variant={isFolderTag(tag) ? "solid" : "info"} className="gap-0.5 pr-0.5">
             {isFolderTag(tag) ? `Folder · ${folderLabel(tag)}` : tag}
             <button
               type="button"
-              className="inline-flex h-5 w-5 items-center justify-center rounded-sm hover:bg-zinc-200"
+              className="inline-flex h-4 w-4 items-center justify-center rounded-sm hover:bg-zinc-200"
               aria-label={`Remove ${tag}`}
               disabled={disabled}
               onClick={() => onChange(value.filter((t) => t !== tag))}
             >
-              <X className="h-3 w-3" aria-hidden="true" />
+              <X className="h-2.5 w-2.5" aria-hidden="true" />
             </button>
           </Badge>
         ))}

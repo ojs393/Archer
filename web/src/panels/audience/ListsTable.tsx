@@ -46,14 +46,16 @@ export function ListsTable({
             <TableCell className="font-medium">
               <span className="mr-2">{row.name}</span>
               {row.status !== "ready" ? (
-                <Badge variant={row.status === "failed" ? "solid" : "info"}>{row.status}</Badge>
+                <Badge size="sm" variant={row.status === "failed" ? "solid" : "info"}>
+                  {row.status}
+                </Badge>
               ) : null}
             </TableCell>
             <TableCell>
               <div className="flex flex-wrap gap-1">
                 {row.tags.length ? (
                   row.tags.map((t) => (
-                    <Badge key={t} variant={isFolderTag(t) ? "solid" : "default"}>
+                    <Badge key={t} size="sm" variant={isFolderTag(t) ? "solid" : "default"}>
                       {isFolderTag(t) ? `Folder · ${folderLabel(t)}` : t}
                     </Badge>
                   ))

@@ -56,6 +56,36 @@ beforeEach(() => {
       return json(next);
     }
     if (path.match(/^\/api\/templates\/\d+$/) && method === "DELETE") return new Response(null, { status: 204 });
+    if (path.match(/^\/api\/templates\/\d+\/preview$/) && method === "POST") {
+      const id = Number(path.split("/")[3]);
+      const body = templateBodies.get(id) ?? view;
+      return json({
+        contactId: 1,
+        email: "alex@example.com",
+        subject: body.subject,
+        html: body.html.replace("{{unsubscribe_url}}", "https://example.com/u/preview").replace("{{postal_address}}", "1 Main"),
+        text: "Hello",
+      });
+    }
+    if (path === "/api/settings" && method === "GET") {
+      return json({
+        provider: "ses",
+        sesRegion: "us-east-1",
+        operatorName: "Oliver",
+        organization: "",
+        setupCompletedAt: "2026-10-26T00:00:00.000Z",
+        fromName: "Oliver",
+        fromEmail: "news@example.com",
+        replyTo: null,
+        postalAddress: "1 Main St",
+        unsubMailbox: "unsub@example.com",
+        publicBaseUrl: null,
+        dkimSelector: "s1",
+        timezone: "UTC",
+        testInboxes: ["me@example.com"],
+        smtp: { host: "email-smtp.us-east-1.amazonaws.com", port: 587, secure: false, user: "AKIA", passSet: true },
+      });
+    }
     return json({ error: { code: "not_found", message: path } }, 404);
   }));
 });
@@ -93,7 +123,7 @@ describe("TemplatesPanel", () => {
     fireEvent.click(screen.getByRole("button", { name: "View" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("View template")).toBeInTheDocument();
-    expect(within(dialog).getByTitle("Email preview")).toBeInTheDocument();
+    expect(await within(dialog).findByTitle("Email preview")).toBeInTheDocument();
     expect(within(dialog).queryByLabelText(/HTML body/i)).not.toBeInTheDocument();
   });
 });

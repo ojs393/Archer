@@ -68,7 +68,7 @@ export function FilterToolbar({
       </Select>
       {onFolder && folderOptions ? (
         <Select value={folder || "__all"} onValueChange={(v) => onFolder(v === "__all" ? "" : v)}>
-          <SelectTrigger className="w-[calc(50%-0.25rem)] sm:w-[9rem]" aria-label="Folder">
+          <SelectTrigger className="h-8 w-[calc(50%-0.25rem)] text-xs sm:w-[8rem]" aria-label="Folder">
             <SelectValue placeholder="Folder" />
           </SelectTrigger>
           <SelectContent>
@@ -82,7 +82,7 @@ export function FilterToolbar({
         </Select>
       ) : null}
       <Select value={tag || "__all"} onValueChange={(v) => onTag(v === "__all" ? "" : v)}>
-        <SelectTrigger className="w-[calc(50%-0.25rem)] sm:w-[9rem]" aria-label="Tag">
+        <SelectTrigger className="h-8 w-[calc(50%-0.25rem)] text-xs sm:w-[8rem]" aria-label="Tag">
           <SelectValue placeholder="Tag" />
         </SelectTrigger>
         <SelectContent>

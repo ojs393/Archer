@@ -70,6 +70,7 @@ export function useUpdateTemplate() {
     onSuccess: (_data, vars) => {
       invalidateTemplates(client);
       void client.invalidateQueries({ queryKey: templateKey(vars.id) });
+      void client.invalidateQueries({ queryKey: [...templateKey(vars.id), "preview"] });
     },
   });
 }

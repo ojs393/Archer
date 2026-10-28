@@ -15,9 +15,11 @@ import {
 import { InfoHint } from "@/components/ui/InfoHint";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { isApiError } from "@/lib/api";
-import { useCreateTemplate, useTemplate, useUpdateTemplate } from "@/lib/queries/templates";
+import { useSettings } from "@/lib/queries";
+import { useCreateTemplate, useTemplate, useTemplatePreview, useUpdateTemplate } from "@/lib/queries/templates";
 import { cn } from "@/lib/utils";
 import { EmailPreview } from "./EmailPreview";
 
@@ -37,6 +39,8 @@ export function TemplateEditor({
   readOnly?: boolean;
 }) {
   const existing = useTemplate(templateId, open && templateId !== null);
+  const serverPreview = useTemplatePreview(templateId, null, open && readOnly && templateId !== null);
+  const settings = useSettings(open);
   const create = useCreateTemplate();
   const update = useUpdateTemplate();
 
@@ -92,6 +96,8 @@ export function TemplateEditor({
     }
   }
 
+  const sender = settings.data ?? null;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className={cn("max-w-5xl", wizardPanelClass)}>
@@ -100,14 +106,29 @@ export function TemplateEditor({
             {readOnly ? "View template" : templateId === null ? "New template" : "Edit template"}
           </DialogTitle>
           <DialogDescription className="flex flex-wrap items-center gap-1">
-            {readOnly ? "Rendered email preview." : "HTML body with merge tags."}
+            {readOnly
+              ? "Server-rendered preview with sender + sample contact merges."
+              : "HTML body with merge tags. Live preview fills samples from Settings."}
             {!readOnly ? <InfoHint label="Available variables">{VARS_HINT}</InfoHint> : null}
           </DialogDescription>
         </DialogHeader>
 
         <DialogBody>
           {readOnly ? (
-            <EmailPreview subject={subject} html={html} name={name} />
+            existing.isPending && !existing.data ? (
+              <Skeleton className="h-[28rem] w-full" />
+            ) : (
+              <EmailPreview
+                subject={serverPreview.data?.subject ?? (subject || existing.data?.subject || "")}
+                html={serverPreview.data?.html ?? (html || existing.data?.html || "")}
+                name={name || existing.data?.name}
+                fromName={sender?.fromName}
+                fromEmail={sender?.fromEmail}
+                toEmail={serverPreview.data?.email}
+                settings={sender}
+                fillVars={!serverPreview.data}
+              />
+            )
           ) : (
             <div className="grid min-w-0 gap-4 lg:grid-cols-2">
               <div className="flex min-w-0 flex-col gap-3">
@@ -131,7 +152,14 @@ export function TemplateEditor({
                   </p>
                 ) : null}
               </div>
-              <EmailPreview subject={subject} html={html} />
+              <EmailPreview
+                subject={subject}
+                html={html}
+                fromName={sender?.fromName}
+                fromEmail={sender?.fromEmail}
+                settings={sender}
+                fillVars
+              />
             </div>
           )}
         </DialogBody>
