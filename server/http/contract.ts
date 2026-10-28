@@ -542,7 +542,7 @@ export interface AnalyticsSummary {
   lastSendAt: string | null;
 }
 
-export type AnalyticsBucket = "hour" | "day";
+export type AnalyticsBucket = "minute" | "hour" | "day";
 
 export interface AnalyticsPoint {
   t: string;
@@ -597,7 +597,9 @@ export interface AnalyticsFeedback {
   endpoint: string;
 }
 
-export const ANALYTICS_MAX_DAYS = 90;
+export const ANALYTICS_MAX_DAYS = 366;
+/** Sub-day windows use hours (0.5 = 30 minutes). Cap at one year. */
+export const ANALYTICS_MAX_HOURS = 24 * ANALYTICS_MAX_DAYS;
 
 const analyticsCampaignId = z.coerce.number().int().positive().optional();
 
@@ -606,10 +608,15 @@ export const analyticsScopeSchema = z.strictObject({ campaignId: analyticsCampai
 export const analyticsTimeseriesQuerySchema = z
   .strictObject({
     campaignId: analyticsCampaignId,
-    bucket: z.enum(["hour", "day"]).default("hour"),
+    bucket: z.enum(["minute", "hour", "day"]).default("hour"),
     days: z.coerce.number().int().min(1).max(ANALYTICS_MAX_DAYS).optional(),
+    /** Lookback in hours (0.5 = 30m). Takes precedence over days when set. */
+    hours: z.coerce.number().min(0.5).max(ANALYTICS_MAX_HOURS).optional(),
   })
-  .transform((q) => ({ ...q, days: q.days ?? (q.bucket === "hour" ? 2 : 30) }));
+  .transform((q) => {
+    if (q.hours !== undefined) return q;
+    return { ...q, days: q.days ?? (q.bucket === "day" ? 30 : q.bucket === "minute" ? 1 : 2) };
+  });
 
 export const analyticsErrorsQuerySchema = z.strictObject({
   campaignId: analyticsCampaignId,

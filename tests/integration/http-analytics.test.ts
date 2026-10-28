@@ -198,11 +198,24 @@ describe("GET /api/analytics/timeseries", () => {
     expect(totals).toEqual({ ...zeros, sent: 3, suppressed: 1 });
   });
 
-  it.each(["bucket=week", "days=0", "days=91", "days=1.5", "campaignId=0", "extra=1"])("rejects %s", async (query) => {
-    const res = await get(`/api/analytics/timeseries?${query}`);
-    expect(res.statusCode).toBe(400);
-    expect(res.json().error.code).toBe("invalid_request");
+  it("supports minute buckets and hours lookback", async () => {
+    const half = (await get("/api/analytics/timeseries?bucket=minute&hours=0.5")).json();
+    expect(half.bucket).toBe("minute");
+    expect(half.points).toHaveLength(30);
+    const six = (await get("/api/analytics/timeseries?bucket=hour&hours=6")).json();
+    expect(six.points).toHaveLength(6);
+    const year = (await get("/api/analytics/timeseries?bucket=day&days=365")).json();
+    expect(year.points).toHaveLength(365);
   });
+
+  it.each(["bucket=week", "days=0", "days=367", "days=1.5", "hours=0", "campaignId=0", "extra=1"])(
+    "rejects %s",
+    async (query) => {
+      const res = await get(`/api/analytics/timeseries?${query}`);
+      expect(res.statusCode).toBe(400);
+      expect(res.json().error.code).toBe("invalid_request");
+    },
+  );
 });
 
 describe("GET /api/analytics/errors", () => {

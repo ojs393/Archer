@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Activity, AlertTriangle, LayoutDashboard, MailCheck, MessageSquareWarning, Play } from "lucide-react";
 import { StatusPill } from "@/components/StatusPill";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useAnalyticsRuns, type CampaignScope } from "@/lib/queries/analytics";
+import { useAnalyticsRuns, useAnalyticsTimeseries, type CampaignScope } from "@/lib/queries/analytics";
 import { useStatus } from "@/lib/queries";
 import { ActivityTab } from "./dashboard/ActivityTab";
 import { DeliveryTab } from "./dashboard/DeliveryTab";
@@ -11,14 +11,16 @@ import { FeedbackTab } from "./dashboard/FeedbackTab";
 import { OverviewTab } from "./dashboard/OverviewTab";
 import { RunsTab } from "./dashboard/RunsTab";
 import { StatRow } from "./dashboard/StatRow";
-import { TimeRange, type DashboardRange } from "./dashboard/TimeRange";
+import { TimeRange, rangeToQuery, type DashboardRange } from "./dashboard/TimeRange";
 import { PanelShell } from "./PanelShell";
 
 export default function DashboardPanel() {
   const status = useStatus();
   const runsQuery = useAnalyticsRuns();
   const [campaignId, setCampaignId] = useState<CampaignScope>(null);
-  const [range, setRange] = useState<DashboardRange>("7d");
+  const [range, setRange] = useState<DashboardRange>("24h");
+  const coverageProbe = useAnalyticsTimeseries(rangeToQuery(range), campaignId);
+  const coverageFrom = coverageProbe.isPending ? undefined : (coverageProbe.data?.coverageFrom ?? null);
   const runs = runsQuery.data?.rows ?? [];
   const active = status.data?.campaign ?? null;
 
@@ -27,7 +29,7 @@ export default function DashboardPanel() {
       title="Dashboard"
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          <TimeRange value={range} onChange={setRange} />
+          <TimeRange value={range} onChange={setRange} coverageFrom={coverageFrom} />
           {active ? <StatusPill status={active.status} detail={active.pauseReason} /> : null}
         </div>
       }

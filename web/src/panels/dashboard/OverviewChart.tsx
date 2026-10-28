@@ -23,6 +23,9 @@ export const CHART_COLORS = {
 function tickLabel(iso: string, bucket: AnalyticsBucket): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
+  if (bucket === "minute") {
+    return d.toLocaleString(undefined, { hour: "numeric", minute: "2-digit" });
+  }
   if (bucket === "hour") {
     return d.toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   }

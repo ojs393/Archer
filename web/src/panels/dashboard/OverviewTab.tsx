@@ -26,8 +26,8 @@ export function OverviewTab({
   onCampaignIdChange: (id: CampaignScope) => void;
   range: DashboardRange;
 }) {
-  const { bucket, days } = rangeToQuery(range);
-  const series = useAnalyticsTimeseries(bucket, days, campaignId);
+  const query = rangeToQuery(range);
+  const series = useAnalyticsTimeseries(query, campaignId);
   const points = useMemo(
     () => visiblePoints(series.data?.points ?? [], series.data?.coverageFrom ?? null),
     [series.data?.points, series.data?.coverageFrom],
@@ -52,7 +52,7 @@ export function OverviewTab({
           />
         ) : (
           <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-            <OverviewChart points={points as NonNullable<typeof series.data>["points"]} bucket={bucket} />
+            <OverviewChart points={points as NonNullable<typeof series.data>["points"]} bucket={query.bucket} />
           </Suspense>
         )}
       </Card>

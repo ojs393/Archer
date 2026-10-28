@@ -17,10 +17,10 @@ function visiblePoints(points: { t: string }[], coverageFrom: string | null) {
 }
 
 export function CampaignOverviewTab({ campaign, live = false }: { campaign: CampaignView; live?: boolean }) {
-  const [range, setRange] = useState<DashboardRange>("7d");
-  const { bucket, days } = rangeToQuery(range);
+  const [range, setRange] = useState<DashboardRange>("24h");
+  const query = rangeToQuery(range);
   const summary = useAnalyticsSummary(campaign.id);
-  const series = useAnalyticsTimeseries(bucket, days, campaign.id);
+  const series = useAnalyticsTimeseries(query, campaign.id);
   const points = useMemo(
     () => visiblePoints(series.data?.points ?? [], series.data?.coverageFrom ?? null),
     [series.data?.points, series.data?.coverageFrom],
@@ -40,7 +40,11 @@ export function CampaignOverviewTab({ campaign, live = false }: { campaign: Camp
             ? ` · ${formatNumber(campaign.stats.sentLastHour)} sent last hour`
             : null}
         </div>
-        <TimeRange value={range} onChange={setRange} />
+        <TimeRange
+          value={range}
+          onChange={setRange}
+          coverageFrom={series.isPending ? undefined : (series.data?.coverageFrom ?? null)}
+        />
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -88,7 +92,7 @@ export function CampaignOverviewTab({ campaign, live = false }: { campaign: Camp
           />
         ) : (
           <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-            <OverviewChart points={points as NonNullable<typeof series.data>["points"]} bucket={bucket} />
+            <OverviewChart points={points as NonNullable<typeof series.data>["points"]} bucket={query.bucket} />
           </Suspense>
         )}
       </Card>

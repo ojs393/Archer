@@ -32,7 +32,12 @@ export function analyticsRoutes(app: FastifyInstance, ctx: AppContext): void {
 
   app.get("/api/analytics/timeseries", async (request): Promise<AnalyticsTimeseries> => {
     const q = analyticsTimeseriesQuerySchema.parse(request.query ?? {});
-    return analyticsTimeseries(ctx.db, { bucket: q.bucket, days: q.days, campaignId: scope(q.campaignId) });
+    return analyticsTimeseries(ctx.db, {
+      bucket: q.bucket,
+      days: q.days,
+      hours: q.hours,
+      campaignId: scope(q.campaignId),
+    });
   });
 
   app.get("/api/analytics/errors", async (request): Promise<AnalyticsErrors> => {

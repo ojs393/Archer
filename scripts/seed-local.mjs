@@ -127,7 +127,7 @@ function insertCampaign({ listId, templateId, title, status, tags, sent = 0, pen
     }
     insertSend.run(id, c.id, state, state === "sent" ? 1 : 0, new Date().toISOString());
   }
-  // Spread outcome events across recent hours so dashboard charts have real curves.
+  // Spread outcome events across recent hours + last-hour minutes so short ranges work.
   if (sent > 0) {
     const insertEv = db.prepare(
       `INSERT INTO events (campaign_id, type, message, created_at) VALUES (?, ?, ?, ?)`,
@@ -148,6 +148,12 @@ function insertCampaign({ listId, templateId, title, status, tags, sent = 0, pen
       if (h % 7 === 0 && sent > 8) {
         insertEv.run(id, "suppressed", "Seed: suppressed", at);
       }
+    }
+    // Minute-level activity in the last ~45 minutes for 30m / 1h charts.
+    for (let m = 45; m >= 0; m -= 3) {
+      const at = new Date(now - m * 60_000).toISOString();
+      insertEv.run(id, "sent", `Seed minute ${m}`, at);
+      if (m % 15 === 0) insertEv.run(id, "failed", "Seed: minute fail", at);
     }
   }
   setCampaignTags(db, id, [MARKER, ...tags]);

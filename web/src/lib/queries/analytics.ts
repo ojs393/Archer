@@ -11,12 +11,18 @@ import type {
 
 export type CampaignScope = number | null;
 
+export type TimeseriesParams = {
+  bucket: AnalyticsBucket;
+  days?: number;
+  hours?: number;
+};
+
 export function analyticsSummaryKey(campaignId: CampaignScope = null) {
   return ["analytics", "summary", campaignId] as const;
 }
 
-export function analyticsTimeseriesKey(bucket: AnalyticsBucket, days: number, campaignId: CampaignScope = null) {
-  return ["analytics", "timeseries", bucket, days, campaignId] as const;
+export function analyticsTimeseriesKey(params: TimeseriesParams, campaignId: CampaignScope = null) {
+  return ["analytics", "timeseries", params.bucket, params.days ?? null, params.hours ?? null, campaignId] as const;
 }
 
 export function analyticsErrorsKey(campaignId: CampaignScope = null) {
@@ -45,17 +51,21 @@ export function useAnalyticsSummary(campaignId: CampaignScope = null, enabled = 
 }
 
 export function useAnalyticsTimeseries(
-  bucket: AnalyticsBucket,
-  days: number,
+  params: TimeseriesParams,
   campaignId: CampaignScope = null,
   enabled = true,
 ) {
   return useQuery({
-    queryKey: analyticsTimeseriesKey(bucket, days, campaignId),
+    queryKey: analyticsTimeseriesKey(params, campaignId),
     queryFn: ({ signal }) =>
       api.get<AnalyticsTimeseries>("/api/analytics/timeseries", {
         signal,
-        query: { bucket, days, ...scopeQuery(campaignId) },
+        query: {
+          bucket: params.bucket,
+          ...(params.days !== undefined ? { days: params.days } : {}),
+          ...(params.hours !== undefined ? { hours: params.hours } : {}),
+          ...scopeQuery(campaignId),
+        },
       }),
     enabled,
   });

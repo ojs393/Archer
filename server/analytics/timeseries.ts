@@ -4,26 +4,40 @@ import { eventCoverageFrom } from "./coverage.ts";
 
 export const MAX_POINTS = 2_160;
 
+const MINUTE_MS = 60_000;
 const HOUR_MS = 3_600_000;
 const DAY_MS = 24 * HOUR_MS;
 const OUTCOMES = ["sent", "failed", "suppressed", "retry", "uncertain"] as const;
 type Outcome = (typeof OUTCOMES)[number];
 
-// created_at is ISO-8601 UTC, so a prefix is the bucket: "YYYY-MM-DDTHH" for hours, "YYYY-MM-DD" for days.
-const KEY_LENGTH: Record<AnalyticsBucket, number> = { hour: 13, day: 10 };
+// created_at is ISO-8601 UTC; bucket key is a prefix of that string.
+const KEY_LENGTH: Record<AnalyticsBucket, number> = { minute: 16, hour: 13, day: 10 };
+const STEP_MS: Record<AnalyticsBucket, number> = { minute: MINUTE_MS, hour: HOUR_MS, day: DAY_MS };
 
 function bucketStart(now: Date, bucket: AnalyticsBucket): number {
-  const ms = bucket === "hour" ? HOUR_MS : DAY_MS;
+  const ms = STEP_MS[bucket];
   return Math.floor(now.getTime() / ms) * ms;
+}
+
+function pointCount(bucket: AnalyticsBucket, days: number | undefined, hours: number | undefined): number {
+  if (hours !== undefined) {
+    if (bucket === "minute") return Math.max(1, Math.round(hours * 60));
+    if (bucket === "hour") return Math.max(1, Math.round(hours));
+    return Math.max(1, Math.round(hours / 24));
+  }
+  const d = days ?? 1;
+  if (bucket === "minute") return d * 24 * 60;
+  if (bucket === "hour") return d * 24;
+  return d;
 }
 
 export function analyticsTimeseries(
   db: DatabaseSync,
-  q: { bucket: AnalyticsBucket; days: number; campaignId: number | null },
+  q: { bucket: AnalyticsBucket; days?: number; hours?: number; campaignId: number | null },
   now: Date = new Date(),
 ): AnalyticsTimeseries {
-  const step = q.bucket === "hour" ? HOUR_MS : DAY_MS;
-  const count = Math.min(MAX_POINTS, q.bucket === "hour" ? q.days * 24 : q.days);
+  const step = STEP_MS[q.bucket];
+  const count = Math.min(MAX_POINTS, pointCount(q.bucket, q.days, q.hours));
   const first = bucketStart(now, q.bucket) - (count - 1) * step;
   const points: AnalyticsPoint[] = [];
   const byKey = new Map<string, AnalyticsPoint>();

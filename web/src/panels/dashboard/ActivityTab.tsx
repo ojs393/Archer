@@ -40,8 +40,8 @@ export function ActivityTab({
   onCampaignIdChange: (id: CampaignScope) => void;
   range: DashboardRange;
 }) {
-  const { bucket, days } = rangeToQuery(range);
-  const series = useAnalyticsTimeseries(bucket, days, campaignId);
+  const query = rangeToQuery(range);
+  const series = useAnalyticsTimeseries(query, campaignId);
   const errors = useAnalyticsErrors(campaignId);
   const points = useMemo(
     () => visiblePoints(series.data?.points ?? [], series.data?.coverageFrom ?? null),
@@ -89,7 +89,7 @@ export function ActivityTab({
           />
         ) : (
           <Suspense fallback={<Skeleton className="h-64 w-full" />}>
-            <OverviewChart points={points} bucket={bucket} />
+            <OverviewChart points={points} bucket={query.bucket} />
           </Suspense>
         )}
       </Card>

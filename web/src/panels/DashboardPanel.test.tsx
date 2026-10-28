@@ -147,6 +147,7 @@ describe("DashboardPanel", () => {
     expect(screen.getByRole("tab", { name: "Activity" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Delivery" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Time range" })).toBeInTheDocument();
+    // Coverage is present in the mock timeseries — short ranges including 24h are shown.
     fireEvent.click(screen.getByRole("button", { name: "24h" }));
     fireEvent.mouseDown(screen.getByRole("tab", { name: "Delivery" }));
     expect(await screen.findByText("Outcome mix")).toBeInTheDocument();
