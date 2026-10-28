@@ -27,7 +27,11 @@ export function TimeRange({
   onChange: (range: DashboardRange) => void;
 }) {
   return (
-    <div className="inline-flex rounded-md border border-border p-0.5" role="group" aria-label="Time range">
+    <div
+      className="inline-flex max-w-full flex-wrap rounded-md border border-border p-0.5"
+      role="group"
+      aria-label="Time range"
+    >
       {DASHBOARD_RANGES.map((r) => (
         <button
           key={r}

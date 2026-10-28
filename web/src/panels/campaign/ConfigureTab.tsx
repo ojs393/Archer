@@ -153,10 +153,13 @@ export function CampaignConfigureTab({ campaign }: { campaign: CampaignView }) {
 
       <ConfirmDialog
         open={confirmSwap}
-        onOpenChange={setConfirmSwap}
+        onOpenChange={(open) => {
+          if (!update.isPending) setConfirmSwap(open);
+        }}
         title="Reconfigure campaign?"
         description="Sent, failed, and suppressed history is kept. Pending and retry rows are rebuilt from the new list. Template changes apply to future sends only."
         confirmLabel="Apply changes"
+        loading={update.isPending}
         onConfirm={() => void save(false)}
       />
     </Card>

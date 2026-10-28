@@ -103,7 +103,7 @@ function Shell() {
     >
       <AppHeader ready={ready} />
       {ready ? <ReconnectBanner /> : null}
-      <main className="mx-auto w-full max-w-content flex-1 p-6">
+      <main className="mx-auto w-full max-w-content flex-1 px-3 py-4 sm:px-6 sm:py-6">
         {session.isError ? (
           <Card>
             <EmptyState

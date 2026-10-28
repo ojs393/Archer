@@ -42,8 +42,8 @@ export function FilterToolbar({
   onOrder: (v: "asc" | "desc") => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
-      <div className="relative min-w-[12rem] flex-1">
+    <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-3 sm:px-4">
+      <div className="relative min-w-[10rem] flex-1 basis-full sm:basis-auto sm:min-w-[12rem]">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input
           value={q}
@@ -54,7 +54,7 @@ export function FilterToolbar({
         />
       </div>
       <Select value={status || "__all"} onValueChange={(v) => onStatus(v === "__all" ? "" : v)}>
-        <SelectTrigger className="w-[9rem]" aria-label="Status">
+        <SelectTrigger className="w-[calc(50%-0.25rem)] sm:w-[9rem]" aria-label="Status">
           <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>
@@ -68,7 +68,7 @@ export function FilterToolbar({
       </Select>
       {onFolder && folderOptions ? (
         <Select value={folder || "__all"} onValueChange={(v) => onFolder(v === "__all" ? "" : v)}>
-          <SelectTrigger className="w-[9rem]" aria-label="Folder">
+          <SelectTrigger className="w-[calc(50%-0.25rem)] sm:w-[9rem]" aria-label="Folder">
             <SelectValue placeholder="Folder" />
           </SelectTrigger>
           <SelectContent>
@@ -82,7 +82,7 @@ export function FilterToolbar({
         </Select>
       ) : null}
       <Select value={tag || "__all"} onValueChange={(v) => onTag(v === "__all" ? "" : v)}>
-        <SelectTrigger className="w-[9rem]" aria-label="Tag">
+        <SelectTrigger className="w-[calc(50%-0.25rem)] sm:w-[9rem]" aria-label="Tag">
           <SelectValue placeholder="Tag" />
         </SelectTrigger>
         <SelectContent>
@@ -95,7 +95,7 @@ export function FilterToolbar({
         </SelectContent>
       </Select>
       <Select value={sort} onValueChange={onSort}>
-        <SelectTrigger className="w-[9rem]" aria-label="Sort by">
+        <SelectTrigger className="w-[calc(50%-0.25rem)] sm:w-[9rem]" aria-label="Sort by">
           <SelectValue placeholder="Sort" />
         </SelectTrigger>
         <SelectContent>

@@ -20,4 +20,19 @@ describe("OverviewChart", () => {
     expect(screen.getByTestId("overview-chart")).toHaveAttribute("data-empty", "true");
     expect(screen.getByText(/No activity in this range/)).toBeInTheDocument();
   });
+
+  it("exposes a time-labeled chart when there is activity", () => {
+    render(
+      <OverviewChart
+        bucket="hour"
+        points={[
+          { t: "2026-10-26T10:00:00.000Z", sent: 2, failed: 0, suppressed: 0, retry: 0, uncertain: 0 },
+          { t: "2026-10-26T11:00:00.000Z", sent: 3, failed: 1, suppressed: 0, retry: 0, uncertain: 0 },
+        ]}
+      />,
+    );
+    const chart = screen.getByTestId("overview-chart");
+    expect(chart).not.toHaveAttribute("data-empty");
+    expect(chart).toHaveAttribute("aria-label", "Send activity over time");
+  });
 });

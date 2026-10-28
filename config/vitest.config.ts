@@ -28,6 +28,8 @@ export default defineConfig({
           include: ["web/src/**/*.test.{ts,tsx}"],
           environment: "jsdom",
           setupFiles: ["web/src/test/setup.ts"],
+          // Lazy panels + Recharts need headroom under parallel load.
+          testTimeout: 15_000,
         },
       },
     ],

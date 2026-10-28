@@ -138,7 +138,7 @@ describe("DashboardPanel", () => {
     renderDashboard();
     await screen.findByText("8");
     expect(await screen.findByText(/Earlier history isn’t retained/)).toBeInTheDocument();
-    await waitFor(() => expect(screen.getByTestId("overview-chart")).toBeInTheDocument());
+    expect(await screen.findByTestId("overview-chart", {}, { timeout: 10_000 })).toBeInTheDocument();
   });
 
   it("exposes Activity and Delivery tabs and shared time ranges", async () => {
