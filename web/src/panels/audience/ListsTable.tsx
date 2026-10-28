@@ -3,6 +3,7 @@ import { IconButton } from "@/components/IconButton";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime, formatNumber } from "@/lib/format";
+import { folderLabel, isFolderTag } from "@/lib/folders";
 import type { ListView } from "@/lib/types";
 
 export function ListsTable({
@@ -52,8 +53,8 @@ export function ListsTable({
               <div className="flex flex-wrap gap-1">
                 {row.tags.length ? (
                   row.tags.map((t) => (
-                    <Badge key={t} variant="default">
-                      {t}
+                    <Badge key={t} variant={isFolderTag(t) ? "solid" : "default"}>
+                      {isFolderTag(t) ? `Folder · ${folderLabel(t)}` : t}
                     </Badge>
                   ))
                 ) : (
