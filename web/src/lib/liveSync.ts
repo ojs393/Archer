@@ -5,4 +5,4 @@
  *
  * Trade-off: lower = snappier UI, higher = less load on SQLite/HTTP.
  */
-export const LIVE_REFETCH_MS = 1_000;
+export const LIVE_REFETCH_MS = 2_000;

@@ -43,7 +43,8 @@ export function CampaignOverviewTab({ campaign, live = false }: { campaign: Camp
         <TimeRange
           value={range}
           onChange={setRange}
-          coverageFrom={series.isPending ? undefined : (series.data?.coverageFrom ?? null)}
+          coverageFrom={series.isPending && !series.data ? undefined : (series.data?.coverageFrom ?? null)}
+          scopeKey={`campaign-${campaign.id}`}
         />
       </div>
 

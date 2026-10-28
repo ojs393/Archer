@@ -155,6 +155,12 @@ function insertCampaign({ listId, templateId, title, status, tags, sent = 0, pen
       insertEv.run(id, "sent", `Seed minute ${m}`, at);
       if (m % 15 === 0) insertEv.run(id, "failed", "Seed: minute fail", at);
     }
+    // Sparse daily history (~100 days) so 7d / 30d / 3mo chips unlock for local demo.
+    for (let d = 100; d >= 2; d -= 2) {
+      const at = new Date(now - d * 86_400_000 - 3_600_000).toISOString();
+      insertEv.run(id, "sent", `Seed day -${d}`, at);
+      if (d % 10 === 0) insertEv.run(id, "failed", "Seed: day fail", at);
+    }
   }
   setCampaignTags(db, id, [MARKER, ...tags]);
   return id;

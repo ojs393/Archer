@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { AnalyticsBucket } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +42,20 @@ export const RANGE_DEFS: readonly RangeDef[] = [
 
 export const DASHBOARD_RANGES: readonly DashboardRange[] = RANGE_DEFS.map((r) => r.id);
 
+/** Expected point count for a range (mirrors server math, uncapped). */
+export function expectedPointCount(range: DashboardRange): number {
+  const q = rangeToQuery(range);
+  if (q.hours !== undefined) {
+    if (q.bucket === "minute") return Math.max(1, Math.round(q.hours * 60));
+    if (q.bucket === "hour") return Math.max(1, Math.round(q.hours));
+    return Math.max(1, Math.round(q.hours / 24));
+  }
+  const d = q.days ?? 1;
+  if (q.bucket === "minute") return d * 24 * 60;
+  if (q.bucket === "hour") return d * 24;
+  return d;
+}
+
 /** Map a dashboard range to timeseries query params. */
 export function rangeToQuery(range: DashboardRange): TimeseriesQuery {
   const def = RANGE_DEFS.find((r) => r.id === range);
@@ -50,8 +64,9 @@ export function rangeToQuery(range: DashboardRange): TimeseriesQuery {
 }
 
 /**
- * A range is available when we have enough retained history to put something
- * meaningful in the window (at least 20% of the lookback, or any data for ≤6h).
+ * Enough retained history to make the window useful:
+ * - short windows (≤24h): any history
+ * - longer: at least 25% of the lookback so charts aren’t almost empty
  */
 export function isRangeAvailable(range: DashboardRange, coverageFrom: string | null, now = new Date()): boolean {
   if (!coverageFrom) return false;
@@ -60,8 +75,8 @@ export function isRangeAvailable(range: DashboardRange, coverageFrom: string | n
   const historyMs = Math.max(0, now.getTime() - from);
   const def = RANGE_DEFS.find((r) => r.id === range);
   if (!def) return false;
-  if (def.windowMs <= 6 * HOUR) return historyMs > 0;
-  return historyMs >= def.windowMs * 0.2;
+  if (def.windowMs <= DAY) return historyMs > 0;
+  return historyMs >= def.windowMs * 0.25;
 }
 
 export function availableRanges(coverageFrom: string | null, now = new Date()): DashboardRange[] {
@@ -88,26 +103,35 @@ export function TimeRange({
   value,
   onChange,
   coverageFrom,
+  scopeKey = "default",
 }: {
   value: DashboardRange;
   onChange: (range: DashboardRange) => void;
   /**
-   * Oldest retained event — ranges longer than available history are hidden.
-   * `undefined` = still loading (show full set); `null` = no history yet.
+   * Oldest retained event.
+   * `undefined` = still loading; `null` = no history; string = coverage start.
    */
   coverageFrom?: string | null;
+  /** When this changes (e.g. campaign filter), allow one calm snap to a valid range. */
+  scopeKey?: string;
 }) {
   const loading = coverageFrom === undefined;
-  const available = loading ? DASHBOARD_RANGES : availableRanges(coverageFrom);
-  const visible = loading ? DASHBOARD_RANGES : available;
+  const hasHistory = typeof coverageFrom === "string";
+  const snappedKey = useRef<string | null>(null);
 
+  // One intentional snap per scope when coverage first arrives — not on every click/re-render.
   useEffect(() => {
     if (coverageFrom === undefined || coverageFrom === null) return;
+    const key = `${scopeKey}:${coverageFrom}`;
+    if (snappedKey.current === key) return;
+    snappedKey.current = key;
     const next = pickAvailableRange(value, coverageFrom);
     if (next !== value) onChange(next);
-  }, [coverageFrom, value, onChange]);
+    // Only when coverage/scope settles — ignore value churn from the user.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberate: avoid fighting the operator
+  }, [coverageFrom, scopeKey]);
 
-  if (!loading && visible.length === 0) {
+  if (!loading && coverageFrom === null) {
     return (
       <p className="text-xs text-muted-foreground" role="status">
         No activity history yet
@@ -121,22 +145,37 @@ export function TimeRange({
       role="group"
       aria-label="Time range"
     >
-      {RANGE_DEFS.filter((r) => visible.includes(r.id)).map((r) => (
-        <button
-          key={r.id}
-          type="button"
-          disabled={loading}
-          className={cn(
-            "rounded px-2 py-1 text-xs font-medium tabular transition-colors",
-            value === r.id ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
-            loading ? "opacity-60" : null,
-          )}
-          aria-pressed={value === r.id}
-          onClick={() => onChange(r.id)}
-        >
-          {r.label}
-        </button>
-      ))}
+      {RANGE_DEFS.map((r) => {
+        const enabled = loading || (hasHistory && isRangeAvailable(r.id, coverageFrom));
+        return (
+          <button
+            key={r.id}
+            type="button"
+            disabled={loading || !enabled}
+            title={
+              enabled
+                ? undefined
+                : "Not enough retained history for this window yet"
+            }
+            className={cn(
+              "rounded px-2 py-1 text-xs font-medium tabular transition-colors",
+              value === r.id && enabled ? "bg-zinc-900 text-white" : null,
+              value === r.id && !enabled ? "bg-zinc-200 text-zinc-500" : null,
+              value !== r.id && enabled ? "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900" : null,
+              value !== r.id && !enabled ? "text-zinc-300" : null,
+              loading ? "opacity-60" : null,
+            )}
+            aria-pressed={value === r.id}
+            aria-disabled={!enabled}
+            onClick={() => {
+              if (!enabled) return;
+              onChange(r.id);
+            }}
+          >
+            {r.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { FeedbackTab } from "./dashboard/FeedbackTab";
 import { OverviewTab } from "./dashboard/OverviewTab";
 import { RunsTab } from "./dashboard/RunsTab";
 import { StatRow } from "./dashboard/StatRow";
-import { TimeRange, rangeToQuery, type DashboardRange } from "./dashboard/TimeRange";
+import { TimeRange, type DashboardRange } from "./dashboard/TimeRange";
 import { PanelShell } from "./PanelShell";
 
 export default function DashboardPanel() {
@@ -19,7 +19,8 @@ export default function DashboardPanel() {
   const runsQuery = useAnalyticsRuns();
   const [campaignId, setCampaignId] = useState<CampaignScope>(null);
   const [range, setRange] = useState<DashboardRange>("24h");
-  const coverageProbe = useAnalyticsTimeseries(rangeToQuery(range), campaignId);
+  // Stable probe — does not change with range, so chips don’t thrash while switching.
+  const coverageProbe = useAnalyticsTimeseries({ bucket: "day", days: 1 }, campaignId);
   const coverageFrom = coverageProbe.isPending ? undefined : (coverageProbe.data?.coverageFrom ?? null);
   const runs = runsQuery.data?.rows ?? [];
   const active = status.data?.campaign ?? null;
@@ -29,7 +30,12 @@ export default function DashboardPanel() {
       title="Dashboard"
       actions={
         <div className="flex flex-wrap items-center gap-2">
-          <TimeRange value={range} onChange={setRange} coverageFrom={coverageFrom} />
+          <TimeRange
+            value={range}
+            onChange={setRange}
+            coverageFrom={coverageFrom}
+            scopeKey={campaignId === null ? "all" : `c-${campaignId}`}
+          />
           {active ? <StatusPill status={active.status} detail={active.pauseReason} /> : null}
         </div>
       }
