@@ -1,6 +1,27 @@
 {
   "name": "archer",
+  "version": "0.1.0",
   "private": true,
+  "description": "Local-first bulk email: CSV audiences, HTML templates, SES/SMTP, warm-up, and CAN-SPAM controls — data stays on your machine.",
+  "keywords": [
+    "email",
+    "bulk-email",
+    "ses",
+    "smtp",
+    "local-first",
+    "newsletter",
+    "can-spam",
+    "sqlite",
+    "self-hosted"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ojs393/Archer.git"
+  },
+  "homepage": "https://github.com/ojs393/Archer#readme",
+  "bugs": {
+    "url": "https://github.com/ojs393/Archer/issues"
+  },
   "type": "module",
   "engines": {
     "node": ">=22.13.0"
@@ -69,6 +90,7 @@
     "@vitejs/plugin-react-swc": "4.3.3",
     "autoprefixer": "10.6.1",
     "jsdom": "29.1.1",
+    "playwright": "^1.56.1",
     "postcss": "8.5.31",
     "tailwindcss": "3.4.19",
     "tsx": "4.23.15",

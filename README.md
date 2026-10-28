@@ -5,59 +5,79 @@
 <h1 align="center">Archer</h1>
 
 <p align="center">
-  <strong>Bulk email that never leaves your machine.</strong><br>
-  Import audiences, personalize HTML, warm up a domain, and send one message at a time through
-  Amazon SES or any SMTP provider — with unsubscribe, suppression, and hard safety stops built in.
+  <strong>Local-first bulk email for a domain you already own.</strong><br>
+  Import a CSV, write HTML once, warm up safely, and send one personalized message at a time
+  through Amazon SES or any SMTP provider — with unsubscribe, suppression, and hard stops built in.
+  Your list never leaves this computer.
 </p>
 
 <p align="center">
-  <a href="#why-archer">Why</a> ·
+  <a href="#why-people-use-it">Why</a> ·
+  <a href="#real-use-cases">Use cases</a> ·
   <a href="#how-it-works">How</a> ·
   <a href="#security">Security</a> ·
   <a href="#install">Install</a> ·
-  <a href="#first-send">First send</a> ·
   <a href="#screenshots">Screenshots</a>
 </p>
 
 ---
 
-## Why Archer
+## Why people use it
 
-Most ESPs want your list, your copy, and a monthly tax for the privilege. Archer is the opposite:
+Hosted ESPs are great until you want the list on your disk, the SMTP keys write-only, and an honest
+“why won’t this launch?” checklist. Archer is a **local Node app** (SQLite under `data/`) with a
+React UI on `127.0.0.1` — not another cloud account for your audience.
 
-| Instead of… | You get… |
+| You want | Archer gives you |
 |---|---|
-| Hosted SaaS that stores your audience | A **local Node app** — SQLite under `data/` on *your* disk |
-| “Trust us with the API keys” | SMTP credentials that are **write-only** after save |
-| Opaque senders and surprise pauses | Explicit **launch gates**, warm-up, daily caps, bounce tripwires |
-| Designing for a marketing team of twelve | A spare domain, a CSV, and a weekend |
+| Keep PII off third-party servers | Audiences, templates, and runs stay in gitignored `data/` |
+| SES or any SMTP | Setup wizard + Settings columns that save independently |
+| CAN-SPAM without drama | Postal address, unsubscribe mailbox, List-Unsubscribe, merge tags |
+| Not melting a new domain | Warm-up, daily caps, send windows, bounce tripwire |
+| Know why a run won’t start | Launch gates (SMTP, DNS, compliance tags, test send) |
+| Reuse setup | Save provider / sender / DNS / test inboxes once; re-run wizard anytime |
 
-**Use it when** you own a domain, have SES (or SMTP), and want honest control over consent, rate, and who actually gets the message — without shipping PII to another company’s cloud.
+**Skip Archer** if you need multi-user orgs, a template marketplace, or guaranteed inbox placement.
+We don’t fake those.
 
-**Skip it when** you need multi-user orgs, a template marketplace, or guaranteed inbox placement. Archer is honest about that.
+## Real use cases
+
+- **Founder newsletter on a spare domain** — import the waitlist CSV, personalize with `{{first_name}}`,
+  warm up over a week, pause anytime from the Runs table.
+- **Agency client send on their SES** — configure SMTP once in Settings, keep the client list local,
+  swap templates without re-entering credentials.
+- **Product launch / waitlist drip** — guided CSV import (comma / semicolon / tab / headerless),
+  folders + tags on lists and runs, chains when you need follow-ups.
+- **Compliance-sensitive ops** — consent attestation on import, role-address filter, suppression list,
+  uncertain sends never auto-resent.
+- **Self-host on a laptop** — desktop launcher (`Archer.app` / `.cmd` / `.desktop`), doctor on start,
+  backups under `data/backups/`.
 
 ## How it works
 
-1. **Setup** — operator → SES/SMTP → DNS (SPF/DKIM/DMARC) → from/unsub/postal → test inboxes.
-2. **Audience** — guided CSV/TSV import (comma, semicolon, tab; headers or headerless). Email column auto-detected; other columns become merge fields.
-3. **Templates** — HTML + `{{first_name}}`, `{{unsubscribe_url}}`, `{{postal_address}}`, … Live preview fills samples; View uses a server-side render with your sender config.
-4. **Runs** — pick list + template + schedule. Gates must pass (SMTP, DNS, compliance tags, test send). Worker sends one personalized message at a time.
-5. **Dashboard** — live progress, dense metrics, charts that never invent zeros for rotated history.
+1. **Setup** — operator → SES/SMTP → DNS (SPF/DKIM/DMARC) → from / unsub / postal → test inboxes.
+   Skip anytime; finish in **Settings** (each card has its own Save).
+2. **Audience** — guided import walks every parseable schema, drag-drop CSV/TSV, map the email column,
+   attest consent. Extra columns become merge fields.
+3. **Templates** — HTML + `{{unsubscribe_url}}`, `{{postal_address}}`, `{{first_name}}`, …
+   Edit shows a live filled preview; View uses a server-side render with your sender config.
+4. **Runs** — list + template + schedule. Gates must pass. Worker sends one message at a time.
+   Actions only show when valid: draft → Start/Cancel/Preview; running → Pause; paused → Resume.
+5. **Dashboard** — dense metric bar (recipients, queue, delivery, bounce, reject, last send) plus
+   charts that never invent zeros for rotated history.
 
-Under the hood: Fastify API + React UI, session cookie + CSRF, a self-healing send loop, suppression list, role-address filters, and a desktop launcher (`Archer.app` / `.cmd` / `.desktop`).
+Under the hood: Fastify + React + TanStack Query, session cookie + CSRF (`X-Archer`), self-healing
+send loop, SSE live updates.
 
 ## Security
 
-Local-first is the product, not a slogan.
+Local-first is the product.
 
-- **Bind** — listens on `127.0.0.1` only. Not a public ESP.
-- **Session** — cookie auth; mutating routes require `X-Archer` CSRF.
-- **Secrets** — SMTP password write-only; redacted from logs; `UNSUB_SECRET` in local `.env` (gitignored).
-- **Data** — audiences, templates, and runs live in gitignored `data/`. Uploads cleared on boot.
-- **Compliance** — postal address + unsubscribe mailbox required; List-Unsubscribe headers; one-click when you set an https public base URL.
-- **Stops** — bounce-rate tripwire, daily caps, send windows, launch gates before a run can start.
-
-Do **not** expose the port to the internet without a reverse proxy and auth you trust.
+- Binds to **`127.0.0.1` only**
+- Session cookie + CSRF on every mutating route
+- SMTP password **write-only** after save; secrets redacted from logs
+- `UNSUB_SECRET` and `.env` are gitignored; `data/` never committed
+- Do **not** expose the port to the public internet without a reverse proxy and auth you trust
 
 ## Install
 
@@ -67,44 +87,36 @@ Do **not** expose the port to the internet without a reverse proxy and auth you 
 git clone https://github.com/ojs393/Archer.git Archer
 cd Archer
 npm run setup
-```
-
-`setup` installs deps (`npm ci` when a lockfile exists), creates `data/` + local `.env` (with `UNSUB_SECRET`), and runs a quick self-check.
-
-## Start
-
-```bash
 npm start
 ```
 
-Opens `http://127.0.0.1:5199`. First launch walks the setup wizard; you can finish later from **Settings**.
+Opens `http://127.0.0.1:5199`. First launch walks the wizard; Settings keeps the same configs editable
+and re-saveable forever.
 
 | Command | What it does |
 |---|---|
-| `npm run setup` | First-time install + dirs + secrets |
-| `npm start` | Quick doctor + start (opens the UI) |
+| `npm run setup` | Install + `data/` + local `.env` secrets |
+| `npm start` | Doctor + start (opens the UI) |
 | `npm run seed:local` | Demo lists/runs into local `data/` (gitignored) |
-| `npm run doctor` | Full health check / repair + self-test |
-| `npm run selftest` | Fake SMTP end-to-end send smoke test |
-| `npm test` | Unit + integration + web tests |
+| `npm run capture:screenshots` | Refresh `docs/screenshots/` (Playwright) |
+| `npm run doctor` | Full health check / repair |
+| `npm run selftest` | Fake SMTP end-to-end smoke |
+| `npm test` | Unit + integration + web |
 | `npm run build:web` | Production UI → `dist/web` |
-| `npm run typecheck` | `tsc` for server and web |
 
 ## First send
 
 1. Finish setup (SMTP test green; DNS may still be propagating).
-2. **Audience** → Import — walk the format guide, drop CSV/TSV, map email, attest consent.
-3. **Templates** → subject + HTML with compliance merge tags.
+2. **Audience** → Import — formats guide → drop file → map email → consent.
+3. **Templates** → subject + HTML with compliance merge tags; check Preview.
 4. **Runs** → New run → list, template, schedule → pass gates → Start.
-5. Watch **Dashboard** / the run’s metric strip for live progress.
-
-Postal address and unsubscribe mailbox are required (CAN-SPAM). For >5k/day to Gmail/Yahoo, set an https public base URL (tunnel) for one-click unsubscribe.
+5. Watch **Dashboard** / the run metric strip. Pause/Resume/Cancel as needed.
 
 Before a real list: [`docs/PRELAUNCH.md`](docs/PRELAUNCH.md).
 
 ## Screenshots
 
-Captured from a local demo instance (sample list + template; no live mail sent).
+Captured from a local demo instance (sample list + template; no live mail required).
 
 | Setup | Dashboard |
 |---|---|
@@ -122,6 +134,10 @@ Captured from a local demo instance (sample list + template; no live mail sent).
   <img src="docs/screenshots/07-new-run.png" alt="New run wizard" width="900">
 </p>
 
+<p align="center">
+  <img src="docs/screenshots/08-campaign.png" alt="Campaign deep dive" width="900">
+</p>
+
 ## Layout
 
 | Path | Role |
@@ -129,31 +145,22 @@ Captured from a local demo instance (sample list + template; no live mail sent).
 | `config/` | Vite, Vitest, Tailwind, TypeScript |
 | `server/` | HTTP API, send worker, SQLite |
 | `web/` | React UI |
-| `scripts/` | setup, doctor, icons |
+| `scripts/` | setup, doctor, icons, screenshots |
 | `tests/` | unit + integration |
 | `docs/` | API, ops, screenshots |
 | `data/` | Local runtime only (gitignored) |
 
 ## Desktop launcher
 
-From setup (**Add to Desktop**) or **Settings → App**:
-
-| OS | What you get |
-|---|---|
-| macOS | `Archer.app` with embedded `.icns` |
-| Windows | `Archer.cmd` (+ `.lnk` with `.ico` when possible) |
-| Linux | `Archer.desktop` |
-
-## Ops
-
-Disk under `data/`: SQLite (+ WAL), uploads, logs, backups. Event ring capped; analytics never invents zeros for rotated history. Details: [`docs/operations.md`](docs/operations.md).
+From setup (**Add to Desktop**) or **Settings → App**: macOS `Archer.app`, Windows `Archer.cmd`,
+Linux `Archer.desktop`.
 
 ## Docs
 
-- [`docs/api.md`](docs/api.md) — HTTP API  
-- [`docs/web.md`](docs/web.md) — UI conventions  
-- [`docs/operations.md`](docs/operations.md) — disk, backups, recycle  
-- [`docs/PRELAUNCH.md`](docs/PRELAUNCH.md) — manual checks before a real list  
+- [`docs/api.md`](docs/api.md) — HTTP API
+- [`docs/web.md`](docs/web.md) — UI conventions
+- [`docs/operations.md`](docs/operations.md) — disk, backups, recycle
+- [`docs/PRELAUNCH.md`](docs/PRELAUNCH.md) — checks before a real list
 
 ## License
 
