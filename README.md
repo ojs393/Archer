@@ -5,49 +5,59 @@
 <h1 align="center">Archer</h1>
 
 <p align="center">
-  <strong>Local-first bulk email for a spare domain.</strong><br>
-  Runs on your computer. Sends one personalized message at a time through Amazon SES SMTP
-  or any SMTP provider. Built-in unsubscribe, suppression, warm-up, and a self-healing send loop.
+  <strong>Bulk email that never leaves your machine.</strong><br>
+  Import audiences, personalize HTML, warm up a domain, and send one message at a time through
+  Amazon SES or any SMTP provider — with unsubscribe, suppression, and hard safety stops built in.
 </p>
 
 <p align="center">
+  <a href="#why-archer">Why</a> ·
+  <a href="#how-it-works">How</a> ·
+  <a href="#security">Security</a> ·
   <a href="#install">Install</a> ·
-  <a href="#start">Start</a> ·
-  <a href="#screenshots">Screenshots</a> ·
   <a href="#first-send">First send</a> ·
-  <a href="#desktop-launcher">Desktop</a> ·
-  <a href="#security">Security</a>
+  <a href="#screenshots">Screenshots</a>
 </p>
 
 ---
 
-## What it is
+## Why Archer
 
-Archer is a **local Node app**, not a hosted ESP. You clone it, run it on macOS, Linux, or Windows, and open a dashboard on `127.0.0.1`. Data stays in a SQLite database under `data/` on your machine.
+Most ESPs want your list, your copy, and a monthly tax for the privilege. Archer is the opposite:
 
-| You get | You do not get |
+| Instead of… | You get… |
 |---|---|
-| Setup wizard, CSV audiences, HTML templates, scheduled runs | Cloud hosting or multi-user accounts |
-| CAN-SPAM footer + unsubscribe headers/links | Guaranteed inbox placement |
-| Warm-up, daily caps, send windows, safety stops | Built-in design templates marketplace |
-| Desktop launcher (Mac / Windows / Linux) | A replacement for Mailchimp/Customer.io ops teams |
+| Hosted SaaS that stores your audience | A **local Node app** — SQLite under `data/` on *your* disk |
+| “Trust us with the API keys” | SMTP credentials that are **write-only** after save |
+| Opaque senders and surprise pauses | Explicit **launch gates**, warm-up, daily caps, bounce tripwires |
+| Designing for a marketing team of twelve | A spare domain, a CSV, and a weekend |
 
-Honest limits: delivery and bounce charts stay empty until provider feedback is wired; the dashboard never invents numbers for rotated event history.
+**Use it when** you own a domain, have SES (or SMTP), and want honest control over consent, rate, and who actually gets the message — without shipping PII to another company’s cloud.
 
-## Layout
+**Skip it when** you need multi-user orgs, a template marketplace, or guaranteed inbox placement. Archer is honest about that.
 
-Root stays small on purpose: `README.md`, `package.json`, lockfile, `.gitignore`, `.env.example`, then folders.
+## How it works
 
-| Path | Role |
-|---|---|
-| `config/` | Vite, Vitest, Tailwind, TypeScript configs |
-| `server/` | HTTP API, send worker, SQLite |
-| `web/` | React UI |
-| `scripts/` | setup, doctor, icons |
-| `tests/` | unit + integration |
-| `docs/` | API, ops, screenshots |
-| `assets/icons/` | Desktop launcher icons |
-| `data/` | Local runtime only (gitignored) |
+1. **Setup** — operator → SES/SMTP → DNS (SPF/DKIM/DMARC) → from/unsub/postal → test inboxes.
+2. **Audience** — guided CSV/TSV import (comma, semicolon, tab; headers or headerless). Email column auto-detected; other columns become merge fields.
+3. **Templates** — HTML + `{{first_name}}`, `{{unsubscribe_url}}`, `{{postal_address}}`, … Live preview fills samples; View uses a server-side render with your sender config.
+4. **Runs** — pick list + template + schedule. Gates must pass (SMTP, DNS, compliance tags, test send). Worker sends one personalized message at a time.
+5. **Dashboard** — live progress, dense metrics, charts that never invent zeros for rotated history.
+
+Under the hood: Fastify API + React UI, session cookie + CSRF, a self-healing send loop, suppression list, role-address filters, and a desktop launcher (`Archer.app` / `.cmd` / `.desktop`).
+
+## Security
+
+Local-first is the product, not a slogan.
+
+- **Bind** — listens on `127.0.0.1` only. Not a public ESP.
+- **Session** — cookie auth; mutating routes require `X-Archer` CSRF.
+- **Secrets** — SMTP password write-only; redacted from logs; `UNSUB_SECRET` in local `.env` (gitignored).
+- **Data** — audiences, templates, and runs live in gitignored `data/`. Uploads cleared on boot.
+- **Compliance** — postal address + unsubscribe mailbox required; List-Unsubscribe headers; one-click when you set an https public base URL.
+- **Stops** — bounce-rate tripwire, daily caps, send windows, launch gates before a run can start.
+
+Do **not** expose the port to the internet without a reverse proxy and auth you trust.
 
 ## Install
 
@@ -59,7 +69,7 @@ cd Archer
 npm run setup
 ```
 
-`setup` installs dependencies (`npm ci` when a lockfile is present), creates `data/` and a local `.env` (with `UNSUB_SECRET`), and runs a quick self-check.
+`setup` installs deps (`npm ci` when a lockfile exists), creates `data/` + local `.env` (with `UNSUB_SECRET`), and runs a quick self-check.
 
 ## Start
 
@@ -67,29 +77,34 @@ npm run setup
 npm start
 ```
 
-Doctor runs a quick repair (deps, data dirs, DB integrity, stale web build), then the app opens:
-
-`http://127.0.0.1:5199`
-
-First launch shows the setup wizard (operator → provider → domain DNS → addresses → test inboxes). You can skip and finish later from **Settings**.
-
-### Commands
+Opens `http://127.0.0.1:5199`. First launch walks the setup wizard; you can finish later from **Settings**.
 
 | Command | What it does |
 |---|---|
 | `npm run setup` | First-time install + dirs + secrets |
 | `npm start` | Quick doctor + start (opens the UI) |
-| `npm run seed:local` | Fill local `data/` with demo lists/runs (gitignored) |
+| `npm run seed:local` | Demo lists/runs into local `data/` (gitignored) |
 | `npm run doctor` | Full health check / repair + self-test |
 | `npm run selftest` | Fake SMTP end-to-end send smoke test |
 | `npm test` | Unit + integration + web tests |
-| `npm run build:web` | Production UI bundle → `dist/web` |
-| `npm run build:icons` | Regenerate favicons + desktop icons (committed) |
+| `npm run build:web` | Production UI → `dist/web` |
 | `npm run typecheck` | `tsc` for server and web |
+
+## First send
+
+1. Finish setup (SMTP test green; DNS may still be propagating).
+2. **Audience** → Import — walk the format guide, drop CSV/TSV, map email, attest consent.
+3. **Templates** → subject + HTML with compliance merge tags.
+4. **Runs** → New run → list, template, schedule → pass gates → Start.
+5. Watch **Dashboard** / the run’s metric strip for live progress.
+
+Postal address and unsubscribe mailbox are required (CAN-SPAM). For >5k/day to Gmail/Yahoo, set an https public base URL (tunnel) for one-click unsubscribe.
+
+Before a real list: [`docs/PRELAUNCH.md`](docs/PRELAUNCH.md).
 
 ## Screenshots
 
-Captured from a local demo instance (sample list + template; no live mail sent). Dashboard metrics stay at zero until you send for real.
+Captured from a local demo instance (sample list + template; no live mail sent).
 
 | Setup | Dashboard |
 |---|---|
@@ -107,21 +122,21 @@ Captured from a local demo instance (sample list + template; no live mail sent).
   <img src="docs/screenshots/07-new-run.png" alt="New run wizard" width="900">
 </p>
 
-## First send
+## Layout
 
-1. Complete setup (SMTP test green; DNS may still be propagating).
-2. **Audience** → import a CSV (email column auto-detected).
-3. **Templates** → subject + HTML with `{{first_name}}`, `{{unsubscribe_url}}`, `{{postal_address}}`.
-4. **Runs** → New run → pick list, template, schedule → pass launch gates → Start.
-5. Watch **Dashboard** for live progress.
-
-Postal address and unsubscribe mailbox are required (CAN-SPAM). For >5k/day to Gmail/Yahoo, set an https public base URL (tunnel) for one-click unsubscribe.
-
-Before a real list, walk through [`docs/PRELAUNCH.md`](docs/PRELAUNCH.md).
+| Path | Role |
+|---|---|
+| `config/` | Vite, Vitest, Tailwind, TypeScript |
+| `server/` | HTTP API, send worker, SQLite |
+| `web/` | React UI |
+| `scripts/` | setup, doctor, icons |
+| `tests/` | unit + integration |
+| `docs/` | API, ops, screenshots |
+| `data/` | Local runtime only (gitignored) |
 
 ## Desktop launcher
 
-From setup (**Add to Desktop**) or Settings:
+From setup (**Add to Desktop**) or **Settings → App**:
 
 | OS | What you get |
 |---|---|
@@ -129,31 +144,16 @@ From setup (**Add to Desktop**) or Settings:
 | Windows | `Archer.cmd` (+ `.lnk` with `.ico` when possible) |
 | Linux | `Archer.desktop` |
 
-Icons live in `assets/icons/` and `web/public/`. Regenerate with `npm run build:icons`.
+## Ops
 
-## Ops & longevity
-
-Disk under `data/`: SQLite (+ WAL), uploads, logs, backups.
-
-- Event ring capped (~50k); analytics never invents zeros for rotated history.
-- Logs rotate at 10 MiB (`app.log` → `app.log.1`).
-- Daily DB backups, keep 7; boot restores from backup if corrupt.
-- Uploads cleared on boot; aged temp files recycled.
-- Details: [`docs/operations.md`](docs/operations.md).
+Disk under `data/`: SQLite (+ WAL), uploads, logs, backups. Event ring capped; analytics never invents zeros for rotated history. Details: [`docs/operations.md`](docs/operations.md).
 
 ## Docs
 
-- [`docs/api.md`](docs/api.md) — HTTP API
-- [`docs/web.md`](docs/web.md) — UI conventions
-- [`docs/operations.md`](docs/operations.md) — disk, backups, recycle
-- [`docs/PRELAUNCH.md`](docs/PRELAUNCH.md) — manual checks before a real list
-
-## Security
-
-- Binds to `127.0.0.1` only.
-- Session cookie + CSRF (`X-Archer`) on mutating routes.
-- SMTP password write-only; secrets redacted from logs.
-- Do not expose the port to the public internet without a reverse proxy and auth you trust.
+- [`docs/api.md`](docs/api.md) — HTTP API  
+- [`docs/web.md`](docs/web.md) — UI conventions  
+- [`docs/operations.md`](docs/operations.md) — disk, backups, recycle  
+- [`docs/PRELAUNCH.md`](docs/PRELAUNCH.md) — manual checks before a real list  
 
 ## License
 

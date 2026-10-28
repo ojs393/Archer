@@ -120,17 +120,21 @@ afterEach(() => {
 describe("DashboardPanel", () => {
   it("renders stats from the analytics summary", async () => {
     renderDashboard();
-    expect(await screen.findByText("8")).toBeInTheDocument();
+    expect(await screen.findByText("16")).toBeInTheDocument();
+    expect(screen.getByText("8")).toBeInTheDocument();
     expect(screen.getByText("73%")).toBeInTheDocument();
     expect(screen.getByText("18%")).toBeInTheDocument();
-    expect(screen.getByText("1")).toBeInTheDocument();
+    expect(screen.getByText("27%")).toBeInTheDocument();
+    expect(screen.getByText("Recipients")).toBeInTheDocument();
+    expect(screen.getByText("Bounce")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Dashboard" })).toBeInTheDocument();
   });
 
   it("shows em dash for rates when there are no recipients", async () => {
     summaryState = emptySummary;
     renderDashboard();
-    expect(await screen.findAllByText("—")).toHaveLength(2);
+    // Delivery, Bounce, Reject, Last send
+    expect(await screen.findAllByText("—")).toHaveLength(4);
     expect(screen.queryByText("0%")).not.toBeInTheDocument();
   });
 

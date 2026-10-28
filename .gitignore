@@ -11,7 +11,6 @@ dist/
 
 # Runtime data (never commit — local installs only)
 data/
-data/.seed-local
 .env
 .env.*
 !.env.example
@@ -23,17 +22,37 @@ data/.seed-local
 *.sqlite-wal
 *.sqlite-shm
 server.json
+session*.json
+cookies*.txt
 
-# Secrets & credentials
+# Secrets & credentials (belt + suspenders)
 *.pem
 *.key
 *.p12
 *.pfx
+*.crt
+*.cer
+id_rsa*
+id_ed25519*
+*.keystore
+*.jks
 credentials*.json
 **/secrets/**
+**/secret/**
+*.secret
+*.secrets
+auth.json
+.aws/
+.aws-sam/
+.gcloud/
+service-account*.json
+*-service-account.json
+.npmrc
+!.npmrc.example
 
 # OS / editor
 .DS_Store
+.DS_Store?
 Thumbs.db
 Desktop.ini
 .idea/
@@ -79,9 +98,12 @@ TODO.md
 
 # Scratch / local uploads / temp CSV dumps
 /tmp/
+tmp/
 *.partial
 incoming-*.csv
 upload-*.csv
 *.local.*
 .worktrees/
-.DS_Store?
+uploads/
+inbox/
+outbox/

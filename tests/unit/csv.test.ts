@@ -34,12 +34,20 @@ describe("sniffDelimiter", () => {
 });
 
 describe("detectEmailColumn", () => {
-  it.each(["Email", "e-mail", "Email Address", "E-Mail Address", "mail", "  EMAIL  "])(
-    "matches header alias %j",
-    (alias) => {
-      expect(detectEmailColumn(["first_name", alias, "city"], ["Jo", "not-an-email", "Paris"])).toBe(1);
-    },
-  );
+  it.each([
+    "Email",
+    "e-mail",
+    "Email Address",
+    "E-Mail Address",
+    "mail",
+    "  EMAIL  ",
+    "email_address",
+    "recipient_email",
+    "to_email",
+    "courriel",
+  ])("matches header alias %j", (alias) => {
+    expect(detectEmailColumn(["first_name", alias, "city"], ["Jo", "not-an-email", "Paris"])).toBe(1);
+  });
 
   it("prefers a header match over content", () => {
     expect(detectEmailColumn(["backup", "email"], ["jo@example.com", "x"])).toBe(1);

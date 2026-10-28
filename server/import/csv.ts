@@ -12,7 +12,26 @@ import { pruneInvalidDomains } from "./pruneDomains.ts";
 type Delimiter = "," | ";" | "\t";
 
 const DELIMITERS: readonly Delimiter[] = [",", ";", "\t"];
-const EMAIL_HEADERS: ReadonlySet<string> = new Set(["email", "e-mail", "email address", "e-mail address", "mail"]);
+/** Header names we treat as the email column (case-insensitive). */
+export const EMAIL_HEADERS: ReadonlySet<string> = new Set([
+  "email",
+  "e-mail",
+  "email address",
+  "e-mail address",
+  "email_address",
+  "emailaddress",
+  "mail",
+  "mail address",
+  "recipient",
+  "recipient email",
+  "recipient_email",
+  "to",
+  "to email",
+  "to_email",
+  "adresse",
+  "adresse email",
+  "courriel",
+]);
 const SNIFF_BYTES = 64 * 1024;
 const MAX_RECORD_SIZE = 1_000_000;
 const BATCH_SIZE = 1000;

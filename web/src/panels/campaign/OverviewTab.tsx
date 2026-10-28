@@ -1,12 +1,12 @@
 import { lazy, Suspense, useMemo, useState } from "react";
 import { Activity, RotateCw } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
+import { MetricBar } from "@/components/MetricBar";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatDateTime, formatNumber, formatRate } from "@/lib/format";
 import { useAnalyticsSummary, useAnalyticsTimeseries } from "@/lib/queries/analytics";
 import type { CampaignView } from "@/lib/types";
-import { cn } from "@/lib/utils";
 import { TimeRange, rangeToQuery, type DashboardRange } from "@/panels/dashboard/TimeRange";
 
 const OverviewChart = lazy(() => import("@/panels/dashboard/OverviewChart"));
@@ -27,12 +27,14 @@ export function CampaignOverviewTab({ campaign, live = false }: { campaign: Camp
   );
   const truncated =
     series.data?.coverageFrom != null && (series.data?.points.length ?? 0) > points.length;
-  const empty = (summary.data?.totals.recipients ?? 0) === 0;
+  const totals = summary.data?.totals;
+  const rates = summary.data?.rates;
+  const empty = (totals?.recipients ?? 0) === 0;
 
   return (
     <div className="flex flex-col gap-3 animate-in fade-in duration-300">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="text-sm text-muted-foreground">
+        <div className="text-xs text-muted-foreground">
           {campaign.estimate.completionDate
             ? `ETA ${formatDateTime(campaign.estimate.completionDate)}`
             : "No ETA yet"}
@@ -48,36 +50,48 @@ export function CampaignOverviewTab({ campaign, live = false }: { campaign: Camp
         />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Card className={cn("flex flex-col gap-1 p-3 shadow-card ring-1 ring-black/[0.03]", live ? "ring-primary/15" : null)}>
-          <span className="text-xs font-medium text-muted-foreground">Sent (scoped)</span>
-          {summary.isPending ? (
-            <Skeleton className="h-6 w-14" />
-          ) : (
-            <span className="text-xl font-semibold tabular text-primary">{formatNumber(summary.data?.totals.sent)}</span>
-          )}
-        </Card>
-        <Card className="flex flex-col gap-1 p-3 shadow-card ring-1 ring-black/[0.03]">
-          <span className="text-xs font-medium text-muted-foreground">Failed</span>
-          {summary.isPending ? (
-            <Skeleton className="h-6 w-14" />
-          ) : (
-            <span className="text-xl font-semibold tabular text-destructive">{formatNumber(summary.data?.totals.failed)}</span>
-          )}
-        </Card>
-        <Card className="flex flex-col gap-1 p-3 shadow-card ring-1 ring-black/[0.03]">
-          <span className="text-xs font-medium text-muted-foreground">Bounce rate</span>
-          {summary.isPending ? (
-            <Skeleton className="h-6 w-14" />
-          ) : (
-            <span className="text-xl font-semibold tabular">{formatRate(summary.data?.rates.bounceRate, empty)}</span>
-          )}
-        </Card>
-        <Card className="flex flex-col gap-1 p-3 shadow-card ring-1 ring-black/[0.03]">
-          <span className="text-xs font-medium text-muted-foreground">Uncertain</span>
-          {summary.isPending ? <Skeleton className="h-6 w-14" /> : <span className="text-xl font-semibold tabular">{formatNumber(summary.data?.totals.uncertain)}</span>}
-        </Card>
-      </div>
+      <MetricBar
+        loading={summary.isPending}
+        className={live ? "ring-primary/15" : undefined}
+        items={[
+          {
+            label: "Sent",
+            value: formatNumber(totals?.sent),
+            tone: "ok",
+            info: "Scoped to this run’s analytics window.",
+            live,
+          },
+          {
+            label: "Failed",
+            value: formatNumber(totals?.failed),
+            tone: (totals?.failed ?? 0) > 0 ? "danger" : "default",
+          },
+          {
+            label: "Suppressed",
+            value: formatNumber(totals?.suppressed),
+            tone: (totals?.suppressed ?? 0) > 0 ? "warn" : "default",
+          },
+          { label: "Pending", value: formatNumber(totals?.pending) },
+          { label: "Retry", value: formatNumber(totals?.retry) },
+          {
+            label: "Uncertain",
+            value: formatNumber(totals?.uncertain),
+            tone: (totals?.uncertain ?? 0) > 0 ? "warn" : "default",
+          },
+          { label: "Skipped", value: formatNumber(totals?.skipped) },
+          {
+            label: "Delivery",
+            value: formatRate(rates?.deliveryRate, empty),
+            tone: "ok",
+          },
+          {
+            label: "Bounce",
+            value: formatRate(rates?.bounceRate, empty),
+            tone: (rates?.bounceRate ?? 0) > 0.02 ? "warn" : "default",
+          },
+          { label: "Reject", value: formatRate(rates?.rejectionRate, empty) },
+        ]}
+      />
 
       <Card className="p-4 shadow-card ring-1 ring-black/[0.03]">
         {truncated ? (

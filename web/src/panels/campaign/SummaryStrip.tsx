@@ -1,8 +1,6 @@
-import { Card } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { MetricBar } from "@/components/MetricBar";
 import { formatNumber, formatRate } from "@/lib/format";
 import type { CampaignView } from "@/lib/types";
-import { cn } from "@/lib/utils";
 
 export function SummaryStrip({
   campaign,
@@ -14,45 +12,90 @@ export function SummaryStrip({
   live?: boolean;
 }) {
   const c = campaign?.counts;
-  const attempted = (c?.sent ?? 0) + (c?.failed ?? 0) + (c?.skipped_suppressed ?? 0);
-  const delivery = attempted === 0 ? null : (c?.sent ?? 0) / attempted;
-  const empty = (c?.total ?? 0) === 0;
-
-  const cells: { label: string; value: string; accent?: string }[] = [
-    { label: "Recipients", value: formatNumber(c?.total) },
-    { label: "Sent", value: formatNumber(c?.sent), accent: "text-primary" },
-    { label: "Failed", value: formatNumber(c?.failed), accent: "text-destructive" },
-    { label: "Suppressed", value: formatNumber(c?.skipped_suppressed), accent: "text-status-warn" },
-    { label: "Uncertain", value: formatNumber(c?.uncertain) },
-    { label: "Delivery", value: formatRate(delivery, empty || attempted === 0) },
-  ];
+  const total = c?.total ?? 0;
+  const sent = c?.sent ?? 0;
+  const failed = c?.failed ?? 0;
+  const suppressed = c?.skipped_suppressed ?? 0;
+  const uncertain = c?.uncertain ?? 0;
+  const pending = c?.pending ?? 0;
+  const sending = c?.sending ?? 0;
+  const retry = c?.retry ?? 0;
+  const attempted = sent + failed + suppressed;
+  const delivery = attempted === 0 ? null : sent / attempted;
+  const bounce = attempted === 0 ? null : suppressed / attempted;
+  const progress = total === 0 ? null : (sent + failed + suppressed + uncertain) / total;
+  const empty = total === 0;
+  const reject = campaign?.stats.rejectionRate;
+  const perHour = campaign?.stats.sentLastHour ?? 0;
 
   return (
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-      {cells.map((cell) => (
-        <Card
-          key={cell.label}
-          className={cn(
-            "flex flex-col gap-1 border-border/80 p-3 shadow-card ring-1 ring-black/[0.03]",
-            live && cell.label === "Sent" ? "ring-primary/20" : null,
-          )}
-        >
-          <span className="text-xs font-medium text-muted-foreground">{cell.label}</span>
-          {loading ? (
-            <Skeleton className="h-6 w-12" />
-          ) : (
-            <span
-              className={cn(
-                "text-lg font-semibold tabular transition-[color,transform] duration-300",
-                cell.accent,
-                live && cell.label === "Sent" ? "scale-[1.02]" : null,
-              )}
-            >
-              {cell.value}
-            </span>
-          )}
-        </Card>
-      ))}
-    </div>
+    <MetricBar
+      loading={loading}
+      items={[
+        {
+          label: "Progress",
+          value: empty ? "—" : `${formatNumber(sent + failed + suppressed + uncertain)}/${formatNumber(total)}`,
+          info: "Finished attempts ÷ list size (sent + failed + suppressed + uncertain).",
+        },
+        {
+          label: "Done",
+          value: formatRate(progress, empty),
+          tone: "ok",
+        },
+        {
+          label: "Sent",
+          value: formatNumber(sent),
+          tone: "ok",
+          live: live && sending > 0,
+          info: "Accepted by SMTP for this run.",
+        },
+        { label: "Pending", value: formatNumber(pending) },
+        {
+          label: "Sending",
+          value: formatNumber(sending),
+          live: live && sending > 0,
+        },
+        { label: "Retry", value: formatNumber(retry) },
+        {
+          label: "Failed",
+          value: formatNumber(failed),
+          tone: failed > 0 ? "danger" : "default",
+        },
+        {
+          label: "Suppressed",
+          value: formatNumber(suppressed),
+          tone: suppressed > 0 ? "warn" : "default",
+        },
+        {
+          label: "Uncertain",
+          value: formatNumber(uncertain),
+          tone: uncertain > 0 ? "warn" : "default",
+          info: "Crash mid-send. Requeue from Sends if needed.",
+        },
+        {
+          label: "Delivery",
+          value: formatRate(delivery, empty || attempted === 0),
+          tone: "ok",
+          info: "Sent ÷ (sent + failed + suppressed).",
+        },
+        {
+          label: "Bounce",
+          value: formatRate(bounce, empty || attempted === 0),
+          tone: (bounce ?? 0) > 0.02 ? "warn" : "default",
+          info: "Suppressed ÷ attempts for this run.",
+        },
+        {
+          label: "Reject",
+          value: formatRate(typeof reject === "number" ? reject : null, empty || (campaign?.stats.sample ?? 0) === 0),
+          info: "Provider rejection rate on the recent sample.",
+        },
+        {
+          label: "/hr",
+          value: formatNumber(perHour),
+          info: "Sent in the last hour for this run.",
+          live: live && perHour > 0,
+        },
+      ]}
+    />
   );
 }

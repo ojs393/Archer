@@ -1,5 +1,6 @@
 import { MailCheck, RotateCw } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
+import { MetricBar } from "@/components/MetricBar";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { formatNumber, formatRate } from "@/lib/format";
@@ -28,32 +29,34 @@ export function DeliveryTab() {
 
   return (
     <div className="flex flex-col gap-3 animate-in fade-in duration-300">
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <Card className="flex flex-col gap-1 p-4">
-          <span className="text-xs font-medium text-muted-foreground">Delivery rate</span>
-          {summary.isPending ? (
-            <Skeleton className="h-7 w-20" />
-          ) : (
-            <span className="text-2xl font-semibold tabular">{formatRate(rates?.deliveryRate, empty)}</span>
-          )}
-        </Card>
-        <Card className="flex flex-col gap-1 p-4">
-          <span className="text-xs font-medium text-muted-foreground">Bounce rate</span>
-          {summary.isPending ? (
-            <Skeleton className="h-7 w-20" />
-          ) : (
-            <span className="text-2xl font-semibold tabular">{formatRate(rates?.bounceRate, empty)}</span>
-          )}
-        </Card>
-        <Card className="flex flex-col gap-1 p-4">
-          <span className="text-xs font-medium text-muted-foreground">Rejection rate</span>
-          {summary.isPending ? (
-            <Skeleton className="h-7 w-20" />
-          ) : (
-            <span className="text-2xl font-semibold tabular">{formatRate(rates?.rejectionRate, empty)}</span>
-          )}
-        </Card>
-      </div>
+      <MetricBar
+        loading={summary.isPending}
+        items={[
+          {
+            label: "Delivery",
+            value: formatRate(rates?.deliveryRate, empty),
+            tone: "ok",
+            info: "Sent ÷ (sent + failed + suppressed).",
+          },
+          {
+            label: "Bounce",
+            value: formatRate(rates?.bounceRate, empty),
+            tone: (rates?.bounceRate ?? 0) > 0.02 ? "warn" : "default",
+            info: "Hard bounces ÷ attempts.",
+          },
+          {
+            label: "Reject",
+            value: formatRate(rates?.rejectionRate, empty),
+            info: "Provider rejections on the recent sample.",
+          },
+          { label: "Sent", value: formatNumber(totals?.sent), tone: "ok" },
+          { label: "Failed", value: formatNumber(totals?.failed), tone: (totals?.failed ?? 0) > 0 ? "danger" : "default" },
+          { label: "Suppressed", value: formatNumber(totals?.suppressed), tone: (totals?.suppressed ?? 0) > 0 ? "warn" : "default" },
+          { label: "Uncertain", value: formatNumber(totals?.uncertain) },
+          { label: "Pending", value: formatNumber(totals?.pending) },
+          { label: "Retry", value: formatNumber(totals?.retry) },
+        ]}
+      />
 
       <Card className="p-4">
         {summary.isPending ? (

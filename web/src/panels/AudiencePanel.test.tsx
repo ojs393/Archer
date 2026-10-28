@@ -66,14 +66,17 @@ describe("AudiencePanel", () => {
     renderAudience();
     fireEvent.click(await screen.findByRole("button", { name: "Import CSV" }));
     const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Continue" }));
     const file = new File(["email,first_name\na@x.com,Alex\n"], "people.csv", { type: "text/csv" });
     fireEvent.change(within(dialog).getByTestId("import-file"), { target: { files: [file] } });
     await within(dialog).findByText("a@example.com");
     fireEvent.click(within(dialog).getByLabelText(/consented to receive email/i));
     fireEvent.click(within(dialog).getByRole("button", { name: "Import" }));
     const result = await within(dialog).findByTestId("import-result");
-    await waitFor(() => { expect(result.textContent).toMatch(/Imported:\s*5/); });
-    expect(result.textContent).toMatch(/Invalid:\s*2/);
+    await waitFor(() => {
+      expect(result.textContent).toMatch(/Imported\s*5/);
+    });
+    expect(result.textContent).toMatch(/Invalid\s*2/);
   });
   it("has no emoji", async () => {
     renderAudience();
