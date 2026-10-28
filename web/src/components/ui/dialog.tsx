@@ -14,12 +14,15 @@ const overlayClass =
 
 /** Shared shell for Dialog and AlertDialog — fills the viewport safely, scrolls inside the panel. */
 const panelClass = cn(
-  "relative z-50 flex w-[min(100%,calc(100vw-2rem))] max-h-[calc(100dvh-2rem)] min-w-0 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg border border-border bg-background p-6 shadow-lg",
-  "max-w-lg break-words [overflow-wrap:anywhere]",
+  "relative z-50 flex w-[min(100%,calc(100vw-2rem))] max-h-[calc(100dvh-1.5rem)] min-w-0 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain rounded-lg border border-border bg-background p-6 shadow-lg",
+  "max-w-xl break-words [overflow-wrap:anywhere]",
   "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
   "data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 focus-visible:outline-none",
 );
-const viewportClass = "fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center";
+/** Tall multi-step wizards: fixed viewport height, scroll the body only. */
+const wizardPanelClass =
+  "h-[min(48rem,calc(100dvh-1.5rem))] gap-0 overflow-hidden p-0";
+const viewportClass = "fixed inset-0 z-50 flex items-end justify-center p-3 sm:items-center sm:p-4";
 
 const DialogOverlay = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Overlay>,
@@ -30,11 +33,31 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content> & { hideClose?: boolean }
->(({ className, children, hideClose = false, ...props }, ref) => (
+>(({ className, children, hideClose = false, onOpenAutoFocus, onInteractOutside, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <div className={viewportClass}>
-      <DialogPrimitive.Content ref={ref} className={cn(panelClass, className)} {...props}>
+      <DialogPrimitive.Content
+        ref={ref}
+        className={cn(panelClass, "outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0", className)}
+        onOpenAutoFocus={(event) => {
+          // Keep focus inside for a11y, but do not flash a ring on pointer-opened dialogs.
+          onOpenAutoFocus?.(event);
+          if (!event.defaultPrevented && document.documentElement.dataset.modality !== "keyboard") {
+            event.preventDefault();
+            (event.currentTarget as HTMLElement | null)?.focus({ preventScroll: true });
+          }
+        }}
+        onInteractOutside={(event) => {
+          // Portaled Select / Popover menus live outside the dialog DOM; don't dismiss when using them.
+          const target = event.target as HTMLElement | null;
+          if (target?.closest("[data-radix-select-content], [data-radix-popper-content-wrapper], [role='listbox']")) {
+            event.preventDefault();
+          }
+          onInteractOutside?.(event);
+        }}
+        {...props}
+      >
         {children}
         {hideClose ? null : (
           <Tooltip>
@@ -69,6 +92,12 @@ const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
 );
 DialogHeader.displayName = "DialogHeader";
 
+/** Scrollable middle for tall wizards (pair with `wizardPanelClass` on DialogContent). */
+const DialogBody = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("flex min-h-0 flex-1 flex-col gap-4 overflow-x-hidden overflow-y-auto overscroll-contain px-6 py-4", className)} {...props} />
+);
+DialogBody.displayName = "DialogBody";
+
 const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
@@ -98,6 +127,7 @@ DialogDescription.displayName = DialogPrimitive.Description.displayName;
 
 export {
   Dialog,
+  DialogBody,
   DialogClose,
   DialogContent,
   DialogDescription,
@@ -110,4 +140,5 @@ export {
   overlayClass,
   panelClass,
   viewportClass,
+  wizardPanelClass,
 };

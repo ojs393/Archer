@@ -138,6 +138,53 @@ const MIGRATIONS: readonly string[] = [
   );
   CREATE INDEX feedback_events_kind_created ON feedback_events (kind, created_at);
   `,
+  // Operator labels + optional campaign title (audience/runs filter & rename).
+  `
+  ALTER TABLE campaigns ADD COLUMN title TEXT;
+
+  CREATE TABLE tags (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL COLLATE NOCASE UNIQUE,
+    color TEXT
+  );
+
+  CREATE TABLE list_tags (
+    list_id INTEGER NOT NULL REFERENCES lists(id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (list_id, tag_id)
+  );
+
+  CREATE TABLE campaign_tags (
+    campaign_id INTEGER NOT NULL REFERENCES campaigns(id) ON DELETE CASCADE,
+    tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
+    PRIMARY KEY (campaign_id, tag_id)
+  );
+
+  CREATE INDEX list_tags_tag ON list_tags (tag_id, list_id);
+  CREATE INDEX campaign_tags_tag ON campaign_tags (tag_id, campaign_id);
+  `,
+  // Multi-step send chains: ordered templates on one list; campaigns may point at a step.
+  `
+  CREATE TABLE chains (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL,
+    list_id INTEGER NOT NULL REFERENCES lists(id),
+    schedule_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT ${NOW}
+  );
+
+  CREATE TABLE chain_steps (
+    chain_id INTEGER NOT NULL REFERENCES chains(id) ON DELETE CASCADE,
+    position INTEGER NOT NULL CHECK (position >= 0),
+    template_id INTEGER NOT NULL REFERENCES templates(id),
+    delay_hours INTEGER NOT NULL DEFAULT 0 CHECK (delay_hours >= 0),
+    PRIMARY KEY (chain_id, position)
+  );
+
+  ALTER TABLE campaigns ADD COLUMN chain_id INTEGER REFERENCES chains(id) ON DELETE SET NULL;
+  ALTER TABLE campaigns ADD COLUMN chain_step INTEGER;
+  CREATE INDEX campaigns_chain ON campaigns (chain_id, chain_step);
+  `,
 ];
 
 export function runMigrations(db: DatabaseSync): void {

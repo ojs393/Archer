@@ -5,10 +5,26 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Keyboard focus: solid 2px blue-600 ring outside a 2px white gap. */
-export const focusRing =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+/**
+ * Keyboard focus ring: solid 2px blue-600 outside a 2px white gap.
+ * Only while `html[data-modality=keyboard]` (see `installFocusModality`) so click/autofocus stays clean.
+ */
+const keyboardFocus = "[:is(html[data-modality=keyboard])_&]:focus-visible";
+
+export const focusRing = [
+  "outline-none focus-visible:outline-none",
+  `${keyboardFocus}:ring-2`,
+  `${keyboardFocus}:ring-ring`,
+  `${keyboardFocus}:ring-offset-2`,
+  `${keyboardFocus}:ring-offset-background`,
+].join(" ");
 
 /** Same ring drawn inside the element, for controls whose container clips overflow (the header tabs). */
-export const focusRingInset =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+export const focusRingInset = [
+  "outline-none focus-visible:outline-none",
+  `${keyboardFocus}:ring-2`,
+  `${keyboardFocus}:ring-inset`,
+  `${keyboardFocus}:ring-ring`,
+  `${keyboardFocus}:ring-offset-2`,
+  `${keyboardFocus}:ring-offset-background`,
+].join(" ");

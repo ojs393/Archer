@@ -1,17 +1,17 @@
 import type { FastifyInstance } from "fastify";
 import { evaluateGates } from "../../campaigns/gates.ts";
+import { sendsPage, swapCampaignList, swapCampaignTemplate } from "../../campaigns/sends.ts";
 import {
   createCampaign,
   deleteCampaign,
   eventsPage,
   getCampaign,
-  listCampaignIds,
   recordEvent,
   uncertainPage,
   updateSchedule,
   type CampaignRecord,
 } from "../../campaigns/store.ts";
-import { getCampaignView } from "../../campaigns/view.ts";
+import { getCampaignView, listCampaignViews, updateCampaignMeta } from "../../campaigns/view.ts";
 import { getList } from "../../import/lists.ts";
 import { EventLog } from "../../send/events.ts";
 import { ACTIVE_STATUSES, SendStore, type CampaignStatus } from "../../send/sendState.ts";
@@ -21,11 +21,15 @@ import type { AppContext } from "../context.ts";
 import {
   campaignCreateSchema,
   campaignEventsQuerySchema,
+  campaignQuerySchema,
+  campaignSendsQuerySchema,
+  campaignUpdateSchema,
   idParamSchema,
   pageQuerySchema,
   requeueSchema,
   scheduleUpdateSchema,
   type CampaignEventsPage,
+  type CampaignSendsPage,
   type CampaignView,
   type GatesResult,
   type UncertainPage,
@@ -33,7 +37,8 @@ import {
 import { HttpError, notFound } from "../errors.ts";
 
 const USER_PAUSE_REASON = "user";
-const SCHEDULE_EDITABLE: ReadonlySet<CampaignStatus> = new Set(["draft", "paused"]);
+const SCHEDULE_EDITABLE: ReadonlySet<CampaignStatus> = new Set(["draft", "paused", "safety_stop"]);
+const RECONFIGURE_EDITABLE: ReadonlySet<CampaignStatus> = new Set(["draft", "paused", "safety_stop"]);
 const DELETABLE: ReadonlySet<CampaignStatus> = new Set(["draft", "completed", "stopped"]);
 const RESUMABLE: ReadonlySet<CampaignStatus> = new Set(["paused", "safety_stop"]);
 const FINISHED: ReadonlySet<CampaignStatus> = new Set(["completed", "stopped"]);
@@ -97,9 +102,44 @@ export function campaignRoutes(app: FastifyInstance, ctx: AppContext): void {
     eventLog.insert({ type: "status", campaignId: id, message: "Status: stopped", at });
   };
 
-  app.get("/api/campaigns", async (): Promise<CampaignView[]> =>
-    listCampaignIds(ctx.db).flatMap((id) => getCampaignView(ctx.db, id) ?? []),
-  );
+  app.get("/api/campaigns", async (request): Promise<CampaignView[]> => {
+    const q = campaignQuerySchema.parse(request.query);
+    return listCampaignViews(ctx.db, q);
+  });
+
+  app.patch("/api/campaigns/:id", async (request): Promise<CampaignView> => {
+    const c = settledCampaign(request.params);
+    const body = campaignUpdateSchema.parse(request.body ?? {});
+    if ((body.listId !== undefined || body.templateId !== undefined) && !RECONFIGURE_EDITABLE.has(c.status)) {
+      throw invalidState("Pause the campaign before changing its list or template");
+    }
+    if (body.listId !== undefined) {
+      const list = getList(ctx.db, body.listId);
+      if (!list) throw notFound("List");
+      if (list.status !== "ready") throw new HttpError(409, "list_not_ready", "The list is not ready; wait for the import to finish or upload it again");
+      const { removed, added } = swapCampaignList(ctx.db, c.id, body.listId);
+      recordEvent(ctx.db, c.id, "reconfigure", `Swapped list; removed ${removed} pending/retry, added ${added} contacts`);
+    }
+    if (body.templateId !== undefined) {
+      const template = getTemplate(ctx.db, body.templateId);
+      if (!template) throw notFound("Template");
+      swapCampaignTemplate(ctx.db, c.id, template.id, template.version);
+      recordEvent(ctx.db, c.id, "reconfigure", `Swapped template to ${template.name} v${template.version}`);
+    }
+    if (body.title !== undefined || body.tags !== undefined) {
+      const title = body.title === undefined ? undefined : body.title === "" ? null : body.title;
+      const updated = updateCampaignMeta(ctx.db, c.id, { title, tags: body.tags });
+      if (!updated) throw notFound("Campaign");
+      return updated;
+    }
+    return view(c.id);
+  });
+
+  app.get("/api/campaigns/:id/sends", async (request): Promise<CampaignSendsPage> => {
+    const c = requireCampaign(request.params);
+    const q = campaignSendsQuerySchema.parse(request.query ?? {});
+    return sendsPage(ctx.db, c.id, { state: q.state, search: q.q, limit: q.limit, offset: q.offset });
+  });
 
   app.post("/api/campaigns", async (request, reply) => {
     const input = campaignCreateSchema.parse(request.body ?? {});

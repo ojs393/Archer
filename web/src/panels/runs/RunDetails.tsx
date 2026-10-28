@@ -1,5 +1,14 @@
+import { useEffect, useState } from "react";
+import { TagEditor } from "@/components/TagEditor";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/components/ui/sonner";
+import { isApiError } from "@/lib/api";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { useStatus } from "@/lib/queries";
+import { useUpdateCampaign } from "@/lib/queries/campaigns";
+import { useTags } from "@/lib/queries/tags";
 import { useTemplate } from "@/lib/queries/templates";
 import type { CampaignView } from "@/lib/types";
 import { campaignLabel } from "./RunsTable";
@@ -13,7 +22,9 @@ function scheduleSummary(c: CampaignView): string {
 }
 
 export function RunDetails({
-  campaign, lists, templates,
+  campaign,
+  lists,
+  templates,
 }: {
   campaign: CampaignView;
   lists: Map<number, string>;
@@ -21,18 +32,55 @@ export function RunDetails({
 }) {
   const status = useStatus();
   const template = useTemplate(campaign.templateId);
+  const tagsCatalog = useTags();
+  const update = useUpdateCampaign();
   const live = status.data?.campaign?.id === campaign.id ? status.data.campaign : null;
   const view = live ?? campaign;
   const eta = view.estimate.completionDate;
   const note = view.estimate.perDayCapacityNote;
 
+  const [title, setTitle] = useState(campaign.title ?? "");
+  const [tags, setTags] = useState(campaign.tags ?? []);
+
+  useEffect(() => {
+    setTitle(campaign.title ?? "");
+    setTags(campaign.tags ?? []);
+  }, [campaign.id, campaign.title, campaign.tags]);
+
+  async function saveMeta() {
+    try {
+      await update.mutateAsync({ id: campaign.id, title, tags });
+      toast.success("Run updated");
+    } catch (err) {
+      toast.error(isApiError(err) ? err.message : "Could not update run");
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3 border-t border-border px-4 py-4 text-sm">
       <div>
         <p className="text-xs font-medium text-muted-foreground">Run</p>
-        <p className="font-medium text-foreground">{campaignLabel(campaign, lists, templates)}</p>
+        <p className="font-medium text-foreground">{campaignLabel(view, lists, templates)}</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <Label htmlFor={`run-title-${campaign.id}`}>Title</Label>
+          <Input
+            id={`run-title-${campaign.id}`}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder={`${view.listName} · ${view.templateName}`}
+          />
+        </div>
+        <div className="flex flex-col gap-1.5 sm:col-span-2">
+          <Label>Tags</Label>
+          <TagEditor value={tags} onChange={setTags} suggestions={(tagsCatalog.data ?? []).map((t) => t.name)} />
+        </div>
+        <div className="sm:col-span-2">
+          <Button type="button" size="sm" loading={update.isPending} onClick={() => void saveMeta()}>
+            Save run
+          </Button>
+        </div>
         <div>
           <p className="text-xs font-medium text-muted-foreground">Subject</p>
           <p className="text-foreground">{template.data?.subject ?? (template.isPending ? "…" : "—")}</p>

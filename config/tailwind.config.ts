@@ -49,7 +49,9 @@ export default {
         md: "calc(var(--radius) - 4px)",
         sm: "calc(var(--radius) - 6px)",
       },
-      boxShadow: { card: "0 1px 2px rgba(0, 0, 0, 0.04)" },
+      boxShadow: {
+        card: "0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 12px rgba(0, 0, 0, 0.04)",
+      },
       maxWidth: { content: "1280px" },
     },
   },

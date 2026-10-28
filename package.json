@@ -9,6 +9,7 @@
     "setup": "node scripts/setup.mjs",
     "doctor": "node scripts/doctor.mjs",
     "selftest": "node --disable-warning=ExperimentalWarning --import tsx server/selftest.ts",
+    "seed:local": "node --disable-warning=ExperimentalWarning --import tsx scripts/seed-local.mjs",
     "start": "node scripts/doctor.mjs --quick && node --disable-warning=ExperimentalWarning --import tsx server/supervisor.ts",
     "dev": "node --disable-warning=ExperimentalWarning --import tsx server/index.ts",
     "build:web": "vite build --config config/vite.config.ts",

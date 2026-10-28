@@ -79,6 +79,7 @@ First launch shows the setup wizard (operator → provider → domain DNS → ad
 |---|---|
 | `npm run setup` | First-time install + dirs + secrets |
 | `npm start` | Quick doctor + start (opens the UI) |
+| `npm run seed:local` | Fill local `data/` with demo lists/runs (gitignored) |
 | `npm run doctor` | Full health check / repair + self-test |
 | `npm run selftest` | Fake SMTP end-to-end send smoke test |
 | `npm test` | Unit + integration + web tests |
@@ -124,7 +125,7 @@ From setup (**Add to Desktop**) or Settings:
 
 | OS | What you get |
 |---|---|
-| macOS | `Archer.command` + app icon (`.icns`) |
+| macOS | `Archer.app` with embedded `.icns` |
 | Windows | `Archer.cmd` (+ `.lnk` with `.ico` when possible) |
 | Linux | `Archer.desktop` |
 

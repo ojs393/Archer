@@ -28,7 +28,10 @@ export function TemplateStep({
         {templates.length === 0 ? (
           <p className="text-sm text-secondary-foreground">No templates yet. Create one under Templates.</p>
         ) : (
-          <Select value={templateId !== null ? String(templateId) : ""} onValueChange={(v) => onTemplateIdChange(Number(v))}>
+          <Select
+            value={templateId !== null ? String(templateId) : undefined}
+            onValueChange={(v) => onTemplateIdChange(Number(v))}
+          >
             <SelectTrigger id="run-template" aria-label="Template">
               <SelectValue placeholder="Select a template" />
             </SelectTrigger>

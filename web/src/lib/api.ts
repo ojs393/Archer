@@ -26,7 +26,7 @@ export function isApiError(err: unknown, code?: string): err is ApiError {
   return ok && (code === undefined || (err as ApiError).code === code);
 }
 
-type Method = "GET" | "POST" | "PUT" | "DELETE";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 type QueryValue = string | number | boolean | null | undefined;
 
 export interface RequestOptions {
@@ -139,6 +139,7 @@ export const api = {
   get: <T>(path: string, opts?: RequestOptions) => request<T>("GET", path, opts),
   post: <T>(path: string, body?: unknown, opts?: RequestOptions) => request<T>("POST", path, { ...opts, body }),
   put: <T>(path: string, body: unknown, opts?: RequestOptions) => request<T>("PUT", path, { ...opts, body }),
+  patch: <T>(path: string, body: unknown, opts?: RequestOptions) => request<T>("PATCH", path, { ...opts, body }),
   del: <T = void>(path: string, opts?: RequestOptions) => request<T>("DELETE", path, opts),
   upload: <T>(path: string, form: FormData, opts?: RequestOptions) => request<T>("POST", path, { ...opts, body: form }),
 };

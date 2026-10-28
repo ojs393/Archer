@@ -1,15 +1,14 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useMemo } from "react";
+import { Activity, RotateCw } from "lucide-react";
+import { EmptyState } from "@/components/EmptyState";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { formatDateTime } from "@/lib/format";
 import { useAnalyticsTimeseries, type CampaignScope } from "@/lib/queries/analytics";
-import type { AnalyticsBucket, AnalyticsRun } from "@/lib/types";
-import { cn } from "@/lib/utils";
+import type { AnalyticsRun } from "@/lib/types";
 import { CampaignFilter } from "./CampaignFilter";
+import { rangeToQuery, type DashboardRange } from "./TimeRange";
 
 const OverviewChart = lazy(() => import("./OverviewChart"));
-
-const DAYS: Record<AnalyticsBucket, number> = { hour: 2, day: 30 };
 
 function visiblePoints(points: { t: string }[], coverageFrom: string | null) {
   if (!coverageFrom) return points;
@@ -20,13 +19,14 @@ export function OverviewTab({
   runs,
   campaignId,
   onCampaignIdChange,
+  range,
 }: {
   runs: AnalyticsRun[];
   campaignId: CampaignScope;
   onCampaignIdChange: (id: CampaignScope) => void;
+  range: DashboardRange;
 }) {
-  const [bucket, setBucket] = useState<AnalyticsBucket>("hour");
-  const days = DAYS[bucket];
+  const { bucket, days } = rangeToQuery(range);
   const series = useAnalyticsTimeseries(bucket, days, campaignId);
   const points = useMemo(
     () => visiblePoints(series.data?.points ?? [], series.data?.coverageFrom ?? null),
@@ -36,36 +36,20 @@ export function OverviewTab({
   const truncated = coverageFrom !== null && (series.data?.points.length ?? 0) > points.length;
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <CampaignFilter runs={runs} value={campaignId} onChange={onCampaignIdChange} />
-        <div className="inline-flex rounded-md border border-border p-0.5" role="group" aria-label="Bucket size">
-          {(["hour", "day"] as const).map((b) => (
-            <button
-              key={b}
-              type="button"
-              className={cn(
-                "rounded px-2.5 py-1 text-xs font-medium capitalize transition-colors",
-                bucket === b ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900",
-              )}
-              aria-pressed={bucket === b}
-              onClick={() => setBucket(b)}
-            >
-              {b === "hour" ? "Hour" : "Day"}
-            </button>
-          ))}
-        </div>
-      </div>
-      <Card className="p-4">
+    <div className="flex flex-col gap-3 animate-in fade-in duration-300">
+      <CampaignFilter runs={runs} value={campaignId} onChange={onCampaignIdChange} />
+      <Card className="p-4 shadow-card ring-1 ring-black/[0.03]">
         {truncated ? (
-          <p className="mb-3 text-xs text-muted-foreground">
-            Showing data from {formatDateTime(coverageFrom)} (older events rotated out).
-          </p>
+          <p className="mb-3 text-xs text-muted-foreground">Earlier history isn’t retained in this view.</p>
         ) : null}
         {series.isPending ? (
           <Skeleton className="h-64 w-full" />
         ) : series.isError ? (
-          <p className="py-10 text-center text-sm text-muted-foreground">Could not load timeseries.</p>
+          <EmptyState
+            icon={Activity}
+            title="Could not load activity"
+            action={{ label: "Retry", icon: RotateCw, onClick: () => void series.refetch() }}
+          />
         ) : (
           <Suspense fallback={<Skeleton className="h-64 w-full" />}>
             <OverviewChart points={points as NonNullable<typeof series.data>["points"]} bucket={bucket} />

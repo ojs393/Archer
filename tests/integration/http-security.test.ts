@@ -101,6 +101,7 @@ describe("HTTP security", () => {
     expect(res.headers["x-content-type-options"]).toBe("nosniff");
     expect(res.headers["cache-control"]).toContain("no-store");
     expect(res.headers["referrer-policy"]).toBe("no-referrer");
+    expect(String(res.headers["permissions-policy"])).toContain("camera=()");
   });
 
   it("error bodies never include stack traces or internal messages", async () => {

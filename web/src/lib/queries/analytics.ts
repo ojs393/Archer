@@ -11,8 +11,8 @@ import type {
 
 export type CampaignScope = number | null;
 
-export function analyticsSummaryKey() {
-  return ["analytics", "summary"] as const;
+export function analyticsSummaryKey(campaignId: CampaignScope = null) {
+  return ["analytics", "summary", campaignId] as const;
 }
 
 export function analyticsTimeseriesKey(bucket: AnalyticsBucket, days: number, campaignId: CampaignScope = null) {
@@ -35,10 +35,11 @@ function scopeQuery(campaignId: CampaignScope): Record<string, number> | undefin
   return campaignId === null ? undefined : { campaignId };
 }
 
-export function useAnalyticsSummary(enabled = true) {
+export function useAnalyticsSummary(campaignId: CampaignScope = null, enabled = true) {
   return useQuery({
-    queryKey: analyticsSummaryKey(),
-    queryFn: ({ signal }) => api.get<AnalyticsSummary>("/api/analytics/summary", { signal }),
+    queryKey: analyticsSummaryKey(campaignId),
+    queryFn: ({ signal }) =>
+      api.get<AnalyticsSummary>("/api/analytics/summary", { signal, query: scopeQuery(campaignId) }),
     enabled,
   });
 }

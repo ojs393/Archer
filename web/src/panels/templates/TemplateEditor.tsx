@@ -1,13 +1,16 @@
+import { Save } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { FieldRow } from "@/components/FieldRow";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  wizardPanelClass,
 } from "@/components/ui/dialog";
 import { InfoHint } from "@/components/ui/InfoHint";
 import { Input } from "@/components/ui/input";
@@ -15,16 +18,23 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { isApiError } from "@/lib/api";
 import { useCreateTemplate, useTemplate, useUpdateTemplate } from "@/lib/queries/templates";
+import { cn } from "@/lib/utils";
+import { EmailPreview } from "./EmailPreview";
 
 const VARS_HINT =
   "Built-in: email, first_name, company (via columns), domain, unsubscribe_url, postal_address, today. Use {{var}} in subject and HTML.";
 
 export function TemplateEditor({
-  open, onOpenChange, templateId,
+  open,
+  onOpenChange,
+  templateId,
+  readOnly = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   templateId: number | null;
+  /** View-only: show rendered email without edit fields. */
+  readOnly?: boolean;
 }) {
   const existing = useTemplate(templateId, open && templateId !== null);
   const create = useCreateTemplate();
@@ -59,7 +69,6 @@ export function TemplateEditor({
   }, [open, templateId, existing.data]);
 
   const saving = create.isPending || update.isPending;
-  const previewHtml = html.slice(0, 8000);
 
   async function save() {
     setError(null);
@@ -85,49 +94,64 @@ export function TemplateEditor({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl">
-        <DialogHeader>
-          <DialogTitle>{templateId === null ? "New template" : "Edit template"}</DialogTitle>
+      <DialogContent className={cn("max-w-5xl", wizardPanelClass)}>
+        <DialogHeader className="mx-0 mt-0">
+          <DialogTitle>
+            {readOnly ? "View template" : templateId === null ? "New template" : "Edit template"}
+          </DialogTitle>
           <DialogDescription className="flex flex-wrap items-center gap-1">
-            HTML body with merge tags.
-            <InfoHint label="Available variables">{VARS_HINT}</InfoHint>
+            {readOnly ? "Rendered email preview." : "HTML body with merge tags."}
+            {!readOnly ? <InfoHint label="Available variables">{VARS_HINT}</InfoHint> : null}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-          <div className="flex min-w-0 flex-col gap-3">
-            <FieldRow id="tpl-name" label="Name">
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
-            </FieldRow>
-            <FieldRow id="tpl-subject" label="Subject" info="Supports {{var}} merge tags.">
-              <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
-            </FieldRow>
-            <FieldRow id="tpl-html" label="HTML body">
-              <Textarea className="min-h-[18rem] font-mono text-[13px]" value={html} onChange={(e) => setHtml(e.target.value)} spellCheck={false} />
-            </FieldRow>
-            {error ? (
-              <p role="alert" className="text-sm text-destructive">
-                {error}
-              </p>
-            ) : null}
-          </div>
-          <div className="flex min-w-0 flex-col gap-2">
-            <p className="text-xs font-medium text-muted-foreground">Preview</p>
-            <p className="break-words text-sm font-medium text-foreground">Subject: {subject || "—"}</p>
-            {/* XSS: templates are operator-authored on localhost; not sanitised for the preview pane. */}
-            <div className="max-h-[min(24rem,40dvh)] min-w-0 overflow-auto break-words rounded-md border border-border bg-zinc-50 p-3 [overflow-wrap:anywhere]">
-              <div dangerouslySetInnerHTML={{ __html: previewHtml || "<p></p>" }} />
+        <DialogBody>
+          {readOnly ? (
+            <EmailPreview subject={subject} html={html} name={name} />
+          ) : (
+            <div className="grid min-w-0 gap-4 lg:grid-cols-2">
+              <div className="flex min-w-0 flex-col gap-3">
+                <FieldRow id="tpl-name" label="Name">
+                  <Input value={name} onChange={(e) => setName(e.target.value)} />
+                </FieldRow>
+                <FieldRow id="tpl-subject" label="Subject" info="Supports {{var}} merge tags.">
+                  <Input value={subject} onChange={(e) => setSubject(e.target.value)} />
+                </FieldRow>
+                <FieldRow id="tpl-html" label="HTML body">
+                  <Textarea
+                    className="min-h-[18rem] font-mono text-[13px]"
+                    value={html}
+                    onChange={(e) => setHtml(e.target.value)}
+                    spellCheck={false}
+                  />
+                </FieldRow>
+                {error ? (
+                  <p role="alert" className="text-sm text-destructive">
+                    {error}
+                  </p>
+                ) : null}
+              </div>
+              <EmailPreview subject={subject} html={html} />
             </div>
-          </div>
-        </div>
+          )}
+        </DialogBody>
 
-        <DialogFooter>
-          <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={saving}>
-            Cancel
-          </Button>
-          <Button onClick={() => void save()} loading={saving}>
-            Save
-          </Button>
+        <DialogFooter className="mx-0 mb-0">
+          {readOnly ? (
+            <Button variant="secondary" onClick={() => onOpenChange(false)}>
+              Close
+            </Button>
+          ) : (
+            <>
+              <Button variant="secondary" onClick={() => onOpenChange(false)} disabled={saving}>
+                Cancel
+              </Button>
+              <Button onClick={() => void save()} loading={saving}>
+                {saving ? null : <Save aria-hidden="true" />}
+                Save
+              </Button>
+            </>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

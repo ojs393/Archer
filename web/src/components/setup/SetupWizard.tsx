@@ -1,21 +1,25 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { Check, ChevronLeft, ChevronRight, FastForward } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { BrandMark } from "@/components/BrandMark";
 import { Stepper } from "@/components/Stepper";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  wizardPanelClass,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api, isApiError } from "@/lib/api";
 import { useHealth, useSettings, useSetup } from "@/lib/queries";
 import { queryKeys } from "@/lib/queryKeys";
 import { navigateToTab } from "@/lib/tabs";
+import { cn } from "@/lib/utils";
 import type { DnsCheckResult, SettingsUpdate, SettingsView, SetupSteps, SetupView, SmtpTestResult } from "@/lib/types";
 import {
   draftFromSettings,
@@ -103,8 +107,6 @@ export function SetupWizard({
       setDraft(null);
     }
   }, [open]);
-
-  const canDismiss = Boolean(setup.data?.steps.provider && setup.data?.steps.addresses);
 
   const currentFp = draft ? smtpFingerprint(draft) : "";
   const credentialsUnchanged = Boolean(baselineFp && currentFp === baselineFp);
@@ -276,30 +278,17 @@ export function SetupWizard({
     [step],
   );
 
-  function handleOpenChange(next: boolean) {
-    if (!next && !canDismiss) return;
-    onOpenChange(next);
+  function skipForNow() {
+    onOpenChange(false);
   }
 
   const busy = saving || testing || checking || launching;
   const nextDisabled = busy || (step === 1 && !smtpReady) || !draft;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent
-        hideClose={!canDismiss}
-        className="max-w-2xl"
-        onEscapeKeyDown={(e) => {
-          if (!canDismiss) e.preventDefault();
-        }}
-        onPointerDownOutside={(e) => {
-          if (!canDismiss) e.preventDefault();
-        }}
-        onInteractOutside={(e) => {
-          if (!canDismiss) e.preventDefault();
-        }}
-      >
-        <DialogHeader>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className={cn("max-w-3xl", wizardPanelClass)}>
+        <DialogHeader className="mx-0 mt-0">
           {step === 0 ? <BrandMark size={40} title="Archer" className="mb-2" /> : null}
           <DialogTitle>{stepTitle(step)}</DialogTitle>
           <DialogDescription className="sr-only">
@@ -307,68 +296,79 @@ export function SetupWizard({
           </DialogDescription>
         </DialogHeader>
 
-        <Stepper steps={stepperSteps} current={step} onSelect={(i) => i < step && setStep(i as StepIndex)} />
+        <DialogBody>
+          <Stepper steps={stepperSteps} current={step} onSelect={(i) => i < step && setStep(i as StepIndex)} />
 
-        {!draft || settings.isPending || setup.isPending ? (
-          <div className="flex flex-col gap-3" aria-busy="true">
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-full" />
-            <Skeleton className="h-9 w-2/3" />
+          {!draft || settings.isPending || setup.isPending ? (
+            <div className="flex flex-col gap-3" aria-busy="true">
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-full" />
+              <Skeleton className="h-9 w-2/3" />
+            </div>
+          ) : (
+            <>
+              {step === 0 ? (
+                <OperatorStep draft={draft} onChange={patchDraft} errors={errors} />
+              ) : null}
+              {step === 1 ? (
+                <ProviderStep
+                  draft={draft}
+                  onChange={patchDraft}
+                  regions={regions}
+                  passSet={passSet}
+                  testResult={smtpTest}
+                  testing={testing}
+                  onTest={() => void testSmtp()}
+                />
+              ) : null}
+              {step === 2 ? (
+                <DomainStep
+                  draft={draft}
+                  onChange={patchDraft}
+                  errors={errors}
+                  checkResult={dnsResult}
+                  checking={checking}
+                  onCheck={() => void checkDns()}
+                  dnsWarning={dnsWarning}
+                />
+              ) : null}
+              {step === 3 ? <AddressesStep draft={draft} onChange={patchDraft} errors={errors} /> : null}
+              {step === 4 ? (
+                <FinishStep
+                  draft={draft}
+                  onChange={patchDraft}
+                  errors={errors}
+                  launcherPath={launcherPath}
+                  launcherError={launcherError}
+                  launching={launching}
+                  onAddDesktop={() => void addDesktop()}
+                />
+              ) : null}
+            </>
+          )}
+
+          {completeError ? (
+            <p role="alert" className="text-sm text-destructive">
+              {completeError}
+            </p>
+          ) : null}
+        </DialogBody>
+
+        <DialogFooter className="mx-0 mb-0 sm:justify-between">
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="secondary" disabled={step === 0 || busy} onClick={() => setStep((step - 1) as StepIndex)}>
+              <ChevronLeft aria-hidden="true" />
+              Previous
+            </Button>
+            <Button type="button" variant="subtle" disabled={busy} onClick={skipForNow}>
+              <FastForward aria-hidden="true" />
+              Skip for now
+            </Button>
           </div>
-        ) : (
-          <>
-            {step === 0 ? (
-              <OperatorStep draft={draft} onChange={patchDraft} errors={errors} />
-            ) : null}
-            {step === 1 ? (
-              <ProviderStep
-                draft={draft}
-                onChange={patchDraft}
-                regions={regions}
-                passSet={passSet}
-                testResult={smtpTest}
-                testing={testing}
-                onTest={() => void testSmtp()}
-              />
-            ) : null}
-            {step === 2 ? (
-              <DomainStep
-                draft={draft}
-                onChange={patchDraft}
-                errors={errors}
-                checkResult={dnsResult}
-                checking={checking}
-                onCheck={() => void checkDns()}
-                dnsWarning={dnsWarning}
-              />
-            ) : null}
-            {step === 3 ? <AddressesStep draft={draft} onChange={patchDraft} errors={errors} /> : null}
-            {step === 4 ? (
-              <FinishStep
-                draft={draft}
-                onChange={patchDraft}
-                errors={errors}
-                launcherPath={launcherPath}
-                launcherError={launcherError}
-                launching={launching}
-                onAddDesktop={() => void addDesktop()}
-              />
-            ) : null}
-          </>
-        )}
-
-        {completeError ? (
-          <p role="alert" className="text-sm text-destructive">
-            {completeError}
-          </p>
-        ) : null}
-
-        <DialogFooter className="sm:justify-between">
-          <Button type="button" variant="secondary" disabled={step === 0 || busy} onClick={() => setStep((step - 1) as StepIndex)}>
-            Previous
-          </Button>
           <Button type="button" loading={saving} disabled={nextDisabled} onClick={() => void goNext()}>
+            {saving ? null : step === 4 ? <Check aria-hidden="true" /> : null}
             {step === 4 ? "Finish" : "Next"}
+            {saving || step === 4 ? null : <ChevronRight aria-hidden="true" />}
           </Button>
         </DialogFooter>
       </DialogContent>

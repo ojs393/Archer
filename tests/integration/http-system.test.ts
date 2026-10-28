@@ -29,10 +29,15 @@ describe("POST /api/system/desktop-launcher", () => {
     h = await makeHarness({ build: target.build });
     const res = await h.app.inject({ method: "POST", url: "/api/system/desktop-launcher", headers: mutating });
     expect(res.statusCode).toBe(200);
-    const body = res.json();
-    expect(body).toEqual({ ok: true, path: expect.stringMatching(/Archer\.(command|desktop|cmd)$/) });
+    const body = res.json() as { ok: boolean; path: string };
+    expect(body.ok).toBe(true);
     expect(path.dirname(body.path)).toBe(target.desktop);
-    const text = fs.readFileSync(body.path, "utf8");
+    // macOS ships Archer.app (bundle); Linux/Windows use a single launcher file.
+    expect(body.path).toMatch(/Archer(\.app|\.desktop|\.cmd)$/);
+    const scriptPath = body.path.endsWith(".app")
+      ? path.join(body.path, "Contents", "MacOS", "Archer")
+      : body.path;
+    const text = fs.readFileSync(scriptPath, "utf8");
     expect(text).toContain(h.paths.root);
     expect(text).toContain("npm start");
   });

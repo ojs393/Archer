@@ -3,12 +3,15 @@ import { IconButton } from "@/components/IconButton";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { formatDateTime, formatNumber } from "@/lib/format";
-import type { ListRow } from "@/lib/types";
+import type { ListView } from "@/lib/types";
 
 export function ListsTable({
-  rows, selectedId, onSelect, onDelete,
+  rows,
+  selectedId,
+  onSelect,
+  onDelete,
 }: {
-  rows: ListRow[];
+  rows: ListView[];
   selectedId: number | null;
   onSelect: (id: number) => void;
   onDelete: (id: number) => void;
@@ -18,8 +21,8 @@ export function ListsTable({
       <TableHeader>
         <TableRow>
           <TableHead>Name</TableHead>
+          <TableHead>Tags</TableHead>
           <TableHead>Recipients</TableHead>
-          <TableHead>Suppressed</TableHead>
           <TableHead>Created</TableHead>
           <TableHead className="w-[4rem] text-right">Actions</TableHead>
         </TableRow>
@@ -45,8 +48,20 @@ export function ListsTable({
                 <Badge variant={row.status === "failed" ? "solid" : "info"}>{row.status}</Badge>
               ) : null}
             </TableCell>
+            <TableCell>
+              <div className="flex flex-wrap gap-1">
+                {row.tags.length ? (
+                  row.tags.map((t) => (
+                    <Badge key={t} variant="default">
+                      {t}
+                    </Badge>
+                  ))
+                ) : (
+                  <span className="text-xs text-muted-foreground">—</span>
+                )}
+              </div>
+            </TableCell>
             <TableCell className="tabular">{formatNumber(row.valid_count)}</TableCell>
-            <TableCell className="tabular">{formatNumber(row.suppressed_count)}</TableCell>
             <TableCell>{formatDateTime(row.created_at)}</TableCell>
             <TableCell>
               <div className="flex justify-end" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>

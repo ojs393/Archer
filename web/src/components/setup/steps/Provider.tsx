@@ -2,13 +2,14 @@ import { FieldRow } from "@/components/FieldRow";
 import { IconButton } from "@/components/IconButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { InfoHint } from "@/components/ui/InfoHint";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { cn, focusRing } from "@/lib/utils";
 import type { SmtpTestResult } from "@/lib/types";
-import { Eraser } from "lucide-react";
+import { Eraser, PlugZap } from "lucide-react";
 import type { SetupDraft } from "../draft";
 
 export function ProviderStep({
@@ -115,7 +116,11 @@ export function ProviderStep({
             />
           </FieldRow>
           <div className="grid grid-cols-2 gap-3">
-            <FieldRow id="setup-smtp-port" label="Port">
+            <FieldRow
+              id="setup-smtp-port"
+              label="Port"
+              info="587 with STARTTLS is usual. Use 465 only when Implicit TLS is on."
+            >
               <Input
                 type="number"
                 min={1}
@@ -125,7 +130,12 @@ export function ProviderStep({
               />
             </FieldRow>
             <div className="flex flex-col gap-1.5">
-              <Label htmlFor="setup-smtp-secure">Implicit TLS</Label>
+              <div className="flex min-h-6 items-center gap-1">
+                <Label htmlFor="setup-smtp-secure">Implicit TLS</Label>
+                <InfoHint label="About Implicit TLS">
+                  On for port 465 (SMTPS). Off for 587, where STARTTLS upgrades after connect.
+                </InfoHint>
+              </div>
               <div className="flex h-9 items-center">
                 <Switch
                   id="setup-smtp-secure"
@@ -135,7 +145,11 @@ export function ProviderStep({
               </div>
             </div>
           </div>
-          <FieldRow id="setup-smtp-user" label="Username">
+          <FieldRow
+            id="setup-smtp-user"
+            label="Username"
+            info="The SMTP username from your provider (not always your login email)."
+          >
             <Input
               value={draft.smtpUser}
               onChange={(e) => onChange({ smtpUser: e.target.value })}
@@ -149,6 +163,10 @@ export function ProviderStep({
       <div className="flex flex-col gap-1.5">
         <div className="flex min-h-6 items-center gap-1">
           <Label htmlFor="setup-smtp-pass">SMTP password</Label>
+          <InfoHint label="About SMTP password">
+            Stored only in the local SQLite database on this computer. Write-only after save — never shown again or
+            written to logs. Clear it here if you need to replace it.
+          </InfoHint>
         </div>
         <div className="flex items-center gap-2">
           <Input
@@ -174,6 +192,7 @@ export function ProviderStep({
 
       <div className="flex flex-col gap-2">
         <Button type="button" variant="secondary" loading={testing} onClick={onTest}>
+          {testing ? null : <PlugZap aria-hidden="true" />}
           Test connection
         </Button>
         {testResult ? (

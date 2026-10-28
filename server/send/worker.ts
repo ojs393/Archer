@@ -50,6 +50,8 @@ export interface WorkerDeps {
   safety?: SafetyConfig;
   /** Fired after a successful delivery — used by the watchdog to reset recovery counts. */
   onProgress?: () => void;
+  /** Fired when a campaign reaches completed (e.g. queue next chain step). */
+  onCampaignCompleted?: (campaignId: number) => void;
   /** Test-only: override EventLog ring size / trim cadence. */
   eventLog?: { keep?: number; trimEvery?: number };
 }
@@ -118,6 +120,7 @@ export class SendWorker extends EventEmitter {
   private readonly sendTimeoutMs: number;
   private readonly safety: SafetyConfig;
   private readonly onProgress: (() => void) | null;
+  private readonly onCampaignCompleted: ((campaignId: number) => void) | null;
 
   private campaignId: number | null = null;
   private status: CampaignStatus | null = null;
@@ -150,6 +153,7 @@ export class SendWorker extends EventEmitter {
     this.sendTimeoutMs = deps.sendTimeoutMs ?? DEFAULT_SEND_TIMEOUT_MS;
     this.safety = deps.safety ?? { window: 200, minSample: 50, threshold: 0.05 };
     this.onProgress = deps.onProgress ?? null;
+    this.onCampaignCompleted = deps.onCampaignCompleted ?? null;
     this.heartbeatAt = this.now().getTime();
   }
 
@@ -379,6 +383,11 @@ export class SendWorker extends EventEmitter {
     for (const row of stale) this.markUncertain(id, row, "found mid-send with nothing in flight");
     if (stale.length > 0 || this.store.hasOpenRows(id)) return "continue";
     this.setLoopStatus(id, "completed", null);
+    try {
+      this.onCampaignCompleted?.(id);
+    } catch {
+      // Chain advance must not break the send loop.
+    }
     return "exit";
   }
 

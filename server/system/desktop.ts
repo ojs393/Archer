@@ -78,6 +78,46 @@ function macScript(root: string, bin: string): string {
   return ["#!/bin/bash", `export PATH="${shDouble(bin)}:$PATH"`, `cd "${shDouble(root)}" && npm start`, ""].join("\n");
 }
 
+function macInfoPlist(): string {
+  return [
+    `<?xml version="1.0" encoding="UTF-8"?>`,
+    `<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">`,
+    `<plist version="1.0"><dict>`,
+    `<key>CFBundleDevelopmentRegion</key><string>en</string>`,
+    `<key>CFBundleDisplayName</key><string>${NAME}</string>`,
+    `<key>CFBundleExecutable</key><string>${NAME}</string>`,
+    `<key>CFBundleIconFile</key><string>AppIcon</string>`,
+    `<key>CFBundleIdentifier</key><string>local.archer.desktop.launcher</string>`,
+    `<key>CFBundleInfoDictionaryVersion</key><string>6.0</string>`,
+    `<key>CFBundleName</key><string>${NAME}</string>`,
+    `<key>CFBundlePackageType</key><string>APPL</string>`,
+    `<key>CFBundleShortVersionString</key><string>1.0.0</string>`,
+    `<key>CFBundleVersion</key><string>1</string>`,
+    `<key>LSMinimumSystemVersion</key><string>12.0</string>`,
+    `<key>NSHighResolutionCapable</key><true/>`,
+    `</dict></plist>`,
+    ``,
+  ].join("\n");
+}
+
+/** Writes ~/Desktop/Archer.app so Finder can show the .icns (plain .command files cannot). */
+function writeMacApp(dir: string, script: string, icon: string | null): string {
+  const app = path.join(dir, `${NAME}.app`);
+  const contents = path.join(app, "Contents");
+  const macOS = path.join(contents, "MacOS");
+  const resources = path.join(contents, "Resources");
+  fs.mkdirSync(macOS, { recursive: true });
+  fs.mkdirSync(resources, { recursive: true });
+  writeExecutable(path.join(macOS, NAME), script);
+  fs.writeFileSync(path.join(contents, "Info.plist"), macInfoPlist());
+  if (icon) fs.copyFileSync(icon, path.join(resources, "AppIcon.icns"));
+  // Bump mtime so Finder/Dock reload the icon after rebuilds.
+  const now = new Date();
+  fs.utimesSync(app, now, now);
+  fs.utimesSync(path.join(contents, "Info.plist"), now, now);
+  return app;
+}
+
 /** Desktop Entry Exec: quote the argument, then apply the string-value escape (backslashes) and field-code escape (%). */
 function linuxEntry(root: string, bin: string, icon: string | null): string {
   const script = `export PATH="${shDouble(bin)}:$PATH"; cd "${shDouble(root)}" && npm start`;
@@ -146,9 +186,7 @@ export async function createDesktopLauncher(opts: LauncherOptions): Promise<Laun
   const dir = opts.desktopDir ?? (platform === "win32" ? await windowsDesktopDir(run) : desktopDir({ platform }));
   fs.mkdirSync(dir, { recursive: true });
   if (platform === "darwin") {
-    const file = path.join(dir, `${NAME}.command`);
-    writeExecutable(file, content);
-    return { path: file, platform };
+    return { path: writeMacApp(dir, content, icon), platform };
   }
   if (platform === "linux") {
     const file = path.join(dir, `${NAME}.desktop`);

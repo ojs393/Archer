@@ -21,10 +21,20 @@ export function AddressesStep({
 }) {
   return (
     <div className="flex flex-col gap-4">
-      <FieldRow id="setup-from-name" label="From name" error={errors.fromName}>
+      <FieldRow
+        id="setup-from-name"
+        label="From name"
+        info="Display name recipients see in their inbox (e.g. Acme Support)."
+        error={errors.fromName}
+      >
         <Input value={draft.fromName} onChange={(e) => onChange({ fromName: e.target.value })} autoComplete="organization" />
       </FieldRow>
-      <FieldRow id="setup-addresses-from-email" label="From email" error={errors.fromEmail}>
+      <FieldRow
+        id="setup-addresses-from-email"
+        label="From email"
+        info="Must be on a domain you control and verified with your provider (SPF/DKIM)."
+        error={errors.fromEmail}
+      >
         <Input
           type="email"
           value={draft.fromEmail}
@@ -33,7 +43,12 @@ export function AddressesStep({
           required
         />
       </FieldRow>
-      <FieldRow id="setup-reply-to" label="Reply-To" error={errors.replyTo}>
+      <FieldRow
+        id="setup-reply-to"
+        label="Reply-To"
+        info="Optional. Where replies go if different from From."
+        error={errors.replyTo}
+      >
         <Input
           type="email"
           value={draft.replyTo}

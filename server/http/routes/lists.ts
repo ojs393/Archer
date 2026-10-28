@@ -4,10 +4,24 @@ import path from "node:path";
 import type { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { createList, deleteList, getList, getListColumns, listLists } from "../../import/lists.ts";
+import { deleteContact, listContacts, updateContact } from "../../import/contacts.ts";
+import { createList, deleteList, getList, getListColumns, getListView, listLists, updateList } from "../../import/lists.ts";
 import { PREVIEW_BYTES, PreviewError, previewCsv } from "../../import/preview.ts";
+import { addSuppression } from "../../db/suppression.ts";
 import type { AppContext } from "../context.ts";
-import { idParamSchema, listUploadFieldsSchema, type ListDetail, type ListPreview } from "../contract.ts";
+import {
+  contactUpdateSchema,
+  contactsQuerySchema,
+  idParamSchema,
+  listContactParamSchema,
+  listQuerySchema,
+  listUpdateSchema,
+  listUploadFieldsSchema,
+  type ContactsPage,
+  type ListDetail,
+  type ListPreview,
+  type ListView,
+} from "../contract.ts";
 import { HttpError, notFound } from "../errors.ts";
 
 const FILE_FIELD = "file";
@@ -69,7 +83,10 @@ async function receiveUpload(request: FastifyRequest, uploadsDir: string): Promi
 export function listRoutes(app: FastifyInstance, ctx: AppContext): void {
   const uploadsDir = ctx.paths.uploadsDir;
 
-  app.get("/api/lists", async () => listLists(ctx.db));
+  app.get("/api/lists", async (request): Promise<ListView[]> => {
+    const q = listQuerySchema.parse(request.query);
+    return listLists(ctx.db, q);
+  });
 
   app.post("/api/lists/preview", async (request): Promise<ListPreview> => {
     requireMultipart(request);
@@ -117,9 +134,59 @@ export function listRoutes(app: FastifyInstance, ctx: AppContext): void {
 
   app.get("/api/lists/:id", async (request): Promise<ListDetail> => {
     const { id } = idParamSchema.parse(request.params);
-    const list = getList(ctx.db, id);
+    const list = getListView(ctx.db, id);
     if (!list) throw notFound("List");
     return { ...list, columns: getListColumns(ctx.db, id) };
+  });
+
+  app.patch("/api/lists/:id", async (request): Promise<ListDetail> => {
+    const { id } = idParamSchema.parse(request.params);
+    if (!getList(ctx.db, id)) throw notFound("List");
+    const body = listUpdateSchema.parse(request.body ?? {});
+    try {
+      const list = updateList(ctx.db, id, body);
+      return { ...list, columns: getListColumns(ctx.db, id) };
+    } catch (err) {
+      throw new HttpError(400, "invalid_request", err instanceof Error ? err.message : String(err));
+    }
+  });
+
+  app.get("/api/lists/:id/contacts", async (request): Promise<ContactsPage> => {
+    const { id } = idParamSchema.parse(request.params);
+    if (!getList(ctx.db, id)) throw notFound("List");
+    const q = contactsQuerySchema.parse(request.query);
+    return listContacts(ctx.db, id, q);
+  });
+
+  app.patch("/api/lists/:id/contacts/:contactId", async (request) => {
+    const { id, contactId } = listContactParamSchema.parse(request.params);
+    if (!getList(ctx.db, id)) throw notFound("List");
+    const body = contactUpdateSchema.parse(request.body ?? {});
+    try {
+      return updateContact(ctx.db, id, contactId, body);
+    } catch (err) {
+      const code = err && typeof err === "object" && "code" in err ? String((err as { code: string }).code) : "";
+      if (code === "duplicate_email") throw new HttpError(409, "duplicate_email", err instanceof Error ? err.message : "Duplicate email");
+      if (err instanceof Error && /not found/i.test(err.message)) throw notFound("Contact");
+      throw new HttpError(400, "invalid_request", err instanceof Error ? err.message : String(err));
+    }
+  });
+
+  app.delete("/api/lists/:id/contacts/:contactId", async (request, reply) => {
+    const { id, contactId } = listContactParamSchema.parse(request.params);
+    if (!getList(ctx.db, id)) throw notFound("List");
+    if (!deleteContact(ctx.db, id, contactId)) throw notFound("Contact");
+    return reply.code(204).send();
+  });
+
+  app.post("/api/lists/:id/contacts/:contactId/suppress", async (request, reply) => {
+    const { id, contactId } = listContactParamSchema.parse(request.params);
+    const list = getList(ctx.db, id);
+    if (!list) throw notFound("List");
+    const row = ctx.db.prepare("SELECT email FROM contacts WHERE list_id = ? AND id = ?").get(id, contactId) as { email: string } | undefined;
+    if (!row) throw notFound("Contact");
+    addSuppression(ctx.db, row.email, "manual");
+    return reply.code(204).send();
   });
 
   app.delete("/api/lists/:id", async (request, reply) => {

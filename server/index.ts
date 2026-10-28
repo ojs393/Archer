@@ -17,6 +17,7 @@ import { failInterruptedImports } from "./import/lists.ts";
 import { installShutdownHandlers } from "./lifecycle.ts";
 import { logger, registerSecret } from "./logger.ts";
 import { Watchdog } from "./send/watchdog.ts";
+import { maybeQueueNextChainStep } from "./chains/advance.ts";
 import { DEFAULT_SEND_TIMEOUT_MS, SendWorker } from "./send/worker.ts";
 import { getSenderConfig, getSmtpConfig } from "./settings/store.ts";
 
@@ -118,11 +119,25 @@ async function main(): Promise<number | null> {
 
   const events = new EventHub();
   const progress = { note: () => {} };
-  const worker = new SendWorker({
+  let worker: SendWorker;
+  worker = new SendWorker({
     db,
     getSenderConfig: () => getSenderConfig(db, process.env),
     sendTimeoutMs: DEFAULT_SEND_TIMEOUT_MS,
     onProgress: () => progress.note(),
+    onCampaignCompleted: (campaignId) => {
+      void maybeQueueNextChainStep(db, campaignId)
+        .then((next) => {
+          if (!next?.autoStart) return;
+          try {
+            worker.start(next.nextCampaignId);
+            logger.info(`Auto-started chain campaign ${next.nextCampaignId}`);
+          } catch (err) {
+            logger.warn(`Could not auto-start chain campaign ${next.nextCampaignId}: ${errorText(err)}`);
+          }
+        })
+        .catch((err) => logger.error("Chain advance failed:", err));
+    },
   });
   const health = new HealthMonitor({
     db,

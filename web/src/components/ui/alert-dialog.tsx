@@ -17,11 +17,22 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Content>
->(({ className, ...props }, ref) => (
+>(({ className, onOpenAutoFocus, ...props }, ref) => (
   <AlertDialogPortal>
     <AlertDialogOverlay />
     <div className={viewportClass}>
-      <AlertDialogPrimitive.Content ref={ref} className={cn(panelClass, "max-w-lg gap-4", className)} {...props} />
+      <AlertDialogPrimitive.Content
+        ref={ref}
+        className={cn(panelClass, "max-w-xl gap-4 outline-none focus:outline-none focus-visible:outline-none focus-visible:ring-0", className)}
+        onOpenAutoFocus={(event) => {
+          onOpenAutoFocus?.(event);
+          if (!event.defaultPrevented && document.documentElement.dataset.modality !== "keyboard") {
+            event.preventDefault();
+            (event.currentTarget as HTMLElement | null)?.focus({ preventScroll: true });
+          }
+        }}
+        {...props}
+      />
     </div>
   </AlertDialogPortal>
 ));

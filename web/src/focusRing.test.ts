@@ -13,21 +13,31 @@ function sources(dir: string): string[] {
   });
 }
 
+const keyboardScope = "[:is(html[data-modality=keyboard])_&]:focus-visible";
+
 describe("focus indicator (R65)", () => {
-  it("uses blue-600 for the ring token", () => {
+  it("uses blue-600 for the ring token and gates the global outline to keyboard modality", () => {
     const css = fs.readFileSync(path.join(src, "index.css"), "utf8");
     expect(css).toMatch(/--ring: 221\.2 83\.2% 53\.3%;/);
-    expect(css).toMatch(/:focus-visible \{\s*outline: 2px solid hsl\(var\(--ring\)\);\s*outline-offset: 2px;/);
+    expect(css).toMatch(/html\[data-modality="keyboard"\] :focus-visible/);
+    expect(css).toMatch(/html\[data-modality="pointer"\] :focus-visible \{\s*outline:\s*none;/);
   });
 
-  it("is a solid 2px ring with a 2px white offset, only on keyboard focus", () => {
+  it("is a solid 2px ring with a 2px white offset, only for keyboard modality", () => {
     for (const cls of [focusRing, focusRingInset]) {
-      const parts = cls.split(" ");
-      for (const p of ["focus-visible:ring-2", "focus-visible:ring-ring", "focus-visible:ring-offset-2", "focus-visible:ring-offset-background"]) {
-        expect(parts).toContain(p);
+      expect(cls).toContain("focus-visible:outline-none");
+      for (const p of [
+        `${keyboardScope}:ring-2`,
+        `${keyboardScope}:ring-ring`,
+        `${keyboardScope}:ring-offset-2`,
+        `${keyboardScope}:ring-offset-background`,
+      ]) {
+        expect(cls).toContain(p);
       }
-      expect(parts.every((p) => p.startsWith("focus-visible:"))).toBe(true);
+      expect(cls).not.toMatch(/(?:^|\s)focus-visible:ring-/);
+      expect(cls).not.toMatch(/(?:^|\s)focus:ring-/);
     }
+    expect(focusRingInset).toContain(`${keyboardScope}:ring-inset`);
   });
 
   it("has no translucent or off-brand focus rings left in the sources", () => {

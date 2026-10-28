@@ -145,6 +145,8 @@ describe("public listener", () => {
     const page = await pub.inject({ method: "GET", url: `/u/${token}`, headers: tunnelHost });
     expect(page.statusCode).toBe(200);
     expect(page.body).toContain("Confirm unsubscribe");
+    expect(page.headers["x-content-type-options"]).toBe("nosniff");
+    expect(String(page.headers["content-security-policy"] ?? "")).toMatch(/frame-ancestors/);
 
     const done = await pub.inject({
       method: "POST",

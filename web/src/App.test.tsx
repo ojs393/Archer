@@ -183,16 +183,17 @@ describe("App shell", () => {
     expect(window.history.length).toBe(start + 1);
   });
 
-  it("canonicalises an unknown hash to the dashboard on every hashchange", async () => {
+  it("shows a not-found page for unknown hashes", async () => {
     await renderApp("#/runs");
     await panelHeading("Runs");
     act(() => {
       window.history.replaceState(null, "", "/#/no-such-tab");
       window.dispatchEvent(new HashChangeEvent("hashchange"));
     });
-    expect(window.location.hash).toBe("#/dashboard");
+    expect(window.location.hash).toBe("#/not-found");
+    expect(await screen.findByText("Page not found")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Back to Dashboard" }));
     expect(await panelHeading("Dashboard")).toBeInTheDocument();
-    expect(shellTabs().getByRole("tab", { name: "Dashboard" })).toHaveAttribute("aria-selected", "true");
   });
 
   it("gives every button, including icon-only ones, an accessible name", async () => {
@@ -219,7 +220,7 @@ describe("App shell", () => {
     const dismissable: SetupView = {
       complete: false,
       completedAt: null,
-      steps: { operator: true, provider: true, domain: false, addresses: true, testInboxes: false },
+      steps: { operator: false, provider: false, domain: false, addresses: false, testInboxes: false },
       regions: [],
     };
     ROUTES["/api/setup"] = dismissable;
@@ -228,7 +229,7 @@ describe("App shell", () => {
     const { client } = await renderApp();
     expect(await screen.findByRole("heading", { name: "Welcome to Archer" }, findTimeout)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
     await waitFor(() => {
       expect(screen.queryByRole("heading", { name: "Welcome to Archer" })).not.toBeInTheDocument();
     });

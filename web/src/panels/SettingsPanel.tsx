@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { CircleCheck, Settings } from "lucide-react";
+import { CircleCheck, RotateCw, Settings } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { Stepper, type StepperStep } from "@/components/Stepper";
 import { Button } from "@/components/ui/button";
@@ -48,7 +48,11 @@ export default function SettingsPanel() {
         {setup.isPending ? (
           <Skeleton className="h-6 w-full" />
         ) : setup.isError ? (
-          <EmptyState icon={Settings} title="Could not load setup" />
+          <EmptyState
+            icon={Settings}
+            title="Could not load setup"
+            action={{ label: "Retry", icon: RotateCw, onClick: () => void setup.refetch() }}
+          />
         ) : (
           <Stepper steps={steps} current={firstOpen === -1 ? steps.length - 1 : firstOpen} />
         )}

@@ -1,12 +1,15 @@
+import { ChevronLeft, ChevronRight, Play } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  wizardPanelClass,
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "@/components/ui/sonner";
@@ -15,6 +18,7 @@ import { useHealth, useSettings } from "@/lib/queries";
 import { useCreateCampaign, useStartCampaign } from "@/lib/queries/campaigns";
 import { useLists } from "@/lib/queries/lists";
 import { useTemplates } from "@/lib/queries/templates";
+import { cn } from "@/lib/utils";
 import type { Gate, Schedule } from "@/lib/types";
 import { AudienceStep } from "./AudienceStep";
 import { ReviewStep } from "./ReviewStep";
@@ -83,7 +87,7 @@ function clearDraft(): void {
 }
 
 export function NewRunWizard({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const lists = useLists(open);
+  const lists = useLists({}, open);
   const templates = useTemplates(open);
   const settings = useSettings(open);
   const health = useHealth(open);
@@ -203,70 +207,73 @@ export function NewRunWizard({ open, onOpenChange }: { open: boolean; onOpenChan
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl" aria-describedby="new-run-desc">
-        <DialogHeader>
+      <DialogContent className={cn("max-w-4xl", wizardPanelClass)} aria-describedby="new-run-desc">
+        <DialogHeader className="mx-0 mt-0">
           <DialogTitle>New run</DialogTitle>
           <DialogDescription id="new-run-desc">Choose audience, template, and schedule, then start.</DialogDescription>
         </DialogHeader>
 
-        <Tabs
-          value={tab}
-          onValueChange={(v) => {
-            const next = v as TabId;
-            if (!unlocked[next]) return;
-            setTab(next);
-          }}
-          className="flex flex-col gap-4"
-        >
-          <TabsList aria-label="New run steps">
-            <TabsTrigger value="audience">Audience</TabsTrigger>
-            <TabsTrigger value="template" disabled={!unlocked.template}>
-              Template
-            </TabsTrigger>
-            <TabsTrigger value="schedule" disabled={!unlocked.schedule}>
-              Schedule
-            </TabsTrigger>
-            <TabsTrigger value="review" disabled={!unlocked.review}>
-              Review
-            </TabsTrigger>
-          </TabsList>
+        <DialogBody>
+          <Tabs
+            value={tab}
+            onValueChange={(v) => {
+              const next = v as TabId;
+              if (!unlocked[next]) return;
+              setTab(next);
+            }}
+            className="flex min-h-0 flex-1 flex-col gap-4"
+          >
+            <TabsList aria-label="New run steps">
+              <TabsTrigger value="audience">Audience</TabsTrigger>
+              <TabsTrigger value="template" disabled={!unlocked.template}>
+                Template
+              </TabsTrigger>
+              <TabsTrigger value="schedule" disabled={!unlocked.schedule}>
+                Schedule
+              </TabsTrigger>
+              <TabsTrigger value="review" disabled={!unlocked.review}>
+                Review
+              </TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="audience">
-            <AudienceStep lists={lists.data ?? []} listId={draft.listId} onListIdChange={(listId) => patchDraft({ listId })} />
-          </TabsContent>
-          <TabsContent value="template">
-            <TemplateStep
-              templates={templates.data ?? []}
-              templateId={draft.templateId}
-              listId={draft.listId}
-              onTemplateIdChange={(templateId) => patchDraft({ templateId })}
-            />
-          </TabsContent>
-          <TabsContent value="schedule">
-            <ScheduleStep
-              mode={draft.mode}
-              onModeChange={setMode}
-              schedule={draft.schedule}
-              onScheduleChange={(patch) => patchDraft({ schedule: { ...draft.schedule, ...patch } })}
-              remaining={remaining}
-            />
-          </TabsContent>
-          <TabsContent value="review">
-            <ReviewStep
-              list={list}
-              template={template}
-              mode={draft.mode}
-              schedule={draft.schedule}
-              settings={settings.data}
-              health={health.data}
-              launchGates={launchGates}
-              startError={startError}
-            />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="audience">
+              <AudienceStep lists={lists.data ?? []} listId={draft.listId} onListIdChange={(listId) => patchDraft({ listId })} />
+            </TabsContent>
+            <TabsContent value="template">
+              <TemplateStep
+                templates={templates.data ?? []}
+                templateId={draft.templateId}
+                listId={draft.listId}
+                onTemplateIdChange={(templateId) => patchDraft({ templateId })}
+              />
+            </TabsContent>
+            <TabsContent value="schedule">
+              <ScheduleStep
+                mode={draft.mode}
+                onModeChange={setMode}
+                schedule={draft.schedule}
+                onScheduleChange={(patch) => patchDraft({ schedule: { ...draft.schedule, ...patch } })}
+                remaining={remaining}
+              />
+            </TabsContent>
+            <TabsContent value="review">
+              <ReviewStep
+                list={list}
+                template={template}
+                mode={draft.mode}
+                schedule={draft.schedule}
+                settings={settings.data}
+                health={health.data}
+                launchGates={launchGates}
+                startError={startError}
+              />
+            </TabsContent>
+          </Tabs>
+        </DialogBody>
 
-        <DialogFooter className="sm:justify-between">
+        <DialogFooter className="mx-0 mb-0 sm:justify-between">
           <Button variant="secondary" onClick={() => go(-1)} disabled={tab === "audience" || submitting}>
+            <ChevronLeft aria-hidden="true" />
             Back
           </Button>
           <div className="flex gap-2">
@@ -281,9 +288,11 @@ export function NewRunWizard({ open, onOpenChange }: { open: boolean; onOpenChan
                 }
               >
                 Next
+                <ChevronRight aria-hidden="true" />
               </Button>
             ) : (
               <Button onClick={() => void handleStart()} loading={submitting} disabled={!audienceOk || !templateOk}>
+                {submitting ? null : <Play aria-hidden="true" />}
                 Start run
               </Button>
             )}

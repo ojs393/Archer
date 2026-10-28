@@ -86,4 +86,14 @@ describe("TemplatesPanel", () => {
     await screen.findByText("Welcome");
     expect(document.body.textContent ?? "").not.toMatch(EMOJI_RE);
   });
+
+  it("opens a plain email preview when viewing", async () => {
+    renderTemplates();
+    await screen.findByText("Welcome");
+    fireEvent.click(screen.getByRole("button", { name: "View" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("View template")).toBeInTheDocument();
+    expect(within(dialog).getByTitle("Email preview")).toBeInTheDocument();
+    expect(within(dialog).queryByLabelText(/HTML body/i)).not.toBeInTheDocument();
+  });
 });

@@ -5,7 +5,7 @@ import { BUILTIN_KEYS, type TemplatePart, type TemplateVariable, type VariableMa
 import type { LinkCheck } from "../templates/linkCheck.ts";
 import type { SesRegion } from "../settings/sesRegions.ts";
 import type { ImportCounts } from "../import/csv.ts";
-import type { ListRow } from "../import/lists.ts";
+import type { ListView } from "../import/lists.ts";
 import type { CampaignStatus } from "../send/sendState.ts";
 import {
   dkimSelector,
@@ -25,7 +25,9 @@ import {
 
 export type { DnsAuthResult as DnsCheckResult } from "../dns/check.ts";
 export type { ImportCounts } from "../import/csv.ts";
-export type { ListRow } from "../import/lists.ts";
+export type { ListRow, ListView } from "../import/lists.ts";
+export type { ContactsPage, ContactView } from "../import/contacts.ts";
+export type { TagSummary } from "../tags/store.ts";
 export type { SuppressionRow } from "../db/suppression.ts";
 export type { WorkerEvent } from "../send/worker.ts";
 export type { Estimate, Schedule } from "../domain/schedule.ts";
@@ -101,6 +103,12 @@ export interface CampaignView {
   templateVersion: number;
   status: CampaignStatus;
   pauseReason: string | null;
+  /** Operator title; null/empty falls back to list · template in `displayName`. */
+  title: string | null;
+  tags: string[];
+  displayName: string;
+  listName: string;
+  templateName: string;
   /** null when the stored schedule JSON is unreadable; the estimate is then empty with a note. */
   schedule: Schedule | null;
   createdAt: string;
@@ -164,7 +172,7 @@ export interface ListPreview {
   emailColumn: number;
 }
 
-export type ListDetail = ListRow & { columns: string[] };
+export type ListDetail = ListView & { columns: string[] };
 
 export interface SuppressionPage {
   rows: SuppressionRow[];
@@ -231,6 +239,97 @@ export const listUploadFieldsSchema = z.strictObject({
 export type ListUploadFields = z.output<typeof listUploadFieldsSchema>;
 
 export const idParamSchema = z.strictObject({ id: z.coerce.number().int().positive() });
+
+export const listContactParamSchema = z.strictObject({
+  id: z.coerce.number().int().positive(),
+  contactId: z.coerce.number().int().positive(),
+});
+
+export const listQuerySchema = z.strictObject({
+  q: z.string().max(200).optional(),
+  status: z.enum(["importing", "ready", "failed"]).optional(),
+  tag: z.string().max(64).optional(),
+  sort: z.enum(["id", "name", "created_at", "valid_count"]).optional(),
+  order: z.enum(["asc", "desc"]).optional(),
+});
+
+export const listUpdateSchema = z
+  .strictObject({
+    name: singleLine({ min: 1, max: 200 }).optional(),
+    source_label: singleLine({ min: 1, max: 200 }).optional(),
+    tags: z.array(singleLine({ min: 1, max: 64 })).max(50).optional(),
+  })
+  .refine((v) => v.name !== undefined || v.source_label !== undefined || v.tags !== undefined, {
+    message: "Provide at least one field to update",
+  });
+
+export const contactsQuerySchema = z.strictObject({
+  q: z.string().max(320).optional(),
+  sort: z.enum(["id", "email", "domain"]).optional(),
+  order: z.enum(["asc", "desc"]).optional(),
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export const contactUpdateSchema = z
+  .strictObject({
+    email: email.optional(),
+    fields: z.record(z.string(), z.string().max(2000)).optional(),
+  })
+  .refine((v) => v.email !== undefined || v.fields !== undefined, { message: "Provide email and/or fields" });
+
+export const campaignQuerySchema = z.strictObject({
+  q: z.string().max(200).optional(),
+  status: z.string().max(200).optional(),
+  tag: z.string().max(64).optional(),
+  sort: z.enum(["id", "created_at", "status", "title"]).optional(),
+  order: z.enum(["asc", "desc"]).optional(),
+});
+
+export const SEND_ROW_STATES = [
+  "pending",
+  "sending",
+  "sent",
+  "retry",
+  "failed",
+  "uncertain",
+  "skipped_suppressed",
+] as const;
+export type SendRowState = (typeof SEND_ROW_STATES)[number];
+
+export const campaignSendsQuerySchema = z.strictObject({
+  state: z.enum(SEND_ROW_STATES).optional(),
+  q: z.string().max(320).optional(),
+  limit: z.coerce.number().int().min(0).max(1000).default(100),
+  offset: z.coerce.number().int().min(0).default(0),
+});
+
+export interface CampaignSendRow {
+  contactId: number;
+  email: string;
+  state: SendRowState;
+  attempts: number;
+  lastError: string | null;
+  smtpResponse: string | null;
+  messageId: string | null;
+  updatedAt: string;
+}
+
+export interface CampaignSendsPage {
+  total: number;
+  rows: CampaignSendRow[];
+}
+
+export const campaignUpdateSchema = z
+  .strictObject({
+    title: z.union([singleLine({ max: 200 }), z.literal("")]).optional(),
+    tags: z.array(singleLine({ min: 1, max: 64 })).max(50).optional(),
+    listId: z.number().int().positive().optional(),
+    templateId: z.number().int().positive().optional(),
+  })
+  .refine((v) => v.title !== undefined || v.tags !== undefined || v.listId !== undefined || v.templateId !== undefined, {
+    message: "Provide title, tags, listId, and/or templateId",
+  });
 
 export const suppressionQuerySchema = z.strictObject({
   search: z.string().max(320).optional(),
@@ -366,6 +465,50 @@ export const estimateSchema = z.strictObject({
 });
 
 export const campaignCreateSchema = z.strictObject({ listId: positiveId, templateId: positiveId, schedule: scheduleSchema });
+
+export const chainCreateSchema = z.strictObject({
+  name: singleLine({ min: 1, max: 200 }),
+  listId: positiveId,
+  schedule: scheduleSchema,
+  steps: z
+    .array(
+      z.strictObject({
+        templateId: positiveId,
+        delayHours: z.number().int().min(0).max(24 * 90).default(0),
+      }),
+    )
+    .min(1)
+    .max(20),
+});
+
+export const chainStartSchema = z.strictObject({
+  step: z.number().int().min(0).max(19).optional(),
+  autoStart: z.boolean().optional(),
+});
+
+export interface ChainStepView {
+  position: number;
+  templateId: number;
+  delayHours: number;
+}
+
+export interface ChainRecord {
+  id: number;
+  name: string;
+  listId: number;
+  schedule: Schedule;
+  createdAt: string;
+  steps: ChainStepView[];
+}
+
+export interface ChainSummary {
+  id: number;
+  name: string;
+  listId: number;
+  listName: string;
+  stepCount: number;
+  createdAt: string;
+}
 
 export const scheduleUpdateSchema = z.strictObject({ schedule: scheduleSchema });
 

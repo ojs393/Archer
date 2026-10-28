@@ -50,7 +50,11 @@
   }
 
   body {
-    @apply min-h-screen bg-canvas font-sans text-base text-foreground antialiased;
+    @apply min-h-screen font-sans text-base text-foreground antialiased;
+    background-color: hsl(var(--canvas));
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, hsl(221.2 83.2% 53.3% / 0.06), transparent),
+      linear-gradient(180deg, hsl(0 0% 100%) 0%, hsl(var(--canvas)) 28%);
   }
 
   h1,
@@ -64,9 +68,14 @@
     @apply text-primary underline-offset-4 hover:underline;
   }
 
-  :focus-visible {
+  /* Fallback outline for keyboard modality only — pointer/autofocus stays clean. */
+  html[data-modality="keyboard"] :focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
+  }
+
+  html[data-modality="pointer"] :focus-visible {
+    outline: none;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -83,5 +92,11 @@
 @layer utilities {
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
   }
 }

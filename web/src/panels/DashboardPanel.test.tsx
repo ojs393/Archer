@@ -134,12 +134,24 @@ describe("DashboardPanel", () => {
     expect(screen.queryByText("0%")).not.toBeInTheDocument();
   });
 
-  it("notes coverageFrom on Overview instead of inventing early zeros", async () => {
+  it("notes truncated coverage quietly on Overview instead of inventing early zeros", async () => {
     renderDashboard();
     await screen.findByText("8");
-    expect(await screen.findByText(/Showing data from/)).toBeInTheDocument();
-    expect(screen.getByText(/older events rotated out/)).toBeInTheDocument();
+    expect(await screen.findByText(/Earlier history isn’t retained/)).toBeInTheDocument();
     await waitFor(() => expect(screen.getByTestId("overview-chart")).toBeInTheDocument());
+  });
+
+  it("exposes Activity and Delivery tabs and shared time ranges", async () => {
+    renderDashboard();
+    await screen.findByText("8");
+    expect(screen.getByRole("tab", { name: "Activity" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Delivery" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Time range" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "24h" }));
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Delivery" }));
+    expect(await screen.findByText("Outcome mix")).toBeInTheDocument();
+    fireEvent.mouseDown(screen.getByRole("tab", { name: "Activity" }));
+    await waitFor(() => expect(screen.getAllByTestId("overview-chart").length).toBeGreaterThan(0));
   });
 
   it("shows feedback guidance without fake spam rates", async () => {

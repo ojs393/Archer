@@ -209,7 +209,7 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 
 ### Desktop launcher
 - Written to the desktop folder (`~/Desktop`; on Windows the folder PowerShell `[Environment]::GetFolderPath('Desktop')` reports (read as UTF-8), or, if that fails or is not an absolute path, `%USERPROFILE%\OneDrive\Desktop` when it exists, otherwise `<home>\Desktop`), created if missing, overwriting an earlier launcher. Every launcher puts the folder of the running Node.js first on `PATH` (a double-clicked launcher does not read the shell profile that usually does that) and then runs `npm start` in the project root.
-  - macOS: `Archer.command` (bash, mode 755). No custom icon is set on the file.
+  - macOS: `Archer.app` bundle (executable + `AppIcon.icns` when present).
   - Linux: `Archer.desktop` (mode 755, `Terminal=true`, `Exec=bash -lc "…"` escaped per the Desktop Entry spec, `Icon=` the 512 px PNG when it exists). Some desktops also ask the user to "Allow launching" the first time.
   - Windows: `Archer.cmd` (UTF-8 without BOM; `chcp 65001 >nul` right after `@echo off` so cmd.exe reads non-ASCII paths correctly; `call npm start`, then `if errorlevel 1 pause` so a failure stays on screen), plus a best-effort `Archer.lnk` with the `.ico` icon made through PowerShell `WScript.Shell` (a failure there is ignored). PowerShell literals double `'` and the curly quotes U+2018–U+201B.
 - Icons are read from `assets/icons/` (`archer.icns`, `archer.ico`, `archer-512.png`). Paths with a line break or control character (and, on Windows, a double quote) are refused with 500 `launcher_failed`; so is any write error, with its reason in the message.

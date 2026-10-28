@@ -1,6 +1,6 @@
 import { QueryClientProvider, type QueryClient } from "@tanstack/react-query";
 import { RotateCw, Unplug } from "lucide-react";
-import { Suspense, useEffect, useRef, useState, type ComponentType, type LazyExoticComponent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type ComponentType, type LazyExoticComponent } from "react";
 import { EmptyState } from "@/components/EmptyState";
 import { SetupWizard } from "@/components/setup/SetupWizard";
 import { Card } from "@/components/ui/card";
@@ -17,7 +17,7 @@ import { useEventStream } from "@/lib/useEventStream";
 import { AppHeader } from "@/shell/AppHeader";
 import { PanelBoundary } from "@/shell/PanelBoundary";
 import { ReconnectBanner } from "@/shell/ReconnectBanner";
-import { useHashTab } from "@/shell/useHashTab";
+import { shellTab, useAppRoute } from "@/shell/useAppRoute";
 
 const PANELS: Record<TabId, LazyExoticComponent<ComponentType>> = {
   dashboard: lazyPanel(() => import("@/panels/DashboardPanel")),
@@ -26,6 +26,10 @@ const PANELS: Record<TabId, LazyExoticComponent<ComponentType>> = {
   templates: lazyPanel(() => import("@/panels/TemplatesPanel")),
   settings: lazyPanel(() => import("@/panels/SettingsPanel")),
 };
+
+const CampaignPage = lazy(() => import("@/panels/campaign/CampaignPage"));
+const ChainsPage = lazy(() => import("@/panels/chains/ChainsPage"));
+const NotFoundPanel = lazy(() => import("@/panels/NotFoundPanel"));
 
 /** Keys Radix uses to move focus between tabs; with automatic activation they also select. */
 const ROVING_KEYS = new Set(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End", "PageUp", "PageDown"]);
@@ -40,7 +44,8 @@ function PanelFallback() {
 }
 
 function Shell() {
-  const [tab, setTab] = useHashTab();
+  const [route, setTab] = useAppRoute();
+  const tab = shellTab(route);
   const session = useSession();
   const ready = session.isSuccess;
   useEventStream({ enabled: ready });
@@ -107,6 +112,22 @@ function Shell() {
               action={{ label: "Retry", icon: RotateCw, onClick: () => void session.refetch() }}
             />
           </Card>
+        ) : route.kind === "campaign" ? (
+          <PanelBoundary resetKey={`campaign-${route.id}-${route.tab}`}>
+            <Suspense fallback={<PanelFallback />}>
+              <CampaignPage id={route.id} tab={route.tab} />
+            </Suspense>
+          </PanelBoundary>
+        ) : route.kind === "chains" ? (
+          <PanelBoundary resetKey="chains">
+            <Suspense fallback={<PanelFallback />}>
+              <ChainsPage />
+            </Suspense>
+          </PanelBoundary>
+        ) : route.kind === "notfound" ? (
+          <Suspense fallback={<PanelFallback />}>
+            <NotFoundPanel />
+          </Suspense>
         ) : (
           TAB_IDS.map((id) => (
             <TabsContent key={id} value={id} tabIndex={-1}>

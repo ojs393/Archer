@@ -2,20 +2,21 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import type { ListPreview, ListRow } from "@/lib/types";
+import type { ListPreview, ListView } from "@/lib/types";
 import AudiencePanel from "./AudiencePanel";
 
 const EMOJI_RE = /\p{Extended_Pictographic}/u;
-const list: ListRow = {
+const list: ListView = {
   id: 1, name: "Autumn", source_label: "csv", consent_text: "yes", consent_at: "2026-10-01T00:00:00.000Z",
   exclude_roles: 1, email_column: "email", status: "ready", total_rows: 12, valid_count: 10, invalid_count: 1,
   duplicate_count: 0, suppressed_count: 1, role_count: 0, error: null, created_at: "2026-10-01T00:00:00.000Z",
+  tags: ["vip"],
 };
 const preview: ListPreview = {
   delimiter: ",", headers: ["email", "first_name"], headerless: false,
   rows: [["a@example.com", "Alex"], ["b@example.com", "Bo"]], emailColumn: 0,
 };
-let listsState: ListRow[];
+let listsState: ListView[];
 function json(data: unknown, code = 200) {
   return new Response(JSON.stringify(data), { status: code, headers: { "content-type": "application/json" } });
 }
@@ -30,15 +31,23 @@ beforeEach(() => {
     const path = String(url).split("?")[0];
     const method = (init?.method ?? "GET").toUpperCase();
     if (path === "/api/session") return new Response(null, { status: 204 });
+    if (path === "/api/tags") return json({ tags: [{ id: 1, name: "vip", color: null, listCount: 1, campaignCount: 0 }] });
     if (path === "/api/lists" && method === "GET") return json(listsState);
     if (path === "/api/lists/preview" && method === "POST") return json(preview);
     if (path === "/api/lists" && method === "POST") {
-      const imported: ListRow = { ...list, id: 7, name: "Imported", status: "ready", valid_count: 5, invalid_count: 2, suppressed_count: 1, duplicate_count: 0, role_count: 0, total_rows: 8 };
+      const imported: ListView = { ...list, id: 7, name: "Imported", status: "ready", valid_count: 5, invalid_count: 2, suppressed_count: 1, duplicate_count: 0, role_count: 0, total_rows: 8, tags: [] };
       listsState = [imported, ...listsState];
       return json({ listId: 7 }, 202);
     }
     if (path === "/api/lists/1" && method === "GET") return json({ ...list, columns: ["first_name", "company"] });
     if (path === "/api/lists/7" && method === "GET") return json({ ...listsState.find((l) => l.id === 7)!, columns: [] });
+    if (path.match(/^\/api\/lists\/\d+\/contacts$/) && method === "GET") {
+      return json({
+        columns: ["first_name", "company"],
+        total: 1,
+        contacts: [{ id: 1, email: "a@example.com", domain: "example.com", fields: { first_name: "Alex", company: "Acme" } }],
+      });
+    }
     if (path.match(/^\/api\/lists\/\d+$/) && method === "DELETE") return new Response(null, { status: 204 });
     return json({ error: { code: "not_found", message: path } }, 404);
   }));
@@ -70,5 +79,15 @@ describe("AudiencePanel", () => {
     renderAudience();
     await screen.findByText("Autumn");
     expect(document.body.textContent ?? "").not.toMatch(EMOJI_RE);
+  });
+
+  it("shows contact fields with plain labels not raw keys", async () => {
+    renderAudience();
+    fireEvent.click(await screen.findByText("Autumn"));
+    expect(await screen.findByText("a@example.com")).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "First Name" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Company" })).toBeInTheDocument();
+    expect(screen.getByText("Alex")).toBeInTheDocument();
+    expect(screen.queryByRole("columnheader", { name: "first_name" })).not.toBeInTheDocument();
   });
 });

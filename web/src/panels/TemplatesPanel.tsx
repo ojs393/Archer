@@ -1,9 +1,10 @@
-import { FileText, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { FileText, Plus, RotateCw } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/components/ui/sonner";
 import { api, isApiError } from "@/lib/api";
@@ -20,21 +21,32 @@ export default function TemplatesPanel() {
 
   const [editorOpen, setEditorOpen] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
+  const [viewOnly, setViewOnly] = useState(false);
   const [deleteId, setDeleteId] = useState<number | null>(null);
+  const [q, setQ] = useState("");
   const [subjects, setSubjects] = useState<Map<number, string>>(new Map());
 
   /** Depend on query data directly — `data ?? []` would be a new [] every render while loading. */
-  const rows = templates.data;
+  const allRows = templates.data;
+  const rows = useMemo(() => {
+    if (!allRows) return allRows;
+    const needle = q.trim().toLowerCase();
+    if (!needle) return allRows;
+    return allRows.filter((row) => {
+      const subject = (subjects.get(row.id) ?? "").toLowerCase();
+      return row.name.toLowerCase().includes(needle) || subject.includes(needle);
+    });
+  }, [allRows, q, subjects]);
 
   useEffect(() => {
     let cancelled = false;
     async function loadSubjects() {
-      if (!rows || rows.length === 0) {
+      if (!allRows || allRows.length === 0) {
         setSubjects(new Map());
         return;
       }
       const entries = await Promise.all(
-        rows.map(async (row) => {
+        allRows.map(async (row) => {
           try {
             const view = await api.get<TemplateView>(`/api/templates/${row.id}`);
             return [row.id, view.subject] as const;
@@ -49,15 +61,23 @@ export default function TemplatesPanel() {
     return () => {
       cancelled = true;
     };
-  }, [rows]);
+  }, [allRows]);
 
   function openNew() {
     setEditId(null);
+    setViewOnly(false);
     setEditorOpen(true);
   }
 
   function openEdit(id: number) {
     setEditId(id);
+    setViewOnly(false);
+    setEditorOpen(true);
+  }
+
+  function openView(id: number) {
+    setEditId(id);
+    setViewOnly(true);
     setEditorOpen(true);
   }
 
@@ -91,20 +111,36 @@ export default function TemplatesPanel() {
         </Button>
       }
     >
-      <Card>
+      <Card className="shadow-card ring-1 ring-black/[0.03]">
+        <div className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
+          <Input
+            className="max-w-xs"
+            placeholder="Search templates…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            aria-label="Search templates"
+          />
+        </div>
         {templates.isPending ? (
           <div className="space-y-2 p-4">
             <Skeleton className="h-8 w-full" />
             <Skeleton className="h-8 w-full" />
           </div>
         ) : templates.isError ? (
-          <EmptyState icon={FileText} title="Could not load templates" />
-        ) : !rows || rows.length === 0 ? (
+          <EmptyState
+            icon={FileText}
+            title="Could not load templates"
+            action={{ label: "Retry", icon: RotateCw, onClick: () => void templates.refetch() }}
+          />
+        ) : !allRows || allRows.length === 0 ? (
           <EmptyState icon={FileText} title="No templates yet" action={{ label: "New template", onClick: openNew, icon: Plus }} />
+        ) : !rows || rows.length === 0 ? (
+          <EmptyState icon={FileText} title="No templates match" />
         ) : (
           <TemplatesTable
             rows={rows}
             subjects={subjects}
+            onView={openView}
             onEdit={openEdit}
             onDuplicate={(id) => void onDuplicate(id)}
             onDelete={setDeleteId}
@@ -112,7 +148,12 @@ export default function TemplatesPanel() {
         )}
       </Card>
 
-      <TemplateEditor open={editorOpen} onOpenChange={setEditorOpen} templateId={editId} />
+      <TemplateEditor
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        templateId={editId}
+        readOnly={viewOnly}
+      />
 
       <ConfirmDialog
         open={deleteId !== null}

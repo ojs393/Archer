@@ -1,3 +1,4 @@
+import { Upload } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { FieldRow } from "@/components/FieldRow";
@@ -5,11 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  wizardPanelClass,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +23,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { api, isApiError } from "@/lib/api";
 import { importList, previewListCsv } from "@/lib/queries/lists";
 import { queryKeys } from "@/lib/queryKeys";
+import { cn } from "@/lib/utils";
 import type { ListDetail, ListPreview } from "@/lib/types";
 
 type ImportResult = {
@@ -121,13 +125,13 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         onOpenChange(next);
       }}
     >
-      <DialogContent className="max-w-3xl">
-        <DialogHeader>
+      <DialogContent className={cn("max-w-3xl", wizardPanelClass)}>
+        <DialogHeader className="mx-0 mt-0">
           <DialogTitle>Import CSV</DialogTitle>
           <DialogDescription>Upload a CSV, map the email column, and confirm consent.</DialogDescription>
         </DialogHeader>
 
-        <div className="flex flex-col gap-4">
+        <DialogBody>
           <FieldRow id="import-file" label="CSV file">
             <Input type="file" accept=".csv,text/csv" data-testid="import-file" onChange={(e) => void onFile(e.target.files?.[0] ?? null)} />
           </FieldRow>
@@ -212,9 +216,9 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
               </ul>
             </div>
           ) : null}
-        </div>
+        </DialogBody>
 
-        <DialogFooter>
+        <DialogFooter className="mx-0 mb-0">
           <Button
             variant="secondary"
             onClick={() => {
@@ -225,6 +229,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             Close
           </Button>
           <Button onClick={() => void submit()} loading={busy} disabled={!file || !consentConfirmed || Boolean(result)}>
+            {busy ? null : <Upload aria-hidden="true" />}
             Import
           </Button>
         </DialogFooter>

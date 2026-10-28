@@ -1,4 +1,4 @@
-import { MessageSquareWarning } from "lucide-react";
+import { MessageSquareWarning, RotateCw } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { Card } from "@/components/ui/card";
 import { InfoHint } from "@/components/ui/InfoHint";
@@ -9,14 +9,18 @@ export function FeedbackTab() {
   const feedback = useAnalyticsFeedback();
 
   return (
-    <Card>
+    <Card className="animate-in fade-in duration-300">
       {feedback.isPending ? (
         <div className="flex flex-col items-center gap-3 px-6 py-14">
           <Skeleton className="h-11 w-11 rounded-full" />
           <Skeleton className="h-4 w-64" />
         </div>
       ) : feedback.isError || !feedback.data ? (
-        <EmptyState icon={MessageSquareWarning} title="Could not load feedback" />
+        <EmptyState
+          icon={MessageSquareWarning}
+          title="Could not load feedback"
+          action={{ label: "Retry", icon: RotateCw, onClick: () => void feedback.refetch() }}
+        />
       ) : feedback.data.available ? (
         <div className="flex flex-col gap-4 px-6 py-8">
           <div className="grid grid-cols-2 gap-4">

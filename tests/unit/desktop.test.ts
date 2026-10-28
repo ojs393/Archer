@@ -55,10 +55,11 @@ describe("desktopDir", () => {
 });
 
 describe("createDesktopLauncher on macOS", () => {
-  it("writes an executable Archer.command that starts Archer in the project root", async () => {
+  it("writes Archer.app with an executable that starts Archer in the project root", async () => {
     const result = await createDesktopLauncher({ projectRoot: root, iconPath: path.join(dir, "missing.icns"), platform: "darwin", desktopDir: desktop, nodeBinDir: bin });
-    expect(result).toEqual({ path: path.join(desktop, "Archer.command"), platform: "darwin" });
-    const text = fs.readFileSync(result.path, "utf8");
+    expect(result).toEqual({ path: path.join(desktop, "Archer.app"), platform: "darwin" });
+    const exe = path.join(result.path, "Contents", "MacOS", "Archer");
+    const text = fs.readFileSync(exe, "utf8");
     expect(text).toBe(
       [
         "#!/bin/bash",
@@ -67,22 +68,33 @@ describe("createDesktopLauncher on macOS", () => {
         "",
       ].join("\n"),
     );
-    if (process.platform !== "win32") expect(fs.statSync(result.path).mode & 0o777).toBe(0o755);
+    if (process.platform !== "win32") expect(fs.statSync(exe).mode & 0o777).toBe(0o755);
+    expect(fs.existsSync(path.join(result.path, "Contents", "Info.plist"))).toBe(true);
+    expect(fs.existsSync(path.join(result.path, "Contents", "Resources", "AppIcon.icns"))).toBe(false);
+  });
+
+  it("copies the .icns into Resources when the icon exists", async () => {
+    const icon = path.join(dir, "archer.icns");
+    fs.writeFileSync(icon, "icns-bytes");
+    const { path: app } = await createDesktopLauncher({ projectRoot: root, iconPath: icon, platform: "darwin", desktopDir: desktop, nodeBinDir: bin });
+    expect(fs.readFileSync(path.join(app, "Contents", "Resources", "AppIcon.icns"), "utf8")).toBe("icns-bytes");
   });
 
   posixOnly("runs npm start from the exact project path despite spaces and quotes", async () => {
     const out = fakeNpm();
-    const { path: file } = await createDesktopLauncher({ projectRoot: root, iconPath: "", platform: "darwin", desktopDir: desktop, nodeBinDir: bin });
-    execFileSync("/bin/bash", [file], { env: { PATH: "/usr/bin:/bin", HOME: dir } });
+    const { path: app } = await createDesktopLauncher({ projectRoot: root, iconPath: "", platform: "darwin", desktopDir: desktop, nodeBinDir: bin });
+    const exe = path.join(app, "Contents", "MacOS", "Archer");
+    execFileSync("/bin/bash", [exe], { env: { PATH: "/usr/bin:/bin", HOME: dir } });
     expect(fs.readFileSync(out, "utf8")).toBe(`${fs.realpathSync(root)}|start`);
   });
 
-  it("overwrites an existing launcher and keeps it executable", async () => {
-    fs.mkdirSync(desktop);
-    fs.writeFileSync(path.join(desktop, "Archer.command"), "old", { mode: 0o600 });
-    const { path: file } = await createDesktopLauncher({ projectRoot: root, iconPath: "", platform: "darwin", desktopDir: desktop, nodeBinDir: bin });
-    expect(fs.readFileSync(file, "utf8")).toContain("npm start");
-    if (process.platform !== "win32") expect(fs.statSync(file).mode & 0o777).toBe(0o755);
+  it("overwrites an existing app and keeps the executable bit", async () => {
+    fs.mkdirSync(path.join(desktop, "Archer.app", "Contents", "MacOS"), { recursive: true });
+    fs.writeFileSync(path.join(desktop, "Archer.app", "Contents", "MacOS", "Archer"), "old", { mode: 0o600 });
+    const { path: app } = await createDesktopLauncher({ projectRoot: root, iconPath: "", platform: "darwin", desktopDir: desktop, nodeBinDir: bin });
+    const exe = path.join(app, "Contents", "MacOS", "Archer");
+    expect(fs.readFileSync(exe, "utf8")).toContain("npm start");
+    if (process.platform !== "win32") expect(fs.statSync(exe).mode & 0o777).toBe(0o755);
   });
 });
 

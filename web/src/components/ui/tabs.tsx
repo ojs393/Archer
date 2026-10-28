@@ -1,6 +1,6 @@
 import * as TabsPrimitive from "@radix-ui/react-tabs";
 import * as React from "react";
-import { cn, focusRing, focusRingInset } from "@/lib/utils";
+import { cn, focusRingInset } from "@/lib/utils";
 
 const Tabs = TabsPrimitive.Root;
 
@@ -42,7 +42,7 @@ const TabsContent = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <TabsPrimitive.Content
     ref={ref}
-    className={cn("min-w-0 focus-visible:outline-none", focusRing, className)}
+    className={cn("min-w-0 outline-none focus-visible:outline-none", className)}
     {...props}
   />
 ));

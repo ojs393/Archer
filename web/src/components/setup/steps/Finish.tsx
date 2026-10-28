@@ -1,4 +1,4 @@
-import { Check, X } from "lucide-react";
+import { AppWindow, Check, X } from "lucide-react";
 import { IconButton } from "@/components/IconButton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -101,7 +101,15 @@ export function FinishStep({
       </div>
 
       <div className="flex flex-col gap-2">
+        <div className="flex min-h-6 items-center gap-1">
+          <span className="text-sm font-medium text-foreground">Desktop launcher</span>
+          <InfoHint label="About Add to Desktop">
+            Writes a one-click starter on your Desktop that runs npm start in this project. Safe to skip — you can add
+            it later from Settings.
+          </InfoHint>
+        </div>
         <Button type="button" variant="secondary" loading={launching} onClick={onAddDesktop}>
+          {launching ? null : <AppWindow aria-hidden="true" />}
           Add to Desktop
         </Button>
         {launcherPath ? (

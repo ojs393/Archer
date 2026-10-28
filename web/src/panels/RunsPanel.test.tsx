@@ -8,10 +8,11 @@ import RunsPanel from "./RunsPanel";
 
 const EMOJI_RE = /\p{Extended_Pictographic}/u;
 
-const list: ListRow = {
+const list: ListRow & { tags: string[] } = {
   id: 1, name: "Autumn", source_label: "csv", consent_text: "yes", consent_at: "2026-10-01T00:00:00.000Z",
   exclude_roles: 1, email_column: "email", status: "ready", total_rows: 10, valid_count: 8, invalid_count: 1,
   duplicate_count: 0, suppressed_count: 1, role_count: 0, error: null, created_at: "2026-10-01T00:00:00.000Z",
+  tags: [],
 };
 const templateSummary: TemplateSummary = { id: 2, name: "Promo", version: 1, updatedAt: "2026-10-20T00:00:00.000Z" };
 const templateView: TemplateView = {
@@ -23,6 +24,7 @@ const templateView: TemplateView = {
 const schedule = { timezone: "UTC", sendDays: [1,2,3,4,5], startTime: "09:00", endTime: "17:00", dailyCap: 2000, warmup: false, delaySeconds: 10 };
 const campaign: CampaignView = {
   id: 9, listId: 1, templateId: 2, templateVersion: 1, status: "running", pauseReason: null, schedule,
+  title: null, tags: [], displayName: "Autumn · Promo", listName: "Autumn", templateName: "Promo",
   createdAt: "2026-10-26T08:00:00.000Z", startedAt: "2026-10-26T08:05:00.000Z", finishedAt: null,
   counts: { pending: 5, sending: 0, sent: 3, retry: 0, failed: 0, uncertain: 0, skipped_suppressed: 0, total: 8 },
   estimate: { perDay: [], completionDate: "2026-10-27", totalDays: 1 },
@@ -71,6 +73,7 @@ beforeEach(() => {
     }
     if (path.match(/^\/api\/campaigns\/\d+\/(pause|resume|stop)$/)) return json(campaign);
     if (path === "/api/lists") return json([list]);
+    if (path === "/api/tags") return json({ tags: [] });
     if (path === "/api/templates") return json([templateSummary]);
     if (path === "/api/templates/2") return json(templateView);
     if (path === "/api/templates/2/preview") return json({ contactId: null, email: "a@x.com", subject: "Hello Alex", html: "<p>Hi</p>", text: "Hi" });

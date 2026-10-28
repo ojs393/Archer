@@ -162,7 +162,7 @@ beforeEach(() => {
 
     if (path === "/api/system/desktop-launcher" && method === "POST") {
       posts.push({ path });
-      return json({ ok: true, path: "/Users/test/Desktop/Archer.command" });
+      return json({ ok: true, path: "/Users/test/Desktop/Archer.app" });
     }
 
     if (path === "/api/setup/complete" && method === "POST") {
@@ -194,6 +194,15 @@ describe("SetupWizard", () => {
     renderWizard(true);
     await waitReady();
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("allows Skip for now and Close before any steps are done", async () => {
+    const { onOpenChange } = renderWizard();
+    await waitReady();
+    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "About local security" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
+    expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
   it("does not render dialog content when closed even if setup is incomplete", async () => {
@@ -271,7 +280,7 @@ describe("SetupWizard", () => {
     expect(await screen.findByRole("heading", { name: "Test inboxes" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add to Desktop" }));
     await waitFor(() => expect(posts.some((p) => p.path === "/api/system/desktop-launcher")).toBe(true));
-    expect(await screen.findByText(/Archer\.command/)).toBeInTheDocument();
+    expect(await screen.findByText(/Archer\.app/)).toBeInTheDocument();
   });
 
   it("surfaces 409 missing steps from complete", async () => {

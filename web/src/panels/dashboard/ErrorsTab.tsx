@@ -1,4 +1,4 @@
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, RotateCw } from "lucide-react";
 import { EmptyState } from "@/components/EmptyState";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -29,7 +29,7 @@ export function ErrorsTab({
   const rows = errors.data?.rows ?? [];
 
   return (
-    <div className="flex flex-col gap-3">
+    <div className="flex flex-col gap-3 animate-in fade-in duration-300">
       <CampaignFilter runs={runs} value={campaignId} onChange={onCampaignIdChange} />
       <Card>
         {errors.isPending ? (
@@ -39,7 +39,11 @@ export function ErrorsTab({
             <Skeleton className="h-8 w-3/4" />
           </div>
         ) : errors.isError ? (
-          <EmptyState icon={AlertTriangle} title="Could not load errors" />
+          <EmptyState
+            icon={AlertTriangle}
+            title="Could not load errors"
+            action={{ label: "Retry", icon: RotateCw, onClick: () => void errors.refetch() }}
+          />
         ) : rows.length === 0 ? (
           <EmptyState icon={AlertTriangle} title="No errors yet" />
         ) : (

@@ -24,7 +24,7 @@ export function StatusPill({
       aria-label={`Run: ${view.label}`}
       tabIndex={detail ? 0 : undefined}
       className={cn(
-        "inline-flex h-7 items-center gap-2 rounded-full border border-border bg-background px-2.5 text-xs font-medium text-zinc-700",
+        "inline-flex h-7 items-center gap-2 rounded-full bg-zinc-100 px-2.5 text-xs font-medium text-zinc-700",
         compact && "max-sm:w-7 max-sm:justify-center max-sm:px-0",
         className,
       )}

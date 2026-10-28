@@ -1,3 +1,4 @@
+import { Globe } from "lucide-react";
 import { FieldRow } from "@/components/FieldRow";
 import { StatusDot } from "@/components/StatusDot";
 import { Button } from "@/components/ui/button";
@@ -97,7 +98,11 @@ export function DomainStep({
           required
         />
       </FieldRow>
-      <FieldRow id="setup-dkim-selector" label="DKIM selector">
+      <FieldRow
+        id="setup-dkim-selector"
+        label="DKIM selector"
+        info="The left label of your DKIM DNS name (often s1 or a SES token). Must match what your provider issued."
+      >
         <Input
           value={draft.dkimSelector}
           onChange={(e) => onChange({ dkimSelector: e.target.value })}
@@ -108,6 +113,7 @@ export function DomainStep({
       </FieldRow>
 
       <Button type="button" variant="secondary" loading={checking} onClick={onCheck}>
+        {checking ? null : <Globe aria-hidden="true" />}
         Check DNS
       </Button>
 

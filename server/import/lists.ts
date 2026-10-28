@@ -1,5 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 import { transaction } from "../db/transaction.ts";
+import { listTagsForList, resolveTagId, setListTags } from "../tags/store.ts";
 
 export interface ListRow {
   id: number;
@@ -20,10 +21,27 @@ export interface ListRow {
   created_at: string;
 }
 
+export type ListView = ListRow & { tags: string[] };
+
+export type ListSort = "id" | "name" | "created_at" | "valid_count";
+export type SortOrder = "asc" | "desc";
+
+export interface ListQuery {
+  q?: string;
+  status?: ListRow["status"];
+  tag?: string;
+  sort?: ListSort;
+  order?: SortOrder;
+}
+
 function required(value: string, label: string): string {
   const trimmed = value.trim();
   if (!trimmed) throw new Error(`${label} is required`);
   return trimmed;
+}
+
+function withTags(db: DatabaseSync, row: ListRow): ListView {
+  return { ...row, tags: listTagsForList(db, row.id) };
 }
 
 export function createList(
@@ -44,8 +62,58 @@ export function getList(db: DatabaseSync, id: number): ListRow | undefined {
   return row && { ...row };
 }
 
-export function listLists(db: DatabaseSync): ListRow[] {
-  return (db.prepare("SELECT * FROM lists ORDER BY id DESC").all() as unknown as ListRow[]).map((r) => ({ ...r }));
+export function getListView(db: DatabaseSync, id: number): ListView | undefined {
+  const row = getList(db, id);
+  return row ? withTags(db, row) : undefined;
+}
+
+export function listLists(db: DatabaseSync, query: ListQuery = {}): ListView[] {
+  const where: string[] = [];
+  const params: unknown[] = [];
+  const q = query.q?.trim();
+  if (q) {
+    where.push("(name LIKE ? ESCAPE '\\' OR source_label LIKE ? ESCAPE '\\')");
+    const like = `%${q.replace(/([%_\\])/g, "\\$1")}%`;
+    params.push(like, like);
+  }
+  if (query.status) {
+    where.push("status = ?");
+    params.push(query.status);
+  }
+  if (query.tag?.trim()) {
+    const tagId = resolveTagId(db, query.tag);
+    if (tagId === null) return [];
+    where.push("id IN (SELECT list_id FROM list_tags WHERE tag_id = ?)");
+    params.push(tagId);
+  }
+  const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : "";
+  const sort = query.sort ?? "id";
+  const order = query.order === "asc" ? "ASC" : "DESC";
+  const sortCol =
+    sort === "name" ? "name COLLATE NOCASE" : sort === "created_at" ? "created_at" : sort === "valid_count" ? "valid_count" : "id";
+  const rows = db.prepare(`SELECT * FROM lists ${whereSql} ORDER BY ${sortCol} ${order}`).all(...(params as never[])) as unknown as ListRow[];
+  return rows.map((r) => withTags(db, { ...r }));
+}
+
+export function updateList(
+  db: DatabaseSync,
+  id: number,
+  patch: { name?: string; source_label?: string; tags?: string[] },
+): ListView {
+  const row = getList(db, id);
+  if (!row) throw new Error("List not found");
+  return transaction(db, () => {
+    if (patch.name !== undefined) {
+      db.prepare("UPDATE lists SET name = ? WHERE id = ?").run(required(patch.name, "List name"), id);
+    }
+    if (patch.source_label !== undefined) {
+      db.prepare("UPDATE lists SET source_label = ? WHERE id = ?").run(required(patch.source_label, "Source label"), id);
+    }
+    if (patch.tags !== undefined) setListTags(db, id, patch.tags);
+    const updated = getList(db, id);
+    if (!updated) throw new Error("List not found");
+    return withTags(db, updated);
+  });
 }
 
 export function getListColumns(db: DatabaseSync, listId: number): string[] {
