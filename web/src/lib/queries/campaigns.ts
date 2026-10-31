@@ -3,6 +3,7 @@ import { api } from "@/lib/api";
 import { queryKeys } from "@/lib/queryKeys";
 import type {
   CampaignEventsPage,
+  CampaignsPage,
   CampaignSendsPage,
   CampaignView,
   Estimate,
@@ -17,6 +18,8 @@ export type CampaignFilters = {
   tag?: string;
   sort?: "id" | "created_at" | "status" | "title";
   order?: "asc" | "desc";
+  limit?: number;
+  offset?: number;
 };
 
 function toQuery(params: Record<string, string | undefined>): string {
@@ -40,21 +43,27 @@ export function campaignKey(id: number) {
 export function useCampaigns(
   filters: CampaignFilters = {},
   enabled = true,
-  options?: { refetchInterval?: false | number | ((query: { state: { data: CampaignView[] | undefined } }) => false | number) },
+  options?: {
+    refetchInterval?: false | number | ((query: { state: { data: CampaignView[] | undefined } }) => false | number);
+  },
 ) {
   return useQuery({
     queryKey: campaignsKey(filters),
-    queryFn: ({ signal }) =>
-      api.get<CampaignView[]>(
+    queryFn: async ({ signal }) => {
+      const page = await api.get<CampaignsPage>(
         `/api/campaigns${toQuery({
           q: filters.q,
           status: filters.status,
           tag: filters.tag,
           sort: filters.sort,
           order: filters.order,
+          limit: String(filters.limit ?? 500),
+          offset: filters.offset !== undefined ? String(filters.offset) : undefined,
         })}`,
         { signal },
-      ),
+      );
+      return page.campaigns;
+    },
     enabled,
     refetchInterval: options?.refetchInterval,
   });

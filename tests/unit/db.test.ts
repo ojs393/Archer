@@ -2,7 +2,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   backup,
   checkIntegrity,
@@ -12,6 +12,7 @@ import {
 } from "../../server/db/index.ts";
 import { runMigrations } from "../../server/db/migrate.ts";
 import { getAllSettings, getSetting, setSetting } from "../../server/db/settings.ts";
+import * as diskSpace from "../../server/system/diskSpace.ts";
 
 const TABLES = [
   "campaign_days",
@@ -289,7 +290,17 @@ describe("backup", () => {
     const file = backup(db, backupsDir, new Date("2026-10-25T12:00:00Z"));
     expect(fs.existsSync(file)).toBe(true);
   });
+
+  it("refuses VACUUM when free disk is below the need floor", () => {
+    const db = track(openDb(path.join(dir, "app.db")));
+    const backupsDir = path.join(dir, "backups-tight");
+    vi.spyOn(diskSpace, "freeBytes").mockReturnValue(1024);
+    expect(() => backup(db, backupsDir, new Date("2026-10-26T12:00:00Z"))).toThrow(/Not enough free disk/);
+    expect(fs.existsSync(backupsDir) ? fs.readdirSync(backupsDir) : []).toEqual([]);
+    vi.restoreAllMocks();
+  });
 });
+
 
 describe("openDbWithRecovery", () => {
   it("opens a fresh database when none exists", () => {

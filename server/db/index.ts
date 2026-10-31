@@ -8,6 +8,7 @@ import {
   restoreLatestBackup,
 } from "../../scripts/lib/db-maint.mjs";
 import { optimizeDb, walCheckpoint } from "../send/events.ts";
+import { freeBytes, MIN_FREE_GIB_FOR_BACKUP } from "../system/diskSpace.ts";
 import { runMigrations } from "./migrate.ts";
 
 export { runMigrations } from "./migrate.ts";
@@ -62,6 +63,22 @@ export function backup(db: DatabaseSync, backupsDir: string, now: Date = new Dat
   fs.mkdirSync(backupsDir, { recursive: true });
   const target = path.join(backupsDir, `archer-${now.toISOString().slice(0, 10)}.db`);
   if (!fs.existsSync(target)) {
+    // VACUUM INTO needs roughly the live DB size free; require a floor so we fail soft.
+    const dbPath = (db.prepare("PRAGMA database_list").all() as { file: string }[]).find((r) => r.file)?.file;
+    if (dbPath) {
+      const need = Math.max(fs.statSync(dbPath).size * 1.1, MIN_FREE_GIB_FOR_BACKUP * 1024 ** 3);
+      let avail = 0;
+      try {
+        avail = freeBytes(path.dirname(dbPath));
+      } catch {
+        avail = need;
+      }
+      if (avail < need) {
+        throw new Error(
+          `Not enough free disk for backup (need ~${(need / 1024 ** 3).toFixed(1)} GiB, have ${(avail / 1024 ** 3).toFixed(1)} GiB)`,
+        );
+      }
+    }
     const staging = `${target}.partial`;
     fs.rmSync(staging, { force: true });
     db.prepare("VACUUM INTO ?").run(staging);

@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { auditResult } from "../../../scripts/lib/checks.mjs";
+import { describe, expect, it, vi } from "vitest";
+import { auditResult, diskSpace } from "../../../scripts/lib/checks.mjs";
+import * as disk from "../../../scripts/lib/disk.mjs";
 
 const auditJson = (high: number, critical: number) =>
   JSON.stringify({ metadata: { vulnerabilities: { info: 0, low: 3, moderate: 1, high, critical, total: 4 + high + critical } } });
@@ -45,3 +46,20 @@ describe("auditResult", () => {
     });
   });
 });
+
+describe("diskSpace", () => {
+  it("passes when enough free space", () => {
+    vi.spyOn(disk, "freeGiB").mockReturnValue(5);
+    expect(diskSpace({ dataDir: "/data" })).toMatchObject({ status: "PASS", name: "free disk" });
+    vi.restoreAllMocks();
+  });
+
+  it("warns below the backup floor", () => {
+    vi.spyOn(disk, "freeGiB").mockReturnValue(0.5);
+    const r = diskSpace({ dataDir: "/data" });
+    expect(r.status).toBe("WARN");
+    expect(r.detail).toMatch(/need ≥2 GiB/);
+    vi.restoreAllMocks();
+  });
+});
+

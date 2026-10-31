@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { checkIntegrity, restoreLatestBackup } from "./db-maint.mjs";
 import { installArgs, missingDependencies } from "./deps.mjs";
+import { freeGiB, MIN_FREE_GIB_FOR_BACKUP } from "./disk.mjs";
 import { ensureDataDirs, ensureSecrets, loadEnv } from "./env.mjs";
 import { projectRoot, resolvePaths } from "./paths.mjs";
 import { report } from "./report.mjs";
@@ -80,6 +81,25 @@ function database(paths) {
   };
 }
 
+/** Exported for unit tests. */
+export function diskSpace(paths) {
+  const name = "free disk";
+  try {
+    const gib = freeGiB(paths.dataDir);
+    const detail = `${gib.toFixed(1)} GiB free under ${paths.dataDir}`;
+    if (gib < MIN_FREE_GIB_FOR_BACKUP) {
+      return {
+        status: "WARN",
+        name,
+        detail: `${detail}; need ≥${MIN_FREE_GIB_FOR_BACKUP} GiB for daily VACUUM backups and large imports`,
+      };
+    }
+    return { status: "PASS", name, detail };
+  } catch (err) {
+    return { status: "WARN", name, detail: `could not stat: ${err.message}` };
+  }
+}
+
 function countHighAdvisories(stdout) {
   try {
     const counts = JSON.parse(stdout ?? "").metadata?.vulnerabilities;
@@ -138,6 +158,7 @@ export async function runChecks({ quick = false, forceInstall = false } = {}) {
   record(dataDirs(paths));
   record(secrets(paths.envPath));
   record(database(paths));
+  record(diskSpace(paths));
   record(
     results[0].fatal
       ? { status: "SKIP", name: "web app", detail: "dependencies are missing" }

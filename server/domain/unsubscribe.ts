@@ -35,12 +35,39 @@ function parseParts(token: string, secret: string): { left: string; given: Buffe
   return { left, given };
 }
 
+/** Newest opaque tokens kept; older rowids are deleted so disk stays bounded. */
+export const KEEP_UNSUB_TOKENS = 100_000;
+export const TRIM_UNSUB_EVERY = 1_000;
+
+let sinceTrim = 0;
+
+/** Drop oldest tokens when the table grows past `keep` (rowid order = insert order). */
+export function trimUnsubscribeTokens(db: DatabaseSync, keep: number = KEEP_UNSUB_TOKENS): number {
+  const { n } = db.prepare("SELECT COUNT(*) AS n FROM unsubscribe_tokens").get() as { n: number };
+  if (n <= keep) return 0;
+  const drop = n - keep;
+  db.prepare(
+    `DELETE FROM unsubscribe_tokens WHERE rowid IN (
+       SELECT rowid FROM unsubscribe_tokens ORDER BY rowid ASC LIMIT ?
+     )`,
+  ).run(drop);
+  return drop;
+}
+
+function trimUnsubIfDue(db: DatabaseSync): void {
+  sinceTrim += 1;
+  if (sinceTrim < TRIM_UNSUB_EVERY) return;
+  sinceTrim = 0;
+  trimUnsubscribeTokens(db);
+}
+
 /** Issue a new opaque unsubscribe token. The email is stored server-side only. */
 export function issueToken(db: DatabaseSync, email: string, secret: string): string {
   if (secret.length < MIN_SECRET_LENGTH) throw new Error(`Unsubscribe secret must be at least ${MIN_SECRET_LENGTH} characters`);
   if (email.length === 0) throw new Error("Cannot sign an empty email");
   const id = randomBytes(18).toString("base64url");
   db.prepare("INSERT INTO unsubscribe_tokens (id, email) VALUES (?, ?)").run(id, normalizeEmail(email));
+  trimUnsubIfDue(db);
   return `${id}.${macV2(id, secret).toString("base64url")}`;
 }
 

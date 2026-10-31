@@ -87,8 +87,8 @@ describe("POST /api/chains/:id/start", () => {
     expect(started.json().error.code).toBe("gates_failed");
 
     const campaigns = await h.app.inject({ method: "GET", url: "/api/campaigns", headers: authed });
-    const rows = campaigns.json() as { status: string; title: string | null }[];
-    expect(rows.some((c) => c.status === "draft" && (c.title ?? "").includes("Nurture"))).toBe(true);
+    const page = campaigns.json() as { campaigns: { status: string; title: string | null }[] };
+    expect(page.campaigns.some((c) => c.status === "draft" && (c.title ?? "").includes("Nurture"))).toBe(true);
   });
 
   it("refuses auto-start when setup is incomplete", async () => {

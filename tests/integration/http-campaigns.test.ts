@@ -142,7 +142,15 @@ describe("POST/GET /api/campaigns", () => {
     });
     expect(campaign.estimate.perDay.reduce((n: number, d: any) => n + d.count, 0)).toBe(3);
     expect((await get(`/api/campaigns/${campaign.id}`)).json()).toEqual(campaign);
-    expect((await get("/api/campaigns")).json()).toEqual([campaign]);
+    const listed = (await get("/api/campaigns")).json();
+    expect(listed.total).toBe(1);
+    // List is thin: counts stay; estimate/stats are filled on detail GET only.
+    expect(listed.campaigns[0]).toMatchObject({
+      id: campaign.id,
+      counts: campaign.counts,
+      estimate: { perDay: [], completionDate: null, totalDays: 0 },
+      stats: { sentLastHour: 0, rejectionRate: 0, sample: 0 },
+    });
   });
 
   it("inserts send rows in batches for a list larger than one batch", async () => {
@@ -151,6 +159,39 @@ describe("POST/GET /api/campaigns", () => {
     const { campaign } = await readyCampaign(contacts);
     expect(campaign.counts).toMatchObject({ pending: 2345, total: 2345 });
   });
+
+  it("pages and thins the campaigns list", async () => {
+    await setup();
+    const templateId = await readyTemplate();
+    const ids: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      const { listId } = seedList(h.db, [{ email: `c${i}@x.example` }]);
+      const res = await post("/api/campaigns", { listId, templateId, schedule: ALL_DAY });
+      expect(res.statusCode).toBe(201);
+      ids.push(res.json().id);
+    }
+    const page = (await get("/api/campaigns?limit=2&offset=0&sort=id&order=asc")).json();
+    expect(page.total).toBe(3);
+    expect(page.campaigns).toHaveLength(2);
+    expect(page.campaigns.map((c: { id: number }) => c.id)).toEqual([ids[0], ids[1]]);
+    expect(page.campaigns[0].estimate.perDay).toEqual([]);
+    const next = (await get("/api/campaigns?limit=2&offset=2&sort=id&order=asc")).json();
+    expect(next.campaigns.map((c: { id: number }) => c.id)).toEqual([ids[2]]);
+  });
+
+  it("rejects a dailyCap above MAX_DAILY_CAP", async () => {
+    await setup();
+    const { listId } = seedList(h.db, CONTACTS);
+    const templateId = await readyTemplate();
+    const bad = await post("/api/campaigns", {
+      listId,
+      templateId,
+      schedule: { ...ALL_DAY, dailyCap: 300_001 },
+    });
+    expect(bad.statusCode).toBe(400);
+    expect(bad.json().error.details[0].message).toMatch(/300,000/);
+  });
+
 
   it("refuses a list that is not ready, unknown ids and invalid schedules", async () => {
     await setup();
@@ -167,7 +208,7 @@ describe("POST/GET /api/campaigns", () => {
     expect(bad.statusCode).toBe(400);
     expect(bad.json().error.details[0].message).toBe("End time must be after start time.");
     expect((await get("/api/campaigns/999")).statusCode).toBe(404);
-    expect((await get("/api/campaigns")).json()).toEqual([]);
+    expect((await get("/api/campaigns")).json()).toEqual({ total: 0, campaigns: [] });
   });
 });
 

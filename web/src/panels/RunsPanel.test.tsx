@@ -61,7 +61,9 @@ beforeEach(() => {
     const path = String(url).split("?")[0];
     const method = (init?.method ?? "GET").toUpperCase();
     if (path === "/api/session") return new Response(null, { status: 204 });
-    if (path === "/api/campaigns" && method === "GET") return json(campaignsState);
+    if (path === "/api/campaigns" && method === "GET") {
+      return json({ total: campaignsState.length, campaigns: campaignsState });
+    }
     if (path === "/api/campaigns" && method === "POST") {
       const created = { ...campaign, id: 99, status: "draft" as const, startedAt: null };
       campaignsState = [...campaignsState, created];

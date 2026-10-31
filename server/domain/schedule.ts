@@ -14,7 +14,8 @@ export interface Schedule {
 
 export const WARMUP_START = 50;
 
-const MAX_CAP = 100_000;
+/** Hard ceiling for schedule.dailyCap (multi-day sends cover lists larger than this). */
+export const MAX_DAILY_CAP = 300_000;
 const MAX_DELAY_SECONDS = 3600;
 const ESTIMATE_HORIZON_DAYS = 3650;
 const NEXT_SEND_SEARCH_DAYS = 14;
@@ -52,7 +53,9 @@ export function validateSchedule(s: Schedule): string[] {
   if (start === null) errors.push("Start time must be HH:MM (24-hour).");
   if (end === null) errors.push("End time must be HH:MM (24-hour).");
   if (start !== null && end !== null && end <= start) errors.push("End time must be after start time.");
-  if (!isIntegerInRange(s.dailyCap, 1, MAX_CAP)) errors.push(`Daily cap must be a whole number from 1 to ${MAX_CAP}.`);
+  if (!isIntegerInRange(s.dailyCap, 1, MAX_DAILY_CAP)) {
+    errors.push(`Daily cap must be a whole number from 1 to ${MAX_DAILY_CAP.toLocaleString("en-US")}.`);
+  }
   if (!isIntegerInRange(s.delaySeconds, 1, MAX_DELAY_SECONDS)) {
     errors.push(`Delay must be a whole number of seconds from 1 to ${MAX_DELAY_SECONDS}.`);
   }

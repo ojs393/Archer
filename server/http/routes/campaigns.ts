@@ -107,7 +107,7 @@ export function campaignRoutes(app: FastifyInstance, ctx: AppContext): void {
     eventLog.insert({ type: "status", campaignId: id, message: "Status: stopped", at });
   };
 
-  app.get("/api/campaigns", async (request): Promise<CampaignView[]> => {
+  app.get("/api/campaigns", async (request) => {
     const q = campaignQuerySchema.parse(request.query);
     return listCampaignViews(ctx.db, q);
   });

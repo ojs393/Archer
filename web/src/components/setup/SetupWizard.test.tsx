@@ -406,7 +406,8 @@ describe("App opens wizard from setup.complete", () => {
       if (path === "/api/settings") return json(baseSettings);
       if (path === "/api/health") return json(health);
       if (path === "/api/status") return json(status);
-      if (path === "/api/campaigns" || path === "/api/lists" || path === "/api/templates") return json([]);
+      if (path === "/api/campaigns") return json({ total: 0, campaigns: [] });
+      if (path === "/api/lists" || path === "/api/templates") return json([]);
       return json({ error: { code: "not_found", message: path } }, 404);
     });
     vi.stubGlobal("fetch", mockFetch);
@@ -450,7 +451,8 @@ describe("App opens wizard from setup.complete", () => {
       if (path === "/api/settings") return json({ ...baseSettings, setupCompletedAt: setup.completedAt });
       if (path === "/api/health") return json(health);
       if (path === "/api/status") return json(status);
-      if (path === "/api/campaigns" || path === "/api/lists" || path === "/api/templates") return json([]);
+      if (path === "/api/campaigns") return json({ total: 0, campaigns: [] });
+      if (path === "/api/lists" || path === "/api/templates") return json([]);
       return json({ error: { code: "not_found", message: path } }, 404);
     });
     vi.stubGlobal("fetch", mockFetch);

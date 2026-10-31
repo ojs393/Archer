@@ -82,7 +82,10 @@ function campaignEstimate(db: DatabaseSync, id: number, schedule: Schedule | nul
   }
 }
 
-function toView(db: DatabaseSync, row: CampaignDbRow, now: Date): CampaignView {
+const EMPTY_ESTIMATE: Estimate = { perDay: [], completionDate: null, totalDays: 0 };
+const EMPTY_STATS: CampaignView["stats"] = { sentLastHour: 0, rejectionRate: 0, sample: 0 };
+
+function toView(db: DatabaseSync, row: CampaignDbRow, now: Date, thin = false): CampaignView {
   const schedule = parseSchedule(row.schedule_json);
   const counts = campaignCounts(db, row.id);
   const title = row.title?.trim() ? row.title.trim() : null;
@@ -105,8 +108,9 @@ function toView(db: DatabaseSync, row: CampaignDbRow, now: Date): CampaignView {
     startedAt: row.started_at,
     finishedAt: row.finished_at,
     counts,
-    estimate: campaignEstimate(db, row.id, schedule, counts.pending + counts.retry + counts.sending, now),
-    stats: campaignStats(db, row.id, now),
+    // List views skip estimate/stats — detail GET still computes them.
+    estimate: thin ? EMPTY_ESTIMATE : campaignEstimate(db, row.id, schedule, counts.pending + counts.retry + counts.sending, now),
+    stats: thin ? EMPTY_STATS : campaignStats(db, row.id, now),
   };
 }
 
@@ -131,7 +135,17 @@ export interface CampaignListQuery {
   tag?: string;
   sort?: CampaignSort;
   order?: SortOrder;
+  limit?: number;
+  offset?: number;
 }
+
+export interface CampaignsPage {
+  total: number;
+  campaigns: CampaignView[];
+}
+
+export const CAMPAIGN_LIST_DEFAULT_LIMIT = 100;
+export const CAMPAIGN_LIST_MAX_LIMIT = 500;
 
 const STATUS_SET = new Set([
   "draft",
@@ -144,7 +158,7 @@ const STATUS_SET = new Set([
   "stopped",
 ]);
 
-export function listCampaignViews(db: DatabaseSync, query: CampaignListQuery = {}, now: Date = new Date()): CampaignView[] {
+export function listCampaignViews(db: DatabaseSync, query: CampaignListQuery = {}, now: Date = new Date()): CampaignsPage {
   const where: string[] = [];
   const params: unknown[] = [];
   const q = query.q?.trim();
@@ -160,13 +174,13 @@ export function listCampaignViews(db: DatabaseSync, query: CampaignListQuery = {
       .split(",")
       .map((s) => s.trim())
       .filter((s) => STATUS_SET.has(s));
-    if (statuses.length === 0) return [];
+    if (statuses.length === 0) return { total: 0, campaigns: [] };
     where.push(`c.status IN (${statuses.map(() => "?").join(",")})`);
     params.push(...statuses);
   }
   if (query.tag?.trim()) {
     const tagId = resolveTagId(db, query.tag);
-    if (tagId === null) return [];
+    if (tagId === null) return { total: 0, campaigns: [] };
     where.push("c.id IN (SELECT campaign_id FROM campaign_tags WHERE tag_id = ?)");
     params.push(tagId);
   }
@@ -181,8 +195,17 @@ export function listCampaignViews(db: DatabaseSync, query: CampaignListQuery = {
         : sort === "title"
           ? "IFNULL(c.title, l.name || ' · ' || t.name) COLLATE NOCASE"
           : "c.id";
-  const rows = db.prepare(`${VIEW_SELECT} ${whereSql} ORDER BY ${sortCol} ${order}`).all(...(params as never[])) as unknown as CampaignDbRow[];
-  return rows.map((r) => toView(db, r, now));
+  const limit = Math.min(Math.max(query.limit ?? CAMPAIGN_LIST_DEFAULT_LIMIT, 1), CAMPAIGN_LIST_MAX_LIMIT);
+  const offset = Math.max(query.offset ?? 0, 0);
+  const total = (
+    db.prepare(`SELECT COUNT(*) AS n FROM campaigns c JOIN lists l ON l.id = c.list_id JOIN templates t ON t.id = c.template_id ${whereSql}`).get(
+      ...(params as never[]),
+    ) as { n: number }
+  ).n;
+  const rows = db
+    .prepare(`${VIEW_SELECT} ${whereSql} ORDER BY ${sortCol} ${order} LIMIT ? OFFSET ?`)
+    .all(...(params as never[]), limit, offset) as unknown as CampaignDbRow[];
+  return { total, campaigns: rows.map((r) => toView(db, r, now, true)) };
 }
 
 export function updateCampaignMeta(

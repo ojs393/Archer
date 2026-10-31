@@ -60,7 +60,7 @@ type Gate = { key: "list_ready" | "has_recipients" | "from_email" | "postal_addr
 | POST | /api/templates/:id/link-ack | `{ url }` | LinkCheck |
 | POST | /api/templates/:id/test-send | `{ to?: string[] }` (must be a subset of settings.testInboxes; default all) | `{ results: { to; ok; messageId: string \| null; error: string \| null }[] }` (all ok → testedOk for this version) |
 | POST | /api/estimate | `{ remaining: number; schedule: Schedule }` | Estimate |
-| GET | /api/campaigns | — | CampaignView[] |
+| GET | /api/campaigns | `q?, status?, tag?, sort?, order?, limit? (1–500, default 100), offset?` | `{ total; campaigns: CampaignView[] }` (list rows are thin: `estimate`/`stats` empty; use `GET /:id` for full) |
 | POST | /api/campaigns | `{ listId, templateId, schedule }` | 201 CampaignView (status draft; one sends row per contact) |
 | GET | /api/campaigns/:id | — | CampaignView |
 | PUT | /api/campaigns/:id/schedule | `{ schedule }` (draft/paused only) | CampaignView |

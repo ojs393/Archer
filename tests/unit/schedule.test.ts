@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  MAX_DAILY_CAP,
   WARMUP_START,
   defaultSchedule,
   validateSchedule,
@@ -55,7 +56,7 @@ describe("validateSchedule", () => {
     ["end equals start", { startTime: "09:00", endTime: "09:00" }],
     ["end before start", { startTime: "22:00", endTime: "06:00" }],
     ["cap 0", { dailyCap: 0 }],
-    ["cap above 100000", { dailyCap: 100_001 }],
+    ["cap above 300000", { dailyCap: 300_001 }],
     ["fractional cap", { dailyCap: 10.5 }],
     ["delay 0", { delaySeconds: 0 }],
     ["delay above 3600", { delaySeconds: 3601 }],
@@ -72,9 +73,10 @@ describe("validateSchedule", () => {
   });
 
   it("accepts boundary values", () => {
+    expect(MAX_DAILY_CAP).toBe(300_000);
     expect(
       validateSchedule(
-        schedule({ sendDays: [0, 6], startTime: "00:00", endTime: "23:59", dailyCap: 100_000, delaySeconds: 3600 }),
+        schedule({ sendDays: [0, 6], startTime: "00:00", endTime: "23:59", dailyCap: MAX_DAILY_CAP, delaySeconds: 3600 }),
       ),
     ).toEqual([]);
     expect(validateSchedule(schedule({ dailyCap: 1, delaySeconds: 1 }))).toEqual([]);

@@ -46,7 +46,7 @@ const settings: SettingsView = {
 const ROUTES: Record<string, unknown> = {
   "/api/status": status,
   "/api/health": health,
-  "/api/campaigns": [],
+  "/api/campaigns": { total: 0, campaigns: [] },
   "/api/lists": [],
   "/api/templates": [],
   "/api/chains": [],

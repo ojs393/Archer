@@ -12,6 +12,7 @@ export type {
   AnalyticsTimeseries,
   ApiErrorBody,
   CampaignEventsPage,
+  CampaignsPage,
   CampaignSendRow,
   CampaignSendsPage,
   CampaignView,

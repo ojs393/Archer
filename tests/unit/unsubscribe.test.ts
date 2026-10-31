@@ -4,9 +4,11 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { openDb } from "../../server/db/index.ts";
 import {
   issueToken,
+  KEEP_UNSUB_TOKENS,
   listUnsubscribeHeaders,
   resolveToken,
   signToken,
+  trimUnsubscribeTokens,
   unsubscribeHttpsUrl,
   unsubscribeLink,
   unsubscribeMailto,
@@ -48,6 +50,17 @@ describe("issueToken / resolveToken (opaque)", () => {
   it("still resolves legacy email-in-token links", () => {
     const legacy = signToken(EMAIL, SECRET);
     expect(resolveToken(db, legacy, SECRET)).toBe(EMAIL);
+  });
+
+  it("trims oldest tokens when over the keep ceiling", () => {
+    expect(KEEP_UNSUB_TOKENS).toBeGreaterThan(10);
+    const tokens: string[] = [];
+    for (let i = 0; i < 30; i++) tokens.push(issueToken(db, `u${i}@x.example`, SECRET));
+    expect(trimUnsubscribeTokens(db, 10)).toBe(20);
+    const left = (db.prepare("SELECT COUNT(*) AS n FROM unsubscribe_tokens").get() as { n: number }).n;
+    expect(left).toBe(10);
+    expect(resolveToken(db, tokens[0]!, SECRET)).toBeNull();
+    expect(resolveToken(db, tokens[29]!, SECRET)).toBe("u29@x.example");
   });
 });
 

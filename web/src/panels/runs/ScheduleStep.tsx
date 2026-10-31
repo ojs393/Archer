@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { formatNumber } from "@/lib/format";
 import { useEstimate } from "@/lib/queries/campaigns";
 import type { Schedule } from "@/lib/types";
+import { MAX_DAILY_CAP } from "../../../../server/domain/schedule.ts";
 import { type ScheduleMode } from "./scheduleMode";
 
 export function ScheduleStep({
@@ -60,8 +61,13 @@ export function ScheduleStep({
           <Input
             type="number"
             min={1}
+            max={MAX_DAILY_CAP}
             value={schedule.dailyCap}
-            onChange={(e) => onScheduleChange({ dailyCap: Math.max(1, Number(e.target.value) || 1) })}
+            onChange={(e) =>
+              onScheduleChange({
+                dailyCap: Math.min(MAX_DAILY_CAP, Math.max(1, Number(e.target.value) || 1)),
+              })
+            }
           />
         </FieldRow>
       </div>
@@ -70,7 +76,12 @@ export function ScheduleStep({
         <p className="text-xs text-secondary-foreground">
           Warm-up uses an automatic daily ramp (50, 100, 200, …) up to your cap. The estimate below shows the projected days.
         </p>
-      ) : null}
+      ) : (
+        <p className="text-xs text-secondary-foreground">
+          Cap is per calendar day (max {MAX_DAILY_CAP.toLocaleString("en-US")}). Lists larger than the
+          cap finish over multiple send days.
+        </p>
+      )}
 
       <div className="rounded-md border border-border p-3 text-sm">
         <p className="text-xs font-medium text-muted-foreground">Estimate</p>

@@ -285,7 +285,14 @@ export const campaignQuerySchema = z.strictObject({
   tag: z.string().max(64).optional(),
   sort: z.enum(["id", "created_at", "status", "title"]).optional(),
   order: z.enum(["asc", "desc"]).optional(),
+  limit: z.coerce.number().int().min(1).max(500).default(100),
+  offset: z.coerce.number().int().min(0).default(0),
 });
+
+export interface CampaignsPage {
+  total: number;
+  campaigns: CampaignView[];
+}
 
 export const SEND_ROW_STATES = [
   "pending",
