@@ -55,6 +55,7 @@ function recipientsGate(db: DatabaseSync, c: CampaignRecord): Gate {
 function senderGates(settings: SettingsView): Gate[] {
   const gaps = new Set(senderGaps(settings));
   return [
+    gate("from_name", !gaps.has("from_name"), "The from name is set.", "Set a from name in Sender settings."),
     gate("from_email", !gaps.has("from_email"), "The from address is set.", "Set a valid from address in Sender settings."),
     gate(
       "postal_address",

@@ -30,7 +30,7 @@ export function OperatorStep({
           </div>
           <p className="mt-1 text-sm leading-relaxed text-secondary-foreground">
             Credentials and audiences stay in this computer&apos;s <code className="rounded bg-zinc-100 px-1 py-0.5 text-xs">data/</code>{" "}
-            folder. Skip anytime and finish later in Settings.
+            folder. Finish these steps before importing lists or sending — Settings can update them anytime after.
           </p>
         </div>
       </div>

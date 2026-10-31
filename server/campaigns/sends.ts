@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { transaction } from "../db/transaction.ts";
 import type { CampaignSendsPage, SendRowState } from "../http/contract.ts";
+import { nextTurn } from "../send/async.ts";
 import { SEND_ROW_BATCH } from "./store.ts";
 
 const REBUILD_STATES = new Set(["pending", "retry"]);
@@ -39,28 +40,37 @@ export function sendsPage(
   return { total, rows: rows.map((r) => ({ ...r })) };
 }
 
-/** Drop pending/retry rows and enqueue missing contacts from the new list. Keeps terminal send history. */
-export function swapCampaignList(db: DatabaseSync, campaignId: number, listId: number): { removed: number; added: number } {
-  return transaction(db, () => {
+/**
+ * Drop pending/retry rows and enqueue missing contacts from the new list.
+ * Commits per SEND_ROW_BATCH so huge lists do not hold one SQLite write lock.
+ */
+export async function swapCampaignList(
+  db: DatabaseSync,
+  campaignId: number,
+  listId: number,
+): Promise<{ removed: number; added: number }> {
+  const removed = transaction(db, () => {
     db.prepare("UPDATE campaigns SET list_id = ? WHERE id = ?").run(listId, campaignId);
-    const removed = Number(
+    return Number(
       db.prepare(`DELETE FROM sends WHERE campaign_id = ? AND state IN ('pending','retry')`).run(campaignId).changes,
     );
-    let added = 0;
-    let after = 0;
-    const insertBatch = db.prepare(
-      `INSERT OR IGNORE INTO sends (campaign_id, contact_id)
-       SELECT ?, id FROM contacts WHERE list_id = ? AND id > ? ORDER BY id LIMIT ${SEND_ROW_BATCH}`,
-    );
-    const lastContact = db.prepare("SELECT MAX(contact_id) AS id FROM sends WHERE campaign_id = ?");
-    for (;;) {
-      const n = Number(insertBatch.run(campaignId, listId, after).changes);
-      added += n;
-      if (n < SEND_ROW_BATCH) break;
-      after = (lastContact.get(campaignId) as { id: number | null }).id ?? after;
-    }
-    return { removed, added };
   });
+
+  let added = 0;
+  let after = 0;
+  const insertBatch = db.prepare(
+    `INSERT OR IGNORE INTO sends (campaign_id, contact_id)
+     SELECT ?, id FROM contacts WHERE list_id = ? AND id > ? ORDER BY id LIMIT ${SEND_ROW_BATCH}`,
+  );
+  const lastContact = db.prepare("SELECT MAX(contact_id) AS id FROM sends WHERE campaign_id = ?");
+  for (;;) {
+    const n = transaction(db, () => Number(insertBatch.run(campaignId, listId, after).changes));
+    added += n;
+    if (n < SEND_ROW_BATCH) break;
+    after = (lastContact.get(campaignId) as { id: number | null }).id ?? after;
+    await nextTurn();
+  }
+  return { removed, added };
 }
 
 export function swapCampaignTemplate(db: DatabaseSync, campaignId: number, templateId: number, templateVersion: number): void {

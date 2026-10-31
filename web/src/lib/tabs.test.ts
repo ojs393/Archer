@@ -7,7 +7,7 @@ afterEach(() => {
 
 describe("tab hash routing", () => {
   it("has exactly the five app tabs, dashboard first", () => {
-    expect(TAB_IDS).toEqual(["dashboard", "runs", "audience", "templates", "settings"]);
+    expect(TAB_IDS).toEqual(["dashboard", "runs", "audience", "templates", "chains", "settings"]);
     expect(DEFAULT_TAB).toBe("dashboard");
   });
 

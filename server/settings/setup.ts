@@ -1,4 +1,5 @@
 import type { Health, SettingsView, SetupSteps, SetupView } from "../http/contract.ts";
+import { HttpError } from "../http/errors.ts";
 import { SES_REGIONS } from "./sesRegions.ts";
 import { senderGaps } from "./store.ts";
 
@@ -32,4 +33,15 @@ export function setupView(s: SettingsView, health: Health): SetupView {
 
 export function readyToComplete(steps: SetupSteps): boolean {
   return REQUIRED_FOR_COMPLETION.every((step) => steps[step]);
+}
+
+/** Blocks send/start paths until the operator has marked setup complete. */
+export function assertSetupCompleted(s: SettingsView, health: Health): void {
+  if (s.setupCompletedAt !== null) return;
+  throw new HttpError(
+    409,
+    "setup_incomplete",
+    "Finish setup before sending",
+    setupSteps(s, health),
+  );
 }

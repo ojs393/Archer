@@ -27,8 +27,9 @@ export function useAppRoute(): [AppRoute, SelectTab] {
   return [route, select];
 }
 
-export function shellTab(route: AppRoute): TabId {
-  if (route.kind === "campaign" || route.kind === "chains") return "runs";
-  if (route.kind === "notfound") return "dashboard";
+/** Shell tab highlight; `null` when no primary tab should look selected (e.g. not-found). */
+export function shellTab(route: AppRoute): TabId | null {
+  if (route.kind === "campaign") return "runs";
+  if (route.kind === "notfound") return null;
   return route.tab;
 }

@@ -47,10 +47,11 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    overflow-x: clip;
   }
 
   body {
-    @apply min-h-screen font-sans text-base text-foreground antialiased;
+    @apply min-h-screen min-w-0 overflow-x-clip font-sans text-base text-foreground antialiased;
     background-color: hsl(var(--canvas));
     background-image:
       radial-gradient(ellipse 80% 50% at 50% -20%, hsl(221.2 83.2% 53.3% / 0.06), transparent),
@@ -92,6 +93,16 @@
 @layer utilities {
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Horizontal scroll without a visible scrollbar (nav tabs). */
+  .scroll-fade-x {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .scroll-fade-x::-webkit-scrollbar {
+    display: none;
   }
 }
 

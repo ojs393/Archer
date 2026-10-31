@@ -25,6 +25,7 @@ import { RunsTable } from "./runs/RunsTable";
 import { navigateToCampaign } from "@/lib/campaignRoute";
 import { folderOptions, isFolderTag } from "@/lib/folders";
 import { LIVE_REFETCH_MS } from "@/lib/liveSync";
+import { navigateToTab } from "@/lib/tabs";
 import { PanelShell } from "./PanelShell";
 
 export default function RunsPanel() {
@@ -111,7 +112,7 @@ export default function RunsPanel() {
       actions={
         <div className="flex flex-wrap items-center gap-2">
           <Button type="button" variant="secondary" onClick={() => {
-            window.location.hash = "#/chains";
+            navigateToTab("chains");
           }}>
             <GitBranch aria-hidden="true" />
             Chains

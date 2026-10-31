@@ -12,7 +12,7 @@ import { useSession, useSetup } from "@/lib/queries";
 import { lazyPanel } from "@/lib/lazyPanel";
 import { createQueryClient } from "@/lib/queryClient";
 import { SETUP_EVENT } from "@/lib/setupEvent";
-import { isTabId, TAB_IDS, type TabId } from "@/lib/tabs";
+import { isTabId, navigateToTab, TAB_IDS, type TabId } from "@/lib/tabs";
 import { useEventStream } from "@/lib/useEventStream";
 import { AppHeader } from "@/shell/AppHeader";
 import { PanelBoundary } from "@/shell/PanelBoundary";
@@ -24,11 +24,11 @@ const PANELS: Record<TabId, LazyExoticComponent<ComponentType>> = {
   runs: lazyPanel(() => import("@/panels/RunsPanel")),
   audience: lazyPanel(() => import("@/panels/AudiencePanel")),
   templates: lazyPanel(() => import("@/panels/TemplatesPanel")),
+  chains: lazyPanel(() => import("@/panels/chains/ChainsPage")),
   settings: lazyPanel(() => import("@/panels/SettingsPanel")),
 };
 
 const CampaignPage = lazy(() => import("@/panels/campaign/CampaignPage"));
-const ChainsPage = lazy(() => import("@/panels/chains/ChainsPage"));
 const NotFoundPanel = lazy(() => import("@/panels/NotFoundPanel"));
 
 /** Keys Radix uses to move focus between tabs; with automatic activation they also select. */
@@ -50,46 +50,59 @@ function Shell() {
   const ready = session.isSuccess;
   useEventStream({ enabled: ready });
   const setup = useSetup(ready);
+  const setupComplete = setup.data?.complete === true;
+  const setupLocked = ready && setup.isSuccess && !setupComplete;
   const [wizardOpen, setWizardOpen] = useState(false);
-  const Panel = PANELS[tab];
+  const activeTab: TabId = setupLocked ? "settings" : (tab ?? "dashboard");
+  const Panel = PANELS[activeTab];
   const roving = useRef(false);
-  /** User closed the wizard while setup was still incomplete; don't auto-reopen on refetch. */
-  const dismissedIncompleteRef = useRef(false);
-  const wasCompleteRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     if (!setup.data) return;
-    const complete = setup.data.complete;
-    if (complete) {
-      dismissedIncompleteRef.current = false;
-    } else if (wasCompleteRef.current === true) {
-      // complete → incomplete (e.g. Re-run / reset): allow auto-open again
-      dismissedIncompleteRef.current = false;
-    }
-    wasCompleteRef.current = complete;
-    if (!complete && !dismissedIncompleteRef.current) setWizardOpen(true);
+    if (!setup.data.complete) setWizardOpen(true);
+    else setWizardOpen(false);
   }, [setup.data]);
 
   useEffect(() => {
-    const open = () => {
-      dismissedIncompleteRef.current = false;
-      setWizardOpen(true);
-    };
+    if (!setupLocked) return;
+    if (route.kind !== "tab" || route.tab !== "settings") {
+      navigateToTab("settings", { replace: true });
+      setTab("settings", { replace: true });
+    }
+    setWizardOpen(true);
+  }, [setupLocked, route, setTab]);
+
+  useEffect(() => {
+    const open = () => setWizardOpen(true);
     window.addEventListener(SETUP_EVENT, open);
     return () => window.removeEventListener(SETUP_EVENT, open);
   }, []);
 
   function handleWizardOpenChange(open: boolean) {
-    if (!open && setup.data && setup.data.complete === false) {
-      dismissedIncompleteRef.current = true;
-    }
+    // Incomplete setup cannot dismiss the wizard.
+    if (!open && setupLocked) return;
     setWizardOpen(open);
   }
 
+  function handleTabChange(value: string) {
+    if (!isTabId(value)) return;
+    if (setupLocked && value !== "settings") {
+      setWizardOpen(true);
+      setTab("settings", { replace: true });
+      return;
+    }
+    setTab(value, { replace: roving.current });
+  }
+
+  const showCampaign = setupComplete && route.kind === "campaign";
+  const showNotFound = setupComplete && route.kind === "notfound";
+  // Empty string keeps no tab selected on not-found routes.
+  const shellTabId = setupLocked ? "settings" : showNotFound ? "" : activeTab;
+
   return (
     <Tabs
-      value={tab}
-      onValueChange={(value) => isTabId(value) && setTab(value, { replace: roving.current })}
+      value={shellTabId}
+      onValueChange={handleTabChange}
       onKeyDownCapture={(event) => {
         roving.current = ROVING_KEYS.has(event.key);
       }}
@@ -99,11 +112,11 @@ function Shell() {
       onMouseDownCapture={() => {
         roving.current = false;
       }}
-      className="flex min-h-screen flex-col"
+      className="flex min-h-screen min-w-0 flex-col overflow-x-clip"
     >
-      <AppHeader ready={ready} />
+      <AppHeader ready={ready} setupLocked={setupLocked} />
       {ready ? <ReconnectBanner /> : null}
-      <main className="mx-auto w-full max-w-content flex-1 px-3 py-4 sm:px-6 sm:py-6">
+      <main className="mx-auto w-full min-w-0 max-w-content flex-1 px-3 py-4 sm:px-6 sm:py-6">
         {session.isError ? (
           <Card>
             <EmptyState
@@ -112,19 +125,13 @@ function Shell() {
               action={{ label: "Retry", icon: RotateCw, onClick: () => void session.refetch() }}
             />
           </Card>
-        ) : route.kind === "campaign" ? (
+        ) : showCampaign ? (
           <PanelBoundary resetKey={`campaign-${route.id}-${route.tab}`}>
             <Suspense fallback={<PanelFallback />}>
               <CampaignPage id={route.id} tab={route.tab} />
             </Suspense>
           </PanelBoundary>
-        ) : route.kind === "chains" ? (
-          <PanelBoundary resetKey="chains">
-            <Suspense fallback={<PanelFallback />}>
-              <ChainsPage />
-            </Suspense>
-          </PanelBoundary>
-        ) : route.kind === "notfound" ? (
+        ) : showNotFound ? (
           <Suspense fallback={<PanelFallback />}>
             <NotFoundPanel />
           </Suspense>
@@ -132,9 +139,9 @@ function Shell() {
           TAB_IDS.map((id) => (
             <TabsContent key={id} value={id} tabIndex={-1}>
               {ready ? (
-                <PanelBoundary resetKey={tab}>
+                <PanelBoundary resetKey={activeTab}>
                   <Suspense fallback={<PanelFallback />}>
-                    <Panel />
+                    {id === activeTab ? <Panel /> : null}
                   </Suspense>
                 </PanelBoundary>
               ) : (
@@ -145,7 +152,7 @@ function Shell() {
         )}
       </main>
       <Toaster />
-      {ready ? <SetupWizard open={wizardOpen} onOpenChange={handleWizardOpenChange} /> : null}
+      {ready ? <SetupWizard open={wizardOpen} onOpenChange={handleWizardOpenChange} locked={setupLocked} /> : null}
     </Tabs>
   );
 }

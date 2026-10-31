@@ -15,6 +15,7 @@ import { getCampaignView, listCampaignViews, updateCampaignMeta } from "../../ca
 import { getList } from "../../import/lists.ts";
 import { EventLog } from "../../send/events.ts";
 import { ACTIVE_STATUSES, SendStore, type CampaignStatus } from "../../send/sendState.ts";
+import { assertSetupCompleted } from "../../settings/setup.ts";
 import { getSettingsView } from "../../settings/store.ts";
 import { getTemplate } from "../../templates/store.ts";
 import type { AppContext } from "../context.ts";
@@ -86,6 +87,10 @@ export function campaignRoutes(app: FastifyInstance, ctx: AppContext): void {
     if (!result.ok) throw new HttpError(409, "gates_failed", "Some launch checks have not passed yet", result.gates);
   };
 
+  const requireSetup = (): void => {
+    assertSetupCompleted(getSettingsView(ctx.db, ctx.env), ctx.health.get());
+  };
+
   const isWorkerCampaign = (id: number) => ctx.worker.getActivity().campaignId === id;
 
   const workerCall = (fn: () => void): void => {
@@ -117,7 +122,7 @@ export function campaignRoutes(app: FastifyInstance, ctx: AppContext): void {
       const list = getList(ctx.db, body.listId);
       if (!list) throw notFound("List");
       if (list.status !== "ready") throw new HttpError(409, "list_not_ready", "The list is not ready; wait for the import to finish or upload it again");
-      const { removed, added } = swapCampaignList(ctx.db, c.id, body.listId);
+      const { removed, added } = await swapCampaignList(ctx.db, c.id, body.listId);
       recordEvent(ctx.db, c.id, "reconfigure", `Swapped list; removed ${removed} pending/retry, added ${added} contacts`);
     }
     if (body.templateId !== undefined) {
@@ -168,6 +173,7 @@ export function campaignRoutes(app: FastifyInstance, ctx: AppContext): void {
     const c = settledCampaign(request.params);
     if (ACTIVE_STATUSES.has(c.status)) throw invalidState("This campaign is already sending");
     if (c.status === "stopped") throw invalidState("A stopped campaign cannot be restarted; create a new campaign");
+    requireSetup();
     requireGates(c.id);
     workerCall(() => ctx.worker.start(c.id));
     return view(c.id);
@@ -184,6 +190,7 @@ export function campaignRoutes(app: FastifyInstance, ctx: AppContext): void {
   app.post("/api/campaigns/:id/resume", async (request): Promise<CampaignView> => {
     const c = settledCampaign(request.params);
     if (!RESUMABLE.has(c.status)) throw invalidState("Only a paused campaign can be resumed");
+    requireSetup();
     requireGates(c.id);
     workerCall(() => (isWorkerCampaign(c.id) ? ctx.worker.resume() : ctx.worker.start(c.id)));
     return view(c.id);

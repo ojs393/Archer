@@ -68,13 +68,13 @@ function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json" } });
 }
 
-function renderWizard(open = true) {
+function renderWizard(open = true, locked = false) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const onOpenChange = vi.fn();
   const view = render(
     <QueryClientProvider client={client}>
       <TooltipProvider>
-        <SetupWizard open={open} onOpenChange={onOpenChange} />
+        <SetupWizard open={open} onOpenChange={onOpenChange} locked={locked} />
       </TooltipProvider>
     </QueryClientProvider>,
   );
@@ -196,13 +196,13 @@ describe("SetupWizard", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
-  it("allows Skip for now and Close before any steps are done", async () => {
-    const { onOpenChange } = renderWizard();
+  it("hides Close and Skip while locked until setup is finished", async () => {
+    const { onOpenChange } = renderWizard(true, true);
     await waitReady();
-    expect(screen.getByRole("button", { name: "Close" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Skip for now" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "About local security" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
-    expect(onOpenChange).toHaveBeenCalledWith(false);
+    expect(onOpenChange).not.toHaveBeenCalled();
   });
 
   it("does not render dialog content when closed even if setup is incomplete", async () => {

@@ -123,10 +123,11 @@ export function updateSettings(db: DatabaseSync, patch: SettingsUpdate): Setting
   return change;
 }
 
-export type SenderField = "from_email" | "postal_address" | "unsub_mailbox";
+export type SenderField = "from_name" | "from_email" | "postal_address" | "unsub_mailbox";
 
 export function senderGaps(s: SettingsView): SenderField[] {
   const gaps: SenderField[] = [];
+  if (!s.fromName.trim()) gaps.push("from_name");
   if (!isSafeEmail(s.fromEmail)) gaps.push("from_email");
   if (!s.postalAddress.trim()) gaps.push("postal_address");
   if (!isSafeEmail(s.unsubMailbox)) gaps.push("unsub_mailbox");

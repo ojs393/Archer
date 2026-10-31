@@ -122,11 +122,14 @@ describe("Amazon SES derived SMTP endpoint", () => {
     h = await makeHarness({ createTransport: (cfg) => (built.push(cfg), transport) });
     await put({
       ...sesSettings,
+      operatorName: "Olive",
+      fromName: "Mama Direct",
       fromEmail: "hello@mama.example",
       postalAddress: "PO Box 1",
       unsubMailbox: "unsub@mama.example",
       testInboxes: ["me@mine.example"],
     });
+    expect((await post("/api/setup/complete")).statusCode).toBe(200);
     const created = await h.app.inject({
       method: "POST",
       url: "/api/templates",
@@ -183,6 +186,8 @@ describe("/api/setup", () => {
     await put({ fromEmail: "hello@mama.example", unsubMailbox: "unsub@mama.example" });
     expect(await steps()).toMatchObject({ addresses: false, domain: false });
     await put({ postalAddress: "PO Box 1" });
+    expect(await steps()).toMatchObject({ addresses: false, domain: false });
+    await put({ fromName: "Mama Direct" });
     expect(await steps()).toMatchObject({ addresses: true, domain: false });
 
     h.health.set("dns", dnsOk);
@@ -205,7 +210,13 @@ describe("/api/setup", () => {
     });
     expect((await getSetup()).json().complete).toBe(false);
 
-    await put({ fromEmail: "hello@mama.example", unsubMailbox: "unsub@mama.example", postalAddress: "PO Box 1", testInboxes: ["me@mine.example"] });
+    await put({
+      fromName: "Mama Direct",
+      fromEmail: "hello@mama.example",
+      unsubMailbox: "unsub@mama.example",
+      postalAddress: "PO Box 1",
+      testInboxes: ["me@mine.example"],
+    });
     const before = Date.now();
     const done = await post("/api/setup/complete");
     expect(done.statusCode).toBe(200);
@@ -222,6 +233,7 @@ describe("/api/setup", () => {
       operatorName: "Olive",
       provider: "smtp",
       smtp: { host: "smtp.example.com", user: "apikey", pass: "p" },
+      fromName: "Mama Direct",
       fromEmail: "hello@mama.example",
       unsubMailbox: "unsub@mama.example",
       postalAddress: "PO Box 1",

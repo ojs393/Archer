@@ -11,6 +11,7 @@ import { EventHub } from "../../server/http/events.ts";
 import { ImportJobs } from "../../server/http/importJobs.ts";
 import { buildServer, type ServerDeps } from "../../server/http/server.ts";
 import type { DomainStatus } from "../../server/import/mx.ts";
+import { setSetting } from "../../server/db/settings.ts";
 import { getSenderConfig, getSmtpConfig } from "../../server/settings/store.ts";
 import type { MailTransport, SmtpConfig } from "../../server/send/transport.ts";
 import { SendWorker, type WorkerDeps } from "../../server/send/worker.ts";
@@ -171,6 +172,8 @@ export async function configureSender(h: Harness, smtpPort: number, overrides: R
     headers: mutating,
     payload: {
       provider: "smtp",
+      operatorName: "Tester",
+      organization: "Test Org",
       fromName: "Mama Direct",
       fromEmail: "hello@mama.example",
       postalAddress: "PO Box 1, Springfield",
@@ -181,6 +184,8 @@ export async function configureSender(h: Harness, smtpPort: number, overrides: R
     },
   });
   if (res.statusCode !== 200) throw new Error(`configureSender failed: ${res.body}`);
+  // Harness installs are treated as setup-complete so start/test-send paths can exercise gates.
+  setSetting(h.db, "setup_completed_at", new Date().toISOString());
 }
 
 export function multipart(

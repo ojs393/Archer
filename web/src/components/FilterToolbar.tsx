@@ -42,8 +42,8 @@ export function FilterToolbar({
   onOrder: (v: "asc" | "desc") => void;
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2 border-b border-border px-3 py-3 sm:px-4">
-      <div className="relative min-w-[10rem] flex-1 basis-full sm:basis-auto sm:min-w-[12rem]">
+    <div className="flex min-w-0 flex-wrap items-center gap-2 border-b border-border px-3 py-3 sm:px-4">
+      <div className="relative min-w-0 flex-1 basis-full sm:basis-[14rem] sm:min-w-[12rem]">
         <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
         <Input
           value={q}
@@ -54,7 +54,7 @@ export function FilterToolbar({
         />
       </div>
       <Select value={status || "__all"} onValueChange={(v) => onStatus(v === "__all" ? "" : v)}>
-        <SelectTrigger className="w-[calc(50%-0.25rem)] sm:w-[9rem]" aria-label="Status">
+        <SelectTrigger className="h-9 w-[calc(50%-0.25rem)] min-w-0 sm:w-[9rem]" aria-label="Status">
           <SelectValue placeholder="Status" />
         </SelectTrigger>
         <SelectContent>
@@ -68,7 +68,7 @@ export function FilterToolbar({
       </Select>
       {onFolder && folderOptions ? (
         <Select value={folder || "__all"} onValueChange={(v) => onFolder(v === "__all" ? "" : v)}>
-          <SelectTrigger className="h-8 w-[calc(50%-0.25rem)] text-xs sm:w-[8rem]" aria-label="Folder">
+          <SelectTrigger className="h-9 w-[calc(50%-0.25rem)] min-w-0 sm:w-[8rem]" aria-label="Folder">
             <SelectValue placeholder="Folder" />
           </SelectTrigger>
           <SelectContent>
@@ -82,7 +82,7 @@ export function FilterToolbar({
         </Select>
       ) : null}
       <Select value={tag || "__all"} onValueChange={(v) => onTag(v === "__all" ? "" : v)}>
-        <SelectTrigger className="h-8 w-[calc(50%-0.25rem)] text-xs sm:w-[8rem]" aria-label="Tag">
+        <SelectTrigger className="h-9 w-[calc(50%-0.25rem)] min-w-0 sm:w-[8rem]" aria-label="Tag">
           <SelectValue placeholder="Tag" />
         </SelectTrigger>
         <SelectContent>
@@ -95,7 +95,7 @@ export function FilterToolbar({
         </SelectContent>
       </Select>
       <Select value={sort} onValueChange={onSort}>
-        <SelectTrigger className="w-[calc(50%-0.25rem)] sm:w-[9rem]" aria-label="Sort by">
+        <SelectTrigger className="h-9 w-[calc(50%-0.25rem)] min-w-0 sm:w-[9rem]" aria-label="Sort by">
           <SelectValue placeholder="Sort" />
         </SelectTrigger>
         <SelectContent>
@@ -110,11 +110,12 @@ export function FilterToolbar({
         type="button"
         variant="secondary"
         size="sm"
+        className="h-9"
         aria-label={order === "asc" ? "Ascending" : "Descending"}
         onClick={() => onOrder(order === "asc" ? "desc" : "asc")}
       >
         {order === "asc" ? <ArrowUpAZ aria-hidden="true" /> : <ArrowDownAZ aria-hidden="true" />}
-        {order === "asc" ? "Asc" : "Desc"}
+        <span className="max-[380px]:hidden">{order === "asc" ? "Asc" : "Desc"}</span>
       </Button>
     </div>
   );

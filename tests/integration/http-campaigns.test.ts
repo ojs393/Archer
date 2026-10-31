@@ -229,6 +229,7 @@ describe("launch gates", () => {
     expect(result.gates.map((g: any) => g.key)).toEqual([
       "list_ready",
       "has_recipients",
+      "from_name",
       "from_email",
       "postal_address",
       "unsub_mailbox",
@@ -253,6 +254,7 @@ describe("launch gates", () => {
     const cases: [string, () => void | Promise<void>, () => void | Promise<void>, RegExp][] = [
       ["list_ready", () => sql("UPDATE lists SET status = 'importing' WHERE id = ?", listId), () => sql("UPDATE lists SET status = 'ready' WHERE id = ?", listId), /still importing/],
       ["has_recipients", () => sql("UPDATE sends SET state = 'sent' WHERE campaign_id = ?", id), () => sql("UPDATE sends SET state = 'pending' WHERE campaign_id = ?", id), /nobody is left/i],
+      ["from_name", () => setSetting(h.db, "from_name", "  "), () => setSetting(h.db, "from_name", "Mama Direct"), /from name/],
       ["from_email", () => setSetting(h.db, "from_email", ""), () => setSetting(h.db, "from_email", "hello@mama.example"), /from address/],
       ["postal_address", () => setSetting(h.db, "postal_address", "  "), () => setSetting(h.db, "postal_address", "PO Box 1"), /postal address/],
       ["unsub_mailbox", () => setSetting(h.db, "unsub_mailbox", "nope"), () => setSetting(h.db, "unsub_mailbox", "unsub@mama.example"), /unsubscribe mailbox/],
@@ -302,6 +304,16 @@ describe("launch gates", () => {
 });
 
 describe("start, pause, resume, stop", () => {
+  it("refuses to start when setup is incomplete", async () => {
+    await setup();
+    const { campaign } = await readyCampaign();
+    h.db.prepare("DELETE FROM settings WHERE key = ?").run("setup_completed_at");
+    const res = await post(`/api/campaigns/${campaign.id}/start`);
+    expect(res.statusCode).toBe(409);
+    expect(res.json().error.code).toBe("setup_incomplete");
+    expect(status(campaign.id)).toBe("draft");
+  });
+
   it("refuses to start with failing gates", async () => {
     await setup();
     const { campaign } = await readyCampaign();

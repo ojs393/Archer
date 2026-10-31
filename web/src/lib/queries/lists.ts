@@ -91,6 +91,9 @@ export async function previewListCsv(file: File, signal?: AbortSignal): Promise<
   return api.upload<ListPreview>("/api/lists/preview", form, { signal });
 }
 
+/** Must match server/http/server.ts `UPLOAD_LIMIT`. */
+export const UPLOAD_MAX_BYTES = 200 * 1024 * 1024;
+
 export type ListImportFields = {
   name: string;
   sourceLabel: string;
@@ -101,7 +104,14 @@ export type ListImportFields = {
   checkDomains?: boolean;
 };
 
+export function assertUploadSize(file: File): void {
+  if (file.size > UPLOAD_MAX_BYTES) {
+    throw new Error(`File is larger than ${UPLOAD_MAX_BYTES / (1024 * 1024)} MB`);
+  }
+}
+
 export async function importList(file: File, fields: ListImportFields, signal?: AbortSignal): Promise<{ listId: number }> {
+  assertUploadSize(file);
   const form = new FormData();
   form.append("file", file, file.name);
   form.append("name", fields.name);

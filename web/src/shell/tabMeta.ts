@@ -1,4 +1,4 @@
-import { FileText, LayoutDashboard, Send, Settings, Users, type LucideIcon } from "lucide-react";
+import { FileText, GitBranch, LayoutDashboard, Send, Settings, Users, type LucideIcon } from "lucide-react";
 import type { TabId } from "@/lib/tabs";
 
 export const TAB_META: Record<TabId, { label: string; icon: LucideIcon }> = {
@@ -6,5 +6,6 @@ export const TAB_META: Record<TabId, { label: string; icon: LucideIcon }> = {
   runs: { label: "Runs", icon: Send },
   audience: { label: "Audience", icon: Users },
   templates: { label: "Templates", icon: FileText },
+  chains: { label: "Chains", icon: GitBranch },
   settings: { label: "Settings", icon: Settings },
 };

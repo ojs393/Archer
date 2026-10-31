@@ -7,6 +7,7 @@ import { getList } from "../../import/lists.ts";
 import { longDate } from "../../send/compose.ts";
 import type { OutgoingMessage } from "../../send/transport.ts";
 import { DEFAULT_SEND_TIMEOUT_MS } from "../../send/worker.ts";
+import { assertSetupCompleted } from "../../settings/setup.ts";
 import { getSenderConfig, getSettingsView, getSmtpConfig, senderGaps } from "../../settings/store.ts";
 import { templateView } from "../../templates/analysis.ts";
 import { MAX_LINKS, acknowledgeLink, buildLinkCheck, checkLinks, extractLinks, type LinkCheck } from "../../templates/linkCheck.ts";
@@ -191,6 +192,7 @@ export function templateRoutes(app: FastifyInstance, ctx: AppContext): void {
     const t = requireTemplate(request.params);
     const body = testSendSchema.parse(request.body ?? {});
     const settings = getSettingsView(ctx.db, ctx.env);
+    assertSetupCompleted(settings, ctx.health.get());
     const outside = (body.to ?? []).filter((to) => !settings.testInboxes.includes(to));
     if (outside.length > 0) {
       throw new HttpError(400, "not_test_inbox", "Test sends only go to the test inboxes in Sender settings", outside);
@@ -198,7 +200,7 @@ export function templateRoutes(app: FastifyInstance, ctx: AppContext): void {
     if (settings.testInboxes.length === 0) throw new HttpError(422, "no_test_inboxes", "Add at least one test inbox in Sender settings");
     const gaps = senderGaps(settings);
     if (gaps.length > 0) {
-      throw new HttpError(422, "sender_incomplete", "Set the from address, postal address and unsubscribe mailbox first", gaps);
+      throw new HttpError(422, "sender_incomplete", "Set the from name, from address, postal address and unsubscribe mailbox first", gaps);
     }
     const smtp = getSmtpConfig(ctx.db, ctx.env);
     if (!smtp.host || !smtp.user || !smtp.pass) {

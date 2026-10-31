@@ -67,9 +67,9 @@ describe("sendsPage", () => {
 });
 
 describe("swapCampaignList", () => {
-  it("keeps sent rows and rebuilds pending from the new list", () => {
+  it("keeps sent rows and rebuilds pending from the new list", async () => {
     const { campaignId, listB, contactA1, contactB1 } = seedTwoLists();
-    const result = swapCampaignList(db, campaignId, listB);
+    const result = await swapCampaignList(db, campaignId, listB);
     expect(result.removed).toBe(1);
     expect(result.added).toBe(1);
 

@@ -31,10 +31,10 @@ React UI on `127.0.0.1` — not another cloud account for your audience.
 | You want | Archer gives you |
 |---|---|
 | Keep PII off third-party servers | Audiences, templates, and runs stay in gitignored `data/` |
-| SES or any SMTP | Setup wizard + Settings columns that save independently |
-| CAN-SPAM without drama | Postal address, unsubscribe mailbox, List-Unsubscribe, merge tags |
+| SES or any SMTP | Required setup wizard + Settings columns that save independently |
+| CAN-SPAM without drama | From name, postal address, unsubscribe mailbox, List-Unsubscribe, merge tags |
 | Not melting a new domain | Warm-up, daily caps, send windows, bounce tripwire |
-| Know why a run won’t start | Launch gates (SMTP, DNS, compliance tags, test send) |
+| Know why a run won’t start | Setup complete + launch gates (SMTP, DNS, compliance tags, test send) |
 | Reuse setup | Save provider / sender / DNS / test inboxes once; re-run wizard anytime |
 
 **Skip Archer** if you need multi-user orgs, a template marketplace, or guaranteed inbox placement.
@@ -55,14 +55,15 @@ We don’t fake those.
 
 ## How it works
 
-1. **Setup** — operator → SES/SMTP → DNS (SPF/DKIM/DMARC) → from / unsub / postal → test inboxes.
-   Skip anytime; finish in **Settings** (each card has its own Save).
-2. **Audience** — guided import walks every parseable schema, drag-drop CSV/TSV, map the email column,
-   attest consent. Extra columns become merge fields.
+1. **Setup (required)** — operator → SES/SMTP → DNS (SPF/DKIM/DMARC) → from name / from / unsub /
+   postal → test inboxes. The wizard stays open until you finish; other tabs stay locked. After that,
+   **Settings** keeps each card editable with its own Save.
+2. **Audience** — guided import (up to 200&nbsp;MB), drag-drop CSV/TSV, map the email column, attest
+   consent, optional MX domain check. Streaming import + live progress; huge lists queue one at a time.
 3. **Templates** — HTML + `{{unsubscribe_url}}`, `{{postal_address}}`, `{{first_name}}`, …
    Edit shows a live filled preview; View uses a server-side render with your sender config.
-4. **Runs** — list + template + schedule. Gates must pass. Worker sends one message at a time.
-   Actions only show when valid: draft → Start/Cancel/Preview; running → Pause; paused → Resume.
+4. **Runs & Chains** — list + template + schedule (or a multi-step chain). Launch gates and finished
+   setup must pass before send. Worker sends one message at a time.
 5. **Dashboard** — dense metric bar (recipients, queue, delivery, bounce, reject, last send) plus
    charts that never invent zeros for rotated history.
 

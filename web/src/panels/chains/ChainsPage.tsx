@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowLeft, GitBranch, Play, Plus, RotateCw, Trash2 } from "lucide-react";
+import { GitBranch, Play, Plus, RotateCw, Trash2 } from "lucide-react";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { EmptyState } from "@/components/EmptyState";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,9 @@ import { navigateToCampaign } from "@/lib/campaignRoute";
 import { useCreateChain, useDeleteChain, useStartChain, useChains } from "@/lib/queries/chains";
 import { useLists } from "@/lib/queries/lists";
 import { useTemplates } from "@/lib/queries/templates";
-import { navigateToTab } from "@/lib/tabs";
 import { formatDateTime } from "@/lib/format";
 import { buildSchedule, defaultLocalTimezone } from "@/panels/runs/scheduleMode";
+import { PanelShell } from "../PanelShell";
 
 type StepDraft = { templateId: number; delayHours: number };
 
@@ -81,30 +81,20 @@ export default function ChainsPage() {
   }
 
   return (
-    <section className="flex flex-col gap-4" aria-labelledby="chains-title">
-      <button
-        type="button"
-        className="inline-flex w-fit items-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground"
-        onClick={() => navigateToTab("runs")}
-      >
-        <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-        All runs
-      </button>
-      <h1 id="chains-title" className="text-xl font-semibold tracking-tight text-foreground">
-        Chains
-      </h1>
-
-      <Card className="flex flex-col gap-3 p-4">
-        <p className="text-sm text-muted-foreground">
-          A chain is an ordered series of templates on one list. When a step finishes, the next campaign is queued
-          automatically (immediate if delay is 0h).
+    <PanelShell
+      title="Chains"
+      info="Ordered templates on one list. When a step finishes, the next campaign is queued automatically."
+    >
+      <Card className="flex flex-col gap-4 p-4 sm:p-5">
+        <p className="text-sm leading-relaxed text-muted-foreground">
+          Build a multi-step series. Delay hours run before each step after the first (0 = immediate).
         </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="chain-name">Name</Label>
             <Input id="chain-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Welcome series" />
           </div>
-          <div className="flex flex-col gap-1.5">
+          <div className="flex min-w-0 flex-col gap-1.5">
             <Label htmlFor="chain-list">Audience</Label>
             <Select
               value={listId === "" ? undefined : String(listId)}
@@ -123,11 +113,11 @@ export default function ChainsPage() {
             </Select>
           </div>
         </div>
-        <div className="flex flex-col gap-2">
+        <div className="flex min-w-0 flex-col gap-2">
           <Label>Steps</Label>
           {steps.map((step, i) => (
-            <div key={i} className="flex flex-wrap items-center gap-2">
-              <span className="w-6 text-xs text-muted-foreground">{i + 1}.</span>
+            <div key={i} className="flex min-w-0 flex-col gap-2 rounded-md border border-border/80 bg-zinc-50/60 p-2.5 sm:flex-row sm:flex-wrap sm:items-center">
+              <span className="w-6 shrink-0 text-xs font-medium text-muted-foreground">{i + 1}.</span>
               <Select
                 value={step.templateId ? String(step.templateId) : undefined}
                 onValueChange={(v) => {
@@ -135,7 +125,7 @@ export default function ChainsPage() {
                   setSteps((prev) => prev.map((s, j) => (j === i ? { ...s, templateId } : s)));
                 }}
               >
-                <SelectTrigger className="min-w-[12rem] flex-1" aria-label={`Template for step ${i + 1}`}>
+                <SelectTrigger className="min-w-0 flex-1 sm:min-w-[12rem]" aria-label={`Template for step ${i + 1}`}>
                   <SelectValue placeholder="Template…" />
                 </SelectTrigger>
                 <SelectContent>
@@ -146,41 +136,42 @@ export default function ChainsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <Input
-                type="number"
-                min={0}
-                className="w-24"
-                value={step.delayHours}
-                onChange={(e) => {
-                  const delayHours = Math.max(0, Number(e.target.value) || 0);
-                  setSteps((prev) => prev.map((s, j) => (j === i ? { ...s, delayHours } : s)));
-                }}
-                aria-label={`Delay hours before step ${i + 1}`}
-              />
-              <span className="text-xs text-muted-foreground">h delay</span>
-              {steps.length > 1 ? (
-                <Button type="button" variant="icon" size="sm" onClick={() => setSteps((prev) => prev.filter((_, j) => j !== i))}>
-                  <Trash2 aria-hidden />
-                </Button>
-              ) : null}
+              <div className="flex min-w-0 items-center gap-2">
+                <Input
+                  type="number"
+                  min={0}
+                  className="w-20 shrink-0"
+                  value={step.delayHours}
+                  onChange={(e) => {
+                    const delayHours = Math.max(0, Number(e.target.value) || 0);
+                    setSteps((prev) => prev.map((s, j) => (j === i ? { ...s, delayHours } : s)));
+                  }}
+                  aria-label={`Delay hours before step ${i + 1}`}
+                />
+                <span className="shrink-0 text-xs text-muted-foreground">h delay</span>
+                {steps.length > 1 ? (
+                  <Button type="button" variant="icon" size="sm" onClick={() => setSteps((prev) => prev.filter((_, j) => j !== i))}>
+                    <Trash2 aria-hidden />
+                  </Button>
+                ) : null}
+              </div>
             </div>
           ))}
-          <Button
-            type="button"
-            variant="subtle"
-            size="sm"
-            className="self-start"
-            onClick={() => setSteps((prev) => [...prev, { templateId: defaultTemplateId, delayHours: 24 }])}
-          >
-            <Plus aria-hidden />
-            Add step
-          </Button>
-        </div>
-        <div>
-          <Button type="button" size="sm" loading={create.isPending} onClick={() => void onCreate()}>
-            <Plus aria-hidden />
-            Create chain
-          </Button>
+          <div className="flex flex-wrap items-center gap-2 pt-1">
+            <Button
+              type="button"
+              variant="subtle"
+              size="sm"
+              onClick={() => setSteps((prev) => [...prev, { templateId: defaultTemplateId, delayHours: 24 }])}
+            >
+              <Plus aria-hidden />
+              Add step
+            </Button>
+            <Button type="button" size="sm" loading={create.isPending} onClick={() => void onCreate()}>
+              <Plus aria-hidden />
+              Create chain
+            </Button>
+          </div>
         </div>
       </Card>
 
@@ -205,26 +196,30 @@ export default function ChainsPage() {
                 <TableHead>Name</TableHead>
                 <TableHead>List</TableHead>
                 <TableHead>Steps</TableHead>
-                <TableHead>Created</TableHead>
+                <TableHead className="hidden sm:table-cell">Created</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {(chains.data ?? []).map((row) => (
                 <TableRow key={row.id}>
-                  <TableCell className="font-medium">{row.name}</TableCell>
-                  <TableCell>{row.listName}</TableCell>
+                  <TableCell className="max-w-[10rem] font-medium sm:max-w-[16rem]">
+                    <span className="block truncate">{row.name}</span>
+                  </TableCell>
+                  <TableCell className="max-w-[8rem] sm:max-w-[12rem]">
+                    <span className="block truncate">{row.listName}</span>
+                  </TableCell>
                   <TableCell>{row.stepCount}</TableCell>
-                  <TableCell>{formatDateTime(row.createdAt)}</TableCell>
+                  <TableCell className="hidden whitespace-nowrap sm:table-cell">{formatDateTime(row.createdAt)}</TableCell>
                   <TableCell>
-                    <div className="flex justify-end gap-1">
+                    <div className="flex flex-wrap justify-end gap-1.5">
                       <Button type="button" size="sm" variant="secondary" loading={start.isPending} onClick={() => void onStart(row.id)}>
                         <Play aria-hidden />
                         Start
                       </Button>
                       <Button type="button" size="sm" variant="secondary" onClick={() => setDeleteId(row.id)}>
                         <Trash2 aria-hidden />
-                        Delete
+                        <span className="max-sm:hidden">Delete</span>
                       </Button>
                     </div>
                   </TableCell>
@@ -256,6 +251,6 @@ export default function ChainsPage() {
           }
         }}
       />
-    </section>
+    </PanelShell>
   );
 }

@@ -13,7 +13,7 @@ describe("parseAppRoute", () => {
 
   it("falls back to shell tabs or not-found", () => {
     expect(parseAppRoute("#/audience")).toEqual({ kind: "tab", tab: "audience" });
-    expect(parseAppRoute("#/chains")).toEqual({ kind: "chains" });
+    expect(parseAppRoute("#/chains")).toEqual({ kind: "tab", tab: "chains" });
     expect(parseAppRoute("#/nope")).toEqual({ kind: "notfound" });
     expect(parseAppRoute("#/")).toEqual({ kind: "tab", tab: "dashboard" });
   });

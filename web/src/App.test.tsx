@@ -49,6 +49,7 @@ const ROUTES: Record<string, unknown> = {
   "/api/campaigns": [],
   "/api/lists": [],
   "/api/templates": [],
+  "/api/chains": [],
   "/api/setup": setup,
   "/api/settings": settings,
   "/api/analytics/summary": {
@@ -113,11 +114,18 @@ afterEach(() => {
 });
 
 describe("App shell", () => {
-  it("renders the brand and exactly five tabs, dashboard selected by default", async () => {
+  it("renders the brand and six tabs, dashboard selected by default", async () => {
     await renderApp();
     expect(screen.getByRole("banner")).toHaveTextContent("Archer");
     const tabs = shellTabs().getAllByRole("tab");
-    expect(tabs.map((t) => t.getAttribute("aria-label"))).toEqual(["Dashboard", "Runs", "Audience", "Templates", "Settings"]);
+    expect(tabs.map((t) => t.getAttribute("aria-label"))).toEqual([
+      "Dashboard",
+      "Runs",
+      "Audience",
+      "Templates",
+      "Chains",
+      "Settings",
+    ]);
     expect(shellTabs().getByRole("tab", { name: "Dashboard" })).toHaveAttribute("aria-selected", "true");
     expect(window.location.hash).toBe("#/dashboard");
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Dashboard");
@@ -216,31 +224,29 @@ describe("App shell", () => {
     expect(screen.getByRole("button", { name: "Retry" })).toBeInTheDocument();
   });
 
-  it("auto-opens incomplete setup once; dismiss stays closed across refetch; SETUP_EVENT reopens", async () => {
-    const dismissable: SetupView = {
+  it("locks the shell to Settings and keeps the wizard open until setup is complete", async () => {
+    const incomplete: SetupView = {
       complete: false,
       completedAt: null,
       steps: { operator: false, provider: false, domain: false, addresses: false, testInboxes: false },
       regions: [],
     };
-    ROUTES["/api/setup"] = dismissable;
+    ROUTES["/api/setup"] = incomplete;
     ROUTES["/api/settings"] = { ...settings, setupCompletedAt: null };
 
-    const { client } = await renderApp();
+    // Wizard covers the main panel (aria-hidden), so wait for the dialog instead of an h1.
+    window.history.replaceState(null, "", "/#/runs");
+    const { App } = await import("./App");
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(<App client={client} />);
     expect(await screen.findByRole("heading", { name: "Welcome to Archer" }, findTimeout)).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "Skip for now" }));
-    await waitFor(() => {
-      expect(screen.queryByRole("heading", { name: "Welcome to Archer" })).not.toBeInTheDocument();
-    });
-
-    await act(async () => {
-      await client.invalidateQueries({ queryKey: ["setup"] });
-    });
-    await waitFor(() => {
-      expect(fetchedUrls().filter((u) => u === "/api/setup").length).toBeGreaterThan(1);
-    });
-    expect(screen.queryByRole("heading", { name: "Welcome to Archer" })).not.toBeInTheDocument();
+    await waitFor(() => expect(window.location.hash).toBe("#/settings"));
+    // Dialog sets aria-hidden on the shell; include hidden nodes for tab assertions.
+    const tabs = within(screen.getByRole("tablist", { name: "Sections", hidden: true }));
+    expect(tabs.getByRole("tab", { name: "Runs", hidden: true })).toBeDisabled();
+    expect(tabs.getByRole("tab", { name: "Settings", hidden: true })).not.toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Skip for now" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Close" })).not.toBeInTheDocument();
 
     act(() => {
       requestSetupWizard();

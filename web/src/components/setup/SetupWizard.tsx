@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Check, ChevronLeft, ChevronRight, FastForward } from "lucide-react";
+import { Check, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { BrandMark } from "@/components/BrandMark";
 import { Stepper } from "@/components/Stepper";
@@ -56,9 +56,12 @@ function stepTitle(index: StepIndex): string {
 export function SetupWizard({
   open,
   onOpenChange,
+  locked = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** When true, the wizard cannot be dismissed until setup is complete. */
+  locked?: boolean;
 }) {
   const queryClient = useQueryClient();
   const setup = useSetup(open);
@@ -278,16 +281,27 @@ export function SetupWizard({
     [step],
   );
 
-  function skipForNow() {
-    onOpenChange(false);
-  }
-
   const busy = saving || testing || checking || launching;
   const nextDisabled = busy || (step === 1 && !smtpReady) || !draft;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn("max-w-3xl", wizardPanelClass)}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next && locked) return;
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent
+        className={cn("max-w-3xl", wizardPanelClass)}
+        hideClose={locked}
+        onInteractOutside={(event) => {
+          if (locked) event.preventDefault();
+        }}
+        onEscapeKeyDown={(event) => {
+          if (locked) event.preventDefault();
+        }}
+      >
         <DialogHeader className="mx-0 mt-0">
           {step === 0 ? <BrandMark size={40} title="Archer" className="mb-2" /> : null}
           <DialogTitle>{stepTitle(step)}</DialogTitle>
@@ -355,16 +369,10 @@ export function SetupWizard({
         </DialogBody>
 
         <DialogFooter className="mx-0 mb-0 sm:justify-between">
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" disabled={step === 0 || busy} onClick={() => setStep((step - 1) as StepIndex)}>
-              <ChevronLeft aria-hidden="true" />
-              Previous
-            </Button>
-            <Button type="button" variant="subtle" disabled={busy} onClick={skipForNow}>
-              <FastForward aria-hidden="true" />
-              Skip for now
-            </Button>
-          </div>
+          <Button type="button" variant="secondary" disabled={step === 0 || busy} onClick={() => setStep((step - 1) as StepIndex)}>
+            <ChevronLeft aria-hidden="true" />
+            Previous
+          </Button>
           <Button type="button" loading={saving} disabled={nextDisabled} onClick={() => void goNext()}>
             {saving ? null : step === 4 ? <Check aria-hidden="true" /> : null}
             {step === 4 ? "Finish" : "Next"}

@@ -83,6 +83,7 @@ const MAX_TIMER_MS = 2_147_483_647;
 const SAFETY_RESET_MESSAGE = "Status: running (rejection sample reset after safety stop)";
 const WAITING_NETWORK: ReadonlySet<CampaignStatus> = new Set(["waiting_network"]);
 const COMPLIANCE_FIELDS = [
+  ["fromName", "from name"],
   ["postalAddress", "postal address"],
   ["unsubMailbox", "unsubscribe mailbox"],
   ["fromEmail", "from address"],

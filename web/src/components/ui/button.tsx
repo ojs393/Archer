@@ -6,7 +6,7 @@ import { cn, focusRing } from "@/lib/utils";
 
 const buttonVariants = cva(
   cn(
-    "inline-flex select-none items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors",
+    "inline-flex max-w-full select-none items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-sm font-medium leading-none transition-colors",
     "disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0",
     focusRing,
   ),
@@ -18,18 +18,18 @@ const buttonVariants = cva(
         subtle: "bg-transparent text-primary hover:bg-primary-subtle active:bg-blue-100",
         link: "h-auto px-0 text-primary underline-offset-4 hover:underline",
         destructive: "bg-destructive text-destructive-foreground hover:bg-red-700 active:bg-red-800",
-        icon: "h-8 w-8 bg-transparent p-0 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 active:bg-zinc-200",
-        "icon-destructive": "h-8 w-8 bg-transparent p-0 text-zinc-600 hover:bg-red-50 hover:text-red-600 active:bg-red-100",
+        icon: "h-8 w-8 shrink-0 bg-transparent p-0 text-zinc-600 hover:bg-zinc-100 hover:text-zinc-900 active:bg-zinc-200",
+        "icon-destructive": "h-8 w-8 shrink-0 bg-transparent p-0 text-zinc-600 hover:bg-red-50 hover:text-red-600 active:bg-red-100",
       },
       size: {
-        default: "h-9 px-4 [&_svg]:size-4",
-        sm: "h-8 px-3 text-[13px] [&_svg]:size-3.5",
-        lg: "h-10 px-5 [&_svg]:size-4",
+        default: "h-9 min-h-9 px-3.5 [&_svg]:size-4",
+        sm: "h-8 min-h-8 px-2.5 text-[13px] [&_svg]:size-3.5",
+        lg: "h-10 min-h-10 px-5 [&_svg]:size-4",
       },
     },
     compoundVariants: [
-      { variant: ["icon", "icon-destructive"], className: "h-8 w-8 px-0 [&_svg]:size-4" },
-      { variant: "link", className: "h-auto px-0" },
+      { variant: ["icon", "icon-destructive"], className: "h-8 w-8 min-h-8 px-0 [&_svg]:size-4" },
+      { variant: "link", className: "h-auto min-h-0 px-0" },
     ],
     defaultVariants: { variant: "default", size: "default" },
   },

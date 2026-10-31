@@ -5,6 +5,11 @@ import type { ScheduleMode } from "./scheduleMode";
 function gateFromSettings(settings: SettingsView | undefined, health: Health | undefined): Gate[] {
   return [
     {
+      key: "from_name",
+      ok: Boolean(settings?.fromName?.trim()),
+      message: settings?.fromName?.trim() ? `From name: ${settings.fromName}` : "Set a From name in Settings",
+    },
+    {
       key: "from_email",
       ok: Boolean(settings?.fromEmail),
       message: settings?.fromEmail ? `From: ${settings.fromEmail}` : "Set a From address in Settings",

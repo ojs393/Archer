@@ -15,8 +15,16 @@ export interface ImportJobOptions {
   checkDomains: boolean;
 }
 
+type QueuedJob = { listId: number; filePath: string; job: ImportJobOptions };
+
+/**
+ * Runs imports one at a time so SQLite writers do not fight each other on huge lists.
+ * Additional starts queue FIFO and start when the active job finishes.
+ */
 export class ImportJobs {
   private readonly running = new Map<number, Promise<void>>();
+  private readonly queue: QueuedJob[] = [];
+  private active: Promise<void> | null = null;
 
   constructor(
     private readonly opts: {
@@ -28,16 +36,34 @@ export class ImportJobs {
   ) {}
 
   isRunning(listId: number): boolean {
-    return this.running.has(listId);
+    return this.running.has(listId) || this.queue.some((j) => j.listId === listId);
   }
 
   start(listId: number, filePath: string, job: ImportJobOptions): void {
-    const run = this.run(listId, filePath, job).finally(() => this.running.delete(listId));
-    this.running.set(listId, run);
+    this.queue.push({ listId, filePath, job });
+    void this.pump();
   }
 
   async idle(): Promise<void> {
-    while (this.running.size > 0) await Promise.allSettled([...this.running.values()]);
+    while (this.active || this.queue.length > 0 || this.running.size > 0) {
+      if (this.active) await this.active;
+      else if (this.running.size > 0) await Promise.allSettled([...this.running.values()]);
+      else await new Promise((r) => setImmediate(r));
+    }
+  }
+
+  private pump(): void {
+    if (this.active) return;
+    const next = this.queue.shift();
+    if (!next) return;
+    const run = this.run(next.listId, next.filePath, next.job)
+      .finally(() => {
+        this.running.delete(next.listId);
+        this.active = null;
+        this.pump();
+      });
+    this.running.set(next.listId, run);
+    this.active = run;
   }
 
   private publish(event: ImportEvent): void {

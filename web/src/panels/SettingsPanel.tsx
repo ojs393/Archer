@@ -48,13 +48,13 @@ function SettingsSection({
   actions?: ReactNode;
 }) {
   return (
-    <Card className="flex flex-col gap-4 p-5">
-      <div className="flex flex-col gap-0.5">
+    <Card className="flex min-w-0 flex-col gap-4 p-4 sm:p-5">
+      <div className="flex min-w-0 flex-col gap-0.5">
         <h2 className="text-sm font-semibold text-foreground">{title}</h2>
-        <p className="text-xs text-muted-foreground">{description}</p>
+        <p className="text-xs leading-relaxed text-muted-foreground [overflow-wrap:anywhere]">{description}</p>
       </div>
       <div className="min-w-0 flex-1">{children}</div>
-      <div className="flex flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
+      <div className="flex min-w-0 flex-wrap items-center justify-end gap-2 border-t border-border pt-3">
         {actions}
         <Button type="button" onClick={onSave} loading={saving}>
           {saving ? null : <Save aria-hidden="true" />}
@@ -249,7 +249,7 @@ export default function SettingsPanel() {
           />
         </Card>
       ) : (
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid min-w-0 gap-4 lg:grid-cols-2">
           <SettingsSection
             title="Operator"
             description="Who runs this install. Local only — not shown to recipients."
@@ -424,22 +424,50 @@ export default function SettingsPanel() {
                 />
               </div>
 
-              <div className="flex items-start gap-3 rounded-md border border-border px-3 py-3">
-                {setup.data?.complete ? (
-                  <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
-                ) : (
-                  <Settings className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
-                )}
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground">
-                    {setup.data?.complete ? "Setup complete" : "Setup incomplete"}
-                  </p>
-                  <p className="mt-0.5 text-xs text-muted-foreground">
-                    {setup.data?.completedAt
-                      ? `Finished ${new Date(setup.data.completedAt).toLocaleString()}`
-                      : "Finish the wizard or fill each section above."}
-                  </p>
+              <div className="flex flex-col gap-3 rounded-md border border-border px-3 py-3">
+                <div className="flex items-start gap-3">
+                  {setup.data?.complete ? (
+                    <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                  ) : (
+                    <Settings className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                  )}
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">
+                      {setup.data?.complete ? "Setup complete" : "Setup incomplete"}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {setup.data?.completedAt
+                        ? `Finished ${new Date(setup.data.completedAt).toLocaleString()}`
+                        : "Finish every required step below, then complete the wizard. Sending stays locked until then."}
+                    </p>
+                  </div>
                 </div>
+                {setup.data && !setup.data.complete ? (
+                  <ul className="ml-7 flex flex-col gap-1 text-xs">
+                    {(
+                      [
+                        ["operator", "Operator name"],
+                        ["provider", "Provider / SMTP"],
+                        ["addresses", "From, postal, unsubscribe"],
+                        ["testInboxes", "Test inboxes"],
+                        ["domain", "DNS check (needed to launch; optional to finish setup)"],
+                      ] as const
+                    ).map(([key, label]) => (
+                      <li key={key} className={setup.data.steps[key] ? "text-foreground" : "text-destructive"}>
+                        <span className="font-medium">{setup.data.steps[key] ? "Pass" : "Need"}</span>
+                        {" · "}
+                        {label}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+                {!setup.data?.complete ? (
+                  <div className="ml-7">
+                    <Button type="button" variant="secondary" onClick={() => requestSetupWizard()}>
+                      Continue setup wizard
+                    </Button>
+                  </div>
+                ) : null}
               </div>
 
               {launcherPath ? (

@@ -21,10 +21,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { api, isApiError } from "@/lib/api";
-import { importList, previewListCsv } from "@/lib/queries/lists";
+import { assertUploadSize, importList, previewListCsv, UPLOAD_MAX_BYTES } from "@/lib/queries/lists";
 import { queryKeys } from "@/lib/queryKeys";
+import { useStreamEvent } from "@/lib/useEventStream";
 import { cn } from "@/lib/utils";
-import type { ListDetail, ListPreview } from "@/lib/types";
+import type { ImportEvent, ListDetail, ListPreview } from "@/lib/types";
 
 type ImportResult = {
   listId: number;
@@ -34,6 +35,14 @@ type ImportResult = {
   suppressed_count: number;
   role_count: number;
   status: string;
+};
+
+type ProgressState = {
+  phase: ImportEvent["phase"];
+  rowsProcessed?: number;
+  domainsChecked?: number;
+  domainsTotal?: number;
+  error?: string;
 };
 
 type Step = 0 | 1 | 2 | 3;
@@ -77,6 +86,18 @@ const SCHEMAS: { title: string; body: string; example: string }[] = [
   },
 ];
 
+function resultFromDetail(listId: number, detail: ListDetail | null, fallbackStatus = "importing"): ImportResult {
+  return {
+    listId,
+    valid_count: detail?.valid_count ?? 0,
+    invalid_count: detail?.invalid_count ?? 0,
+    duplicate_count: detail?.duplicate_count ?? 0,
+    suppressed_count: detail?.suppressed_count ?? 0,
+    role_count: detail?.role_count ?? 0,
+    status: detail?.status ?? fallbackStatus,
+  };
+}
+
 export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const client = useQueryClient();
   const [step, setStep] = useState<Step>(0);
@@ -86,11 +107,14 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   const [consentText, setConsentText] = useState("");
   const [consentConfirmed, setConsentConfirmed] = useState(false);
   const [excludeRoles, setExcludeRoles] = useState(true);
+  const [checkDomains, setCheckDomains] = useState(true);
   const [emailColumn, setEmailColumn] = useState("");
   const [preview, setPreview] = useState<ListPreview | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [progress, setProgress] = useState<ProgressState | null>(null);
+  const [watchingListId, setWatchingListId] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
   const [dragOver, setDragOver] = useState(false);
 
@@ -102,21 +126,82 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
     setConsentText("");
     setConsentConfirmed(false);
     setExcludeRoles(true);
+    setCheckDomains(true);
     setEmailColumn("");
     setPreview(null);
     setPreviewError(null);
     setPreviewing(false);
     setResult(null);
+    setProgress(null);
+    setWatchingListId(null);
     setBusy(false);
     setDragOver(false);
   }
+
+  useStreamEvent("import", (event) => {
+    if (watchingListId === null || event.listId !== watchingListId) return;
+    setProgress({
+      phase: event.phase,
+      rowsProcessed: event.rowsProcessed,
+      domainsChecked: event.domainsChecked,
+      domainsTotal: event.domainsTotal,
+      error: event.error,
+    });
+    if (event.phase === "done" || event.phase === "failed") {
+      void (async () => {
+        let detail: ListDetail | null = null;
+        try {
+          detail = await api.get<ListDetail>(`/api/lists/${event.listId}`);
+        } catch {
+          detail = null;
+        }
+        setResult(
+          resultFromDetail(
+            event.listId,
+            detail,
+            event.phase === "failed" ? "failed" : "ready",
+          ),
+        );
+        if (event.counts) {
+          setResult((prev) =>
+            prev
+              ? {
+                  ...prev,
+                  valid_count: event.counts?.valid ?? prev.valid_count,
+                  invalid_count: event.counts?.invalid ?? prev.invalid_count,
+                  duplicate_count: event.counts?.duplicate ?? prev.duplicate_count,
+                  suppressed_count: event.counts?.suppressed ?? prev.suppressed_count,
+                  role_count: event.counts?.role ?? prev.role_count,
+                  status: event.phase === "failed" ? "failed" : "ready",
+                }
+              : prev,
+          );
+        }
+        void client.invalidateQueries({ queryKey: queryKeys.lists });
+        setWatchingListId(null);
+        if (event.phase === "failed") {
+          toast.error(event.error || "Import failed");
+        } else {
+          toast.success("Import finished");
+        }
+      })();
+    }
+  });
 
   const onFile = useCallback(async (next: File | null) => {
     setFile(next);
     setPreview(null);
     setPreviewError(null);
     setResult(null);
+    setProgress(null);
     if (!next) return;
+    try {
+      assertUploadSize(next);
+    } catch (err) {
+      setPreviewError(err instanceof Error ? err.message : "File is too large");
+      setStep(1);
+      return;
+    }
     setName((prev) => prev || next.name.replace(/\.(csv|tsv|txt)$/i, "") || "Audience");
     setPreviewing(true);
     try {
@@ -143,6 +228,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   async function submit() {
     if (!file || !consentConfirmed) return;
     setBusy(true);
+    setProgress({ phase: "parsing", rowsProcessed: 0 });
     try {
       const res = await importList(file, {
         name: name.trim() || "Audience",
@@ -150,6 +236,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
         consentText: consentText.trim() || "Operator confirmed consent for this list.",
         consentConfirmed: true,
         excludeRoles,
+        checkDomains,
         emailColumn: emailColumn || undefined,
       });
       void client.invalidateQueries({ queryKey: queryKeys.lists });
@@ -159,19 +246,19 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
       } catch {
         detail = null;
       }
-      setResult({
-        listId: res.listId,
-        valid_count: detail?.valid_count ?? 0,
-        invalid_count: detail?.invalid_count ?? 0,
-        duplicate_count: detail?.duplicate_count ?? 0,
-        suppressed_count: detail?.suppressed_count ?? 0,
-        role_count: detail?.role_count ?? 0,
-        status: detail?.status ?? "importing",
-      });
+      setResult(resultFromDetail(res.listId, detail, detail?.status ?? "importing"));
       setStep(3);
-      toast.success("Import started");
+      if (detail?.status === "ready" || detail?.status === "failed") {
+        setProgress(null);
+        setWatchingListId(null);
+        toast.success(detail.status === "ready" ? "Import finished" : "Import failed");
+      } else {
+        setWatchingListId(res.listId);
+        toast.success("Import started");
+      }
     } catch (err) {
-      toast.error(isApiError(err) ? err.message : "Import failed");
+      setProgress(null);
+      toast.error(isApiError(err) ? err.message : err instanceof Error ? err.message : "Import failed");
     } finally {
       setBusy(false);
     }
@@ -179,6 +266,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   const canContinueFromUpload = Boolean(file && preview && !previewError);
   const canImport = Boolean(file && preview && consentConfirmed && !result);
+  const maxMb = UPLOAD_MAX_BYTES / (1024 * 1024);
 
   return (
     <Dialog
@@ -232,8 +320,8 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
             <div className="flex flex-col gap-3">
               <p className="text-sm text-secondary-foreground">
                 Archer parses plain delimited text only (UTF-8). Excel <code className="text-xs">.xlsx</code> is not
-                supported — export CSV/TSV first. Max preview uses the first 64&nbsp;KB; the full file imports after
-                consent.
+                supported — export CSV/TSV first. Max file size {maxMb}&nbsp;MB. Preview uses the first 64&nbsp;KB; the
+                full file imports after consent.
               </p>
               <ul className="flex flex-col gap-2">
                 {SCHEMAS.map((s) => (
@@ -277,7 +365,7 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                 <p className="text-sm font-medium text-foreground">
                   {previewing ? "Reading file…" : "Drop CSV / TSV here, or click to browse"}
                 </p>
-                <p className="text-xs text-muted-foreground">.csv · .tsv · .txt · UTF-8</p>
+                <p className="text-xs text-muted-foreground">.csv · .tsv · .txt · UTF-8 · max {maxMb} MB</p>
               </div>
               {file ? (
                 <p className="text-xs text-muted-foreground">
@@ -365,12 +453,42 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                   Exclude role addresses (info@, admin@, …)
                 </Label>
               </div>
+              <div className="flex items-start gap-2">
+                <Checkbox
+                  id="import-domains"
+                  checked={checkDomains}
+                  onCheckedChange={(v) => setCheckDomains(v === true)}
+                />
+                <Label htmlFor="import-domains" className="text-sm font-normal leading-snug">
+                  Check domains (MX) — slower on huge lists with many unique domains
+                </Label>
+              </div>
             </div>
           ) : null}
 
           {step === 3 && result ? (
             <div className="rounded-md border border-border p-3 text-sm" data-testid="import-result">
-              <p className="font-medium text-foreground">Import queued (list #{result.listId})</p>
+              <p className="font-medium text-foreground">
+                {result.status === "ready"
+                  ? `Import finished (list #${result.listId})`
+                  : result.status === "failed"
+                    ? `Import failed (list #${result.listId})`
+                    : `Import running (list #${result.listId})`}
+              </p>
+              {progress && result.status === "importing" ? (
+                <p className="mt-2 text-xs text-muted-foreground" data-testid="import-progress">
+                  {progress.phase === "checking_domains"
+                    ? `Checking domains ${progress.domainsChecked ?? 0}/${progress.domainsTotal ?? "…"}`
+                    : progress.phase === "parsing"
+                      ? `Parsing rows${progress.rowsProcessed != null ? ` · ${progress.rowsProcessed.toLocaleString()} processed` : "…"}`
+                      : progress.phase}
+                </p>
+              ) : null}
+              {progress?.error ? (
+                <p role="alert" className="mt-2 text-xs text-destructive">
+                  {progress.error}
+                </p>
+              ) : null}
               <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-secondary-foreground">
                 <li>
                   Imported <span className="font-semibold tabular text-foreground">{result.valid_count}</span>

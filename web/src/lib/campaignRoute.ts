@@ -6,7 +6,6 @@ export type CampaignTab = (typeof CAMPAIGN_TABS)[number];
 export type AppRoute =
   | { kind: "tab"; tab: TabId }
   | { kind: "campaign"; id: number; tab: CampaignTab }
-  | { kind: "chains" }
   | { kind: "notfound" };
 
 export function isCampaignTab(value: string | undefined): value is CampaignTab {
@@ -26,10 +25,6 @@ export function parseAppRoute(hash: string): AppRoute {
   const path = qIndex >= 0 ? stripped.slice(0, qIndex) : stripped;
   const query = qIndex >= 0 ? stripped.slice(qIndex + 1) : "";
   const parts = path.split("/").filter(Boolean);
-
-  if (parts[0]?.toLowerCase() === "chains") {
-    return { kind: "chains" };
-  }
 
   if (parts[0]?.toLowerCase() === "campaigns") {
     const id = parsePositiveId(parts[1]);
@@ -73,13 +68,6 @@ export function canonicaliseAppHash(): AppRoute {
     if (hash !== next) {
       const { pathname, search } = window.location;
       window.history.replaceState(window.history.state, "", `${pathname}${search}${next}`);
-    }
-    return route;
-  }
-  if (route.kind === "chains") {
-    if (hash !== "#/chains") {
-      const { pathname, search } = window.location;
-      window.history.replaceState(window.history.state, "", `${pathname}${search}#/chains`);
     }
     return route;
   }

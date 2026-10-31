@@ -1,8 +1,11 @@
 import type { FastifyInstance } from "fastify";
-import { createChain, deleteChain, getChain, listChains, updateCampaignChainLink } from "../../chains/store.ts";
+import { evaluateGates } from "../../campaigns/gates.ts";
 import { createCampaign, recordEvent } from "../../campaigns/store.ts";
 import { getCampaignView } from "../../campaigns/view.ts";
+import { createChain, deleteChain, getChain, listChains, updateCampaignChainLink } from "../../chains/store.ts";
 import { getList } from "../../import/lists.ts";
+import { assertSetupCompleted } from "../../settings/setup.ts";
+import { getSettingsView } from "../../settings/store.ts";
 import { getTemplate } from "../../templates/store.ts";
 import type { AppContext } from "../context.ts";
 import {
@@ -65,13 +68,23 @@ export function chainRoutes(app: FastifyInstance, ctx: AppContext): void {
     updateCampaignChainLink(ctx.db, campaignId, chain.id, step.position);
     ctx.db.prepare(`UPDATE campaigns SET title = ? WHERE id = ?`).run(`${chain.name} · step ${step.position + 1}`, campaignId);
     recordEvent(ctx.db, campaignId, "chain", `Started from chain "${chain.name}"`);
+
     if (autoStart) {
+      const settings = getSettingsView(ctx.db, ctx.env);
+      assertSetupCompleted(settings, ctx.health.get());
+      const gates = evaluateGates(ctx.db, campaignId, { health: ctx.health.get(), settings });
+      if (!gates) throw notFound("Campaign");
+      if (!gates.ok) {
+        // Draft campaign already exists; surface the same gates_failed shape as campaign start.
+        throw new HttpError(409, "gates_failed", "Some launch checks have not passed yet", gates.gates);
+      }
       try {
         ctx.worker.start(campaignId);
       } catch (err) {
         throw new HttpError(409, "conflict", err instanceof Error ? err.message : String(err));
       }
     }
+
     const view = getCampaignView(ctx.db, campaignId);
     if (!view) throw notFound("Campaign");
     return view;

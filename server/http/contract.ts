@@ -127,6 +127,7 @@ export interface StatusSnapshot {
 export type GateKey =
   | "list_ready"
   | "has_recipients"
+  | "from_name"
   | "from_email"
   | "postal_address"
   | "unsub_mailbox"

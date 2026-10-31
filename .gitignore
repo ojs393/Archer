@@ -64,11 +64,14 @@ Desktop.ini
 # Test / e2e artifacts
 playwright-report/
 .playwright-mcp/
+playwright/.auth/
 test-results/
 blob-report/
 coverage/
 .nyc_output/
 *.lcov
+*.har
+storageState.json
 
 # Agent / SDD / local planning (not part of the product)
 .superpowers/
