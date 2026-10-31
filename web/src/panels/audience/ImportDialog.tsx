@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Progress } from "@/components/ui/progress";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "@/components/ui/sonner";
@@ -476,13 +477,30 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
                     : `Import running (list #${result.listId})`}
               </p>
               {progress && result.status === "importing" ? (
-                <p className="mt-2 text-xs text-muted-foreground" data-testid="import-progress">
-                  {progress.phase === "checking_domains"
-                    ? `Checking domains ${progress.domainsChecked ?? 0}/${progress.domainsTotal ?? "…"}`
-                    : progress.phase === "parsing"
-                      ? `Parsing rows${progress.rowsProcessed != null ? ` · ${progress.rowsProcessed.toLocaleString()} processed` : "…"}`
-                      : progress.phase}
-                </p>
+                <div className="mt-3 flex flex-col gap-1.5" data-testid="import-progress">
+                  <Progress
+                    value={
+                      progress.phase === "checking_domains" && progress.domainsTotal
+                        ? progress.domainsChecked ?? 0
+                        : progress.rowsProcessed ?? 1
+                    }
+                    max={
+                      progress.phase === "checking_domains" && progress.domainsTotal
+                        ? progress.domainsTotal
+                        : Math.max(progress.rowsProcessed ?? 1, 1) + 1
+                    }
+                    live
+                    className="h-2"
+                    aria-label="Import progress"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {progress.phase === "checking_domains"
+                      ? `Checking domains ${progress.domainsChecked ?? 0}/${progress.domainsTotal ?? "…"}`
+                      : progress.phase === "parsing"
+                        ? `Parsing rows${progress.rowsProcessed != null ? ` · ${progress.rowsProcessed.toLocaleString()} processed` : "…"}`
+                        : progress.phase}
+                  </p>
+                </div>
               ) : null}
               {progress?.error ? (
                 <p role="alert" className="mt-2 text-xs text-destructive">

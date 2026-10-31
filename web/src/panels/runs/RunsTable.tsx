@@ -4,7 +4,8 @@ import { StatusPill } from "@/components/StatusPill";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { formatDateTime, formatNumber } from "@/lib/format";
+import { campaignProgress } from "@/lib/campaignProgress";
+import { formatDateTime } from "@/lib/format";
 import { folderLabel, isFolderTag } from "@/lib/folders";
 import type { CampaignView } from "@/lib/types";
 
@@ -59,8 +60,7 @@ export function RunsTable({
       </TableHeader>
       <TableBody>
         {rows.map((row) => {
-          const sent = row.counts.sent;
-          const total = row.counts.total;
+          const progress = campaignProgress(row.counts);
           const canStart = row.status === "draft";
           const canPause = ACTIVE.has(row.status);
           const canResume = PAUSED.has(row.status);
@@ -99,14 +99,12 @@ export function RunsTable({
               </TableCell>
               <TableCell className="min-w-[10rem]">
                 <div className="flex flex-col gap-1">
-                  <span className="text-xs text-muted-foreground">
-                    {formatNumber(sent)}/{formatNumber(total)}
-                  </span>
+                  <span className="text-xs text-muted-foreground">{progress.label}</span>
                   <Progress
-                    value={sent}
-                    max={total || 1}
+                    value={progress.done}
+                    max={progress.total || 1}
                     live={ACTIVE.has(row.status)}
-                    aria-label={`Progress ${sent} of ${total}`}
+                    aria-label={`Progress ${progress.label}`}
                   />
                 </div>
               </TableCell>

@@ -1,4 +1,6 @@
 import { MetricBar } from "@/components/MetricBar";
+import { Progress } from "@/components/ui/progress";
+import { campaignProgress } from "@/lib/campaignProgress";
 import { formatNumber, formatRate } from "@/lib/format";
 import type { CampaignView } from "@/lib/types";
 
@@ -23,23 +25,40 @@ export function SummaryStrip({
   const attempted = sent + failed + suppressed;
   const delivery = attempted === 0 ? null : sent / attempted;
   const bounce = attempted === 0 ? null : suppressed / attempted;
-  const progress = total === 0 ? null : (sent + failed + suppressed + uncertain) / total;
+  const progress = c ? campaignProgress(c) : { done: 0, total: 0, ratio: null, label: "—" };
   const empty = total === 0;
   const reject = campaign?.stats.rejectionRate;
   const perHour = campaign?.stats.sentLastHour ?? 0;
 
   return (
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="flex min-w-0 flex-col gap-1.5 rounded-lg border border-border/80 bg-card px-3 py-2 shadow-card ring-1 ring-black/[0.03]">
+        <div className="flex items-baseline justify-between gap-2 text-xs">
+          <span className="font-medium text-foreground">Send progress</span>
+          <span className="tabular text-muted-foreground">{progress.label}</span>
+        </div>
+        <Progress
+          value={progress.done}
+          max={progress.total || 1}
+          live={live}
+          className="h-2"
+          aria-label={`Send progress ${progress.label}`}
+        />
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          Done = sent + failed + suppressed + uncertain. Pending and retries are still in flight.
+        </p>
+      </div>
     <MetricBar
       loading={loading}
       items={[
         {
           label: "Progress",
-          value: empty ? "—" : `${formatNumber(sent + failed + suppressed + uncertain)}/${formatNumber(total)}`,
+          value: progress.label === "—" ? "—" : progress.label.replace(" of ", "/"),
           info: "Finished attempts ÷ list size (sent + failed + suppressed + uncertain).",
         },
         {
           label: "Done",
-          value: formatRate(progress, empty),
+          value: formatRate(progress.ratio, empty),
           tone: "ok",
         },
         {
@@ -97,5 +116,6 @@ export function SummaryStrip({
         },
       ]}
     />
+    </div>
   );
 }

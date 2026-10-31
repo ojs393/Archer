@@ -39,7 +39,8 @@
     "capture:screenshots": "node scripts/capture-readme-shots.mjs",
     "typecheck": "tsc --noEmit -p config/tsconfig.json && tsc --noEmit -p web/tsconfig.json",
     "test": "vitest run --config config/vitest.config.ts",
-    "test:watch": "vitest --config config/vitest.config.ts"
+    "test:watch": "vitest --config config/vitest.config.ts",
+    "test:scale": "ARCHER_SCALE_SEND=nightly vitest run --config config/vitest.config.ts tests/integration/send-scale.test.ts"
   },
   "dependencies": {
     "@fastify/cookie": "11.1.3",

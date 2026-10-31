@@ -91,7 +91,7 @@ describe("RunsPanel", () => {
     renderRuns();
     expect(await screen.findByRole("heading", { name: "Runs" })).toBeInTheDocument();
     expect(await screen.findByText("Autumn · Promo")).toBeInTheDocument();
-    expect(screen.getByText("3/8")).toBeInTheDocument();
+    expect(screen.getByText("3 of 8")).toBeInTheDocument();
   });
   it("opens the New Run wizard from the header and from archer:new-run", async () => {
     renderRuns();

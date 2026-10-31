@@ -29,7 +29,7 @@ export function useTemplate(id: number | null, enabled = true) {
 
 export async function previewTemplate(
   id: number,
-  body: { listId?: number; pick?: "first" | "next" | "random" } = {},
+  body: { listId?: number; pick?: "first" | "next" | "random"; afterContactId?: number } = {},
   signal?: AbortSignal,
 ): Promise<TemplatePreview> {
   return api.post<TemplatePreview>(`/api/templates/${id}/preview`, body, { signal });
