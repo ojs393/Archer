@@ -145,10 +145,10 @@ describe("mark svg helpers", () => {
     });
   });
 
-  it("wraps the mark in a white rounded square with a hairline for the app icon", () => {
+  it("wraps the mark in a dark teal-gradient rounded plate for the app icon", () => {
     const svg = appIconSvg(markGroup(MARK), { translateY: 24, scale: 1 });
-    expect(svg).toContain('<rect width="512" height="512" rx="112" fill="#ffffff"/>');
-    expect(svg).toContain('<rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#e4e4e7" stroke-width="4"/>');
+    expect(svg).toContain('id="archerPlate"');
+    expect(svg).toContain('<rect width="512" height="512" rx="112" fill="url(#archerPlate)"/>');
     expect(svg).toContain('transform="translate(0 24)"');
   });
 
@@ -157,9 +157,9 @@ describe("mark svg helpers", () => {
     expect(svg).toContain('transform="translate(256 256) scale(1.2) translate(-256 -237)"');
   });
 
-  it("puts the maskable mark on a full-bleed white square", () => {
+  it("puts the maskable mark on a full-bleed dark square", () => {
     const svg = maskableIconSvg(markGroup(MARK));
-    expect(svg).toContain('<rect width="512" height="512" fill="#ffffff"/>');
+    expect(svg).toContain('<rect width="512" height="512" fill="#0A1218"/>');
     expect(svg).not.toContain("rx=");
     expect(svg).toMatch(/scale\(0\.\d+\)/);
   });

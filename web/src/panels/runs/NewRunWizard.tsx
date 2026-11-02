@@ -24,6 +24,7 @@ import { AudienceStep } from "./AudienceStep";
 import { ReviewStep } from "./ReviewStep";
 import { ScheduleStep } from "./ScheduleStep";
 import { TemplateStep } from "./TemplateStep";
+import { validateSchedule } from "../../../../server/domain/schedule.ts";
 import { buildSchedule, defaultLocalTimezone, type ScheduleMode } from "./scheduleMode";
 
 const TABS = ["audience", "template", "schedule", "review"] as const;
@@ -128,7 +129,7 @@ export function NewRunWizard({ open, onOpenChange }: { open: boolean; onOpenChan
 
   const audienceOk = draft.listId !== null && list?.status === "ready";
   const templateOk = draft.templateId !== null;
-  const scheduleOk = draft.schedule.startTime < draft.schedule.endTime && draft.schedule.dailyCap >= 1;
+  const scheduleOk = validateSchedule(draft.schedule).length === 0;
   const unlocked: Record<TabId, boolean> = {
     audience: true,
     template: audienceOk,

@@ -20,6 +20,7 @@ export function ProviderStep({
   testResult,
   testing,
   onTest,
+  errors = {},
 }: {
   draft: SetupDraft;
   onChange: (patch: Partial<SetupDraft>) => void;
@@ -28,6 +29,12 @@ export function ProviderStep({
   testResult: SmtpTestResult | null;
   testing: boolean;
   onTest: () => void;
+  errors?: {
+    sesRegion?: string;
+    smtpHost?: string;
+    smtpPort?: string;
+    smtpUser?: string;
+  };
 }) {
   const showSet = passSet && !draft.clearPass && !draft.smtpPass;
 
@@ -73,6 +80,7 @@ export function ProviderStep({
             id="setup-ses-region"
             label="SES region"
             info="Must match the region where your SES identity is verified."
+            error={errors.sesRegion}
           >
             <Select value={draft.sesRegion || undefined} onValueChange={(sesRegion) => onChange({ sesRegion })}>
               <SelectTrigger aria-label="SES region">
@@ -91,6 +99,7 @@ export function ProviderStep({
             id="setup-ses-user"
             label="SMTP username"
             info="In AWS Console → Amazon SES → SMTP settings → Create SMTP credentials. Use the SMTP username and password (not IAM access keys). Pick the region you verified your domain in."
+            error={errors.smtpUser}
           >
             <Input
               value={draft.smtpUser}
@@ -106,6 +115,7 @@ export function ProviderStep({
             id="setup-smtp-host"
             label="SMTP host"
             info="Your provider's SMTP hostname, e.g. smtp.resend.com."
+            error={errors.smtpHost}
           >
             <Input
               value={draft.smtpHost}
@@ -120,6 +130,7 @@ export function ProviderStep({
               id="setup-smtp-port"
               label="Port"
               info="587 with STARTTLS is usual. Use 465 only when Implicit TLS is on."
+              error={errors.smtpPort}
             >
               <Input
                 type="number"
@@ -149,6 +160,7 @@ export function ProviderStep({
             id="setup-smtp-user"
             label="Username"
             info="The SMTP username from your provider (not always your login email)."
+            error={errors.smtpUser}
           >
             <Input
               value={draft.smtpUser}

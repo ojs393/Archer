@@ -71,10 +71,10 @@ beforeEach(() => {
       return json({
         provider: "ses",
         sesRegion: "us-east-1",
-        operatorName: "Oliver",
+        operatorName: "Alex",
         organization: "",
         setupCompletedAt: "2026-10-26T00:00:00.000Z",
-        fromName: "Oliver",
+        fromName: "Alex",
         fromEmail: "news@example.com",
         replyTo: null,
         postalAddress: "1 Main St",

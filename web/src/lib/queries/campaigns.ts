@@ -164,6 +164,15 @@ export function useUpdateCampaign() {
   });
 }
 
+export function useUpdateCampaignSchedule() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, schedule }: { id: number; schedule: Schedule }) =>
+      api.put<CampaignView>(`/api/campaigns/${id}/schedule`, { schedule }),
+    onSuccess: () => invalidateCampaigns(client),
+  });
+}
+
 export function useRequeueUncertain() {
   const client = useQueryClient();
   return useMutation({

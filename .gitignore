@@ -106,7 +106,12 @@ tmp/
 incoming-*.csv
 upload-*.csv
 *.local.*
+*.local
 .worktrees/
 uploads/
 inbox/
 outbox/
+# Local demo / capture scratch outside data/
+.seed-local
+capture-*.png
+screenshot-tmp/

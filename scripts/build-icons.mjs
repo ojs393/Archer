@@ -31,11 +31,12 @@ const mark = markGroup(fs.readFileSync(path.join(publicDir, "brand", "mark.svg")
 const appIcon = appIconSvg(mark, APP_ICON_PLACEMENT);
 const smallIcon = appIconSvg(simplifyMarkGroup(mark), SMALL_ICON_PLACEMENT);
 const maskableIcon = maskableIconSvg(mark);
-const touchIcon = fullBleedIconSvg(mark, TOUCH_ICON_PLACEMENT);
+const touchIcon = fullBleedIconSvg(mark, TOUCH_ICON_PLACEMENT, { dark: true });
+const PLATE = "#0A1218";
 
-/** Rounded icons keep transparent corners; only full-bleed icons are rendered on opaque white. */
-function render(svg, size, { opaque = false } = {}) {
-  const resvg = new Resvg(svg, { fitTo: { mode: "width", value: size }, ...(opaque ? { background: "#ffffff" } : {}) });
+/** Rounded icons keep transparent corners; full-bleed dark tiles get an opaque plate behind. */
+function render(svg, size, { opaque = false, background = PLATE } = {}) {
+  const resvg = new Resvg(svg, { fitTo: { mode: "width", value: size }, ...(opaque ? { background } : {}) });
   const image = resvg.render();
   const png = Buffer.from(image.asPng());
   image.free();
@@ -54,8 +55,8 @@ const manifest = {
   short_name: "Archer",
   start_url: "/",
   display: "standalone",
-  theme_color: "#ffffff",
-  background_color: "#ffffff",
+  theme_color: "#0A1218",
+  background_color: "#0A1218",
   icons: [
     { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
     { src: "/icon-512.png", sizes: "512x512", type: "image/png" },

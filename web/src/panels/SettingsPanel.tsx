@@ -13,6 +13,7 @@ import {
   patchOperator,
   patchProvider,
   smtpFingerprint,
+  validateProviderDraft,
   type SetupDraft,
 } from "@/components/setup/draft";
 import { AddressesStep } from "@/components/setup/steps/Addresses";
@@ -304,7 +305,15 @@ export default function SettingsPanel() {
             title="Provider"
             description="SES or SMTP credentials used for every send."
             saving={sectionSaving === "provider"}
-            onSave={() => void saveSection("provider", patchProvider(draft), "Provider saved")}
+            onSave={() => {
+              const errs = validateProviderDraft(draft);
+              const first = Object.values(errs)[0];
+              if (first) {
+                toast.error(first);
+                return;
+              }
+              void saveSection("provider", patchProvider(draft), "Provider saved");
+            }}
             actions={
               <Button type="button" variant="secondary" loading={testingSmtp} onClick={() => void testSmtp()}>
                 {testingSmtp ? null : <PlugZap aria-hidden="true" />}

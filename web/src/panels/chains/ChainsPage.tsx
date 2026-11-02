@@ -50,9 +50,15 @@ export default function ChainsPage() {
     [],
   );
 
+  const MAX_DELAY_HOURS = 24 * 90;
+
   async function onCreate() {
     if (!name.trim() || listId === "" || steps.some((s) => !s.templateId)) {
       toast.error("Name, list, and templates are required");
+      return;
+    }
+    if (steps.some((s) => !Number.isInteger(s.delayHours) || s.delayHours < 0 || s.delayHours > MAX_DELAY_HOURS)) {
+      toast.error(`Delay hours must be a whole number from 0 to ${MAX_DELAY_HOURS}.`);
       return;
     }
     try {
@@ -142,8 +148,9 @@ export default function ChainsPage() {
                   min={0}
                   className="w-20 shrink-0"
                   value={step.delayHours}
+                  max={MAX_DELAY_HOURS}
                   onChange={(e) => {
-                    const delayHours = Math.max(0, Number(e.target.value) || 0);
+                    const delayHours = Math.min(MAX_DELAY_HOURS, Math.max(0, Math.floor(Number(e.target.value) || 0)));
                     setSteps((prev) => prev.map((s, j) => (j === i ? { ...s, delayHours } : s)));
                   }}
                   aria-label={`Delay hours before step ${i + 1}`}

@@ -106,3 +106,17 @@ export function isEmail(value: string): boolean {
   const v = value.trim().toLowerCase();
   return v.length > 0 && v.length <= 254 && EMAIL_RE.test(v);
 }
+
+/** Client-side provider checks shared by Setup wizard and Settings. */
+export function validateProviderDraft(d: SetupDraft): Record<string, string> {
+  const e: Record<string, string> = {};
+  if (d.provider === "ses" && !d.sesRegion.trim()) e.sesRegion = "Pick an SES region.";
+  if (d.provider === "smtp") {
+    if (!d.smtpHost.trim()) e.smtpHost = "Enter an SMTP host.";
+    if (!Number.isInteger(d.smtpPort) || d.smtpPort < 1 || d.smtpPort > 65535) {
+      e.smtpPort = "Port must be 1–65535.";
+    }
+  }
+  if (!d.smtpUser.trim()) e.smtpUser = "Enter an SMTP username.";
+  return e;
+}

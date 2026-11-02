@@ -111,7 +111,8 @@ describe("committed icon set", () => {
     const mark = fs.readFileSync(pub("brand", "mark.svg"), "utf8");
     const appIcon = fs.readFileSync(pub("brand", "app-icon.svg"), "utf8");
     expect(fs.readFileSync(pub("favicon.svg"), "utf8")).toBe(appIcon);
-    expect(appIcon).toContain('<rect width="512" height="512" rx="112" fill="#ffffff"/>');
+    expect(appIcon).toContain('id="archerPlate"');
+    expect(appIcon).toContain('<rect width="512" height="512" rx="112" fill="url(#archerPlate)"/>');
     for (const d of mark.match(/d="[^"]+"/g) ?? []) expect(appIcon).toContain(d);
     expect(mark.match(/<path /g)).toHaveLength(14);
   });
@@ -149,21 +150,21 @@ describe("committed icon set", () => {
       for (const [label, png] of entries) expectRoundedTransparent(png, label);
     });
 
-    it.each(["icon-maskable-512.png", "apple-touch-icon.png"])("full-bleed %s stays opaque white in the corners", (name) => {
+    it.each(["icon-maskable-512.png", "apple-touch-icon.png"])("full-bleed %s stays opaque dark plate in the corners", (name) => {
       const img = decodeRgba(fs.readFileSync(pub(name)));
       expect(alphaAt(img, 0, 0)).toBe(255);
-      expect([...img.data.subarray(0, 4)]).toEqual([255, 255, 255, 255]);
+      expect([...img.data.subarray(0, 4)]).toEqual([10, 18, 24, 255]);
     });
   });
 
-  it("site.webmanifest lists the 192, 512 and maskable icons on white", () => {
+  it("site.webmanifest lists the 192, 512 and maskable icons on the dark plate", () => {
     const manifest = JSON.parse(fs.readFileSync(pub("site.webmanifest"), "utf8"));
     expect(manifest).toMatchObject({
       name: "Archer",
       short_name: "Archer",
       display: "standalone",
-      theme_color: "#ffffff",
-      background_color: "#ffffff",
+      theme_color: "#0A1218",
+      background_color: "#0A1218",
     });
     expect(manifest.icons.map((i: { src: string }) => i.src)).toEqual([
       "/icon-192.png",

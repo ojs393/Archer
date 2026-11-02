@@ -228,13 +228,32 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
 
   async function submit() {
     if (!file || !consentConfirmed) return;
+    const listName = name.trim();
+    const label = sourceLabel.trim() || file.name.trim();
+    const attestation = consentText.trim();
+    if (!listName) {
+      toast.error("Enter a list name.");
+      return;
+    }
+    if (!label) {
+      toast.error("Enter a source label.");
+      return;
+    }
+    if (!attestation) {
+      toast.error("Enter a consent attestation.");
+      return;
+    }
+    if (!emailColumn.trim()) {
+      toast.error("Pick the email column.");
+      return;
+    }
     setBusy(true);
     setProgress({ phase: "parsing", rowsProcessed: 0 });
     try {
       const res = await importList(file, {
-        name: name.trim() || "Audience",
-        sourceLabel: sourceLabel.trim() || file.name,
-        consentText: consentText.trim() || "Operator confirmed consent for this list.",
+        name: listName,
+        sourceLabel: label,
+        consentText: attestation,
         consentConfirmed: true,
         excludeRoles,
         checkDomains,
@@ -266,7 +285,9 @@ export function ImportDialog({ open, onOpenChange }: { open: boolean; onOpenChan
   }
 
   const canContinueFromUpload = Boolean(file && preview && !previewError);
-  const canImport = Boolean(file && preview && consentConfirmed && !result);
+  const canImport = Boolean(
+    file && preview && consentConfirmed && !result && name.trim() && (sourceLabel.trim() || file.name.trim()) && consentText.trim() && emailColumn.trim(),
+  );
   const maxMb = UPLOAD_MAX_BYTES / (1024 * 1024);
 
   return (

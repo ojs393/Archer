@@ -35,6 +35,7 @@ React UI on `127.0.0.1` — not another cloud account for your audience.
 | CAN-SPAM without drama | From name, postal address, unsubscribe mailbox, List-Unsubscribe, merge tags |
 | Not melting a new domain | Warm-up, daily caps, send windows, bounce tripwire |
 | Know why a run won’t start | Setup complete + launch gates (SMTP, DNS, compliance tags, test send) |
+| SES bounce / complaint feedback | Optional SNS ingest + suppression; List-Unsubscribe tokens stay opaque |
 | Reuse setup | Save provider / sender / DNS / test inboxes once; re-run wizard anytime |
 
 **Skip Archer** if you need multi-user orgs, a template marketplace, or guaranteed inbox placement.
@@ -91,8 +92,8 @@ npm run setup
 npm start
 ```
 
-Opens `http://127.0.0.1:5199`. First launch walks the wizard; Settings keeps the same configs editable
-and re-saveable forever.
+Opens `http://127.0.0.1:5199` by default (next free port if busy). First launch walks the wizard;
+Settings keeps the same configs editable and re-saveable forever.
 
 | Command | What it does |
 |---|---|
@@ -165,4 +166,9 @@ Linux `Archer.desktop`.
 
 ## License
 
-Private repository. All rights reserved unless otherwise noted.
+Dual-licensed:
+
+- **Noncommercial** — [PolyForm Noncommercial 1.0.0](LICENSE) (personal, hobby, research, education)
+- **Commercial** — paid license if you monetize, sell, or put it behind a paywall — see [COMMERCIAL.md](COMMERCIAL.md)
+
+Contributions require agreeing to [CLA.md](CLA.md).

@@ -30,8 +30,11 @@ import {
   patchOperator,
   patchProvider,
   smtpFingerprint,
+  validateProviderDraft,
   type SetupDraft,
 } from "./draft";
+
+const SETUP_STEP_KEY = "archer:setup-step";
 import { AddressesStep } from "./steps/Addresses";
 import { DomainStep } from "./steps/Domain";
 import { FinishStep } from "./steps/Finish";
@@ -68,7 +71,16 @@ export function SetupWizard({
   const settings = useSettings(open);
   const health = useHealth(open);
 
-  const [step, setStep] = useState<StepIndex>(0);
+  const [step, setStep] = useState<StepIndex>(() => {
+    try {
+      const raw = sessionStorage.getItem(SETUP_STEP_KEY);
+      const n = raw == null ? NaN : Number(raw);
+      if (n === 0 || n === 1 || n === 2 || n === 3 || n === 4) return n;
+    } catch {
+      // ignore
+    }
+    return 0;
+  });
   const [draft, setDraft] = useState<SetupDraft | null>(null);
   const [seededFrom, setSeededFrom] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -101,15 +113,29 @@ export function SetupWizard({
     setLauncherError(null);
     setCompleteError(null);
     setErrors({});
-    setStep(0);
+    // Restore step from session when re-opening; only reset when first seeding this session key.
+    try {
+      const raw = sessionStorage.getItem(SETUP_STEP_KEY);
+      const n = raw == null ? NaN : Number(raw);
+      if (n === 0 || n === 1 || n === 2 || n === 3 || n === 4) setStep(n);
+      else setStep(0);
+    } catch {
+      setStep(0);
+    }
   }, [open, settings.data, seededFrom, draft]);
 
   useEffect(() => {
     if (!open) {
       setSeededFrom(null);
       setDraft(null);
+      return;
     }
-  }, [open]);
+    try {
+      sessionStorage.setItem(SETUP_STEP_KEY, String(step));
+    } catch {
+      // ignore
+    }
+  }, [open, step]);
 
   const currentFp = draft ? smtpFingerprint(draft) : "";
   const credentialsUnchanged = Boolean(baselineFp && currentFp === baselineFp);
@@ -137,6 +163,7 @@ export function SetupWizard({
     if (!draft) return {};
     const e: Record<string, string> = {};
     if (index === 0 && !draft.operatorName.trim()) e.operatorName = "Enter your name.";
+    if (index === 1) Object.assign(e, validateProviderDraft(draft));
     if (index === 2 && !isEmail(draft.fromEmail)) e.fromEmail = "Enter a valid from email.";
     if (index === 3) {
       if (!draft.fromName.trim()) e.fromName = "Enter a from name.";
@@ -184,6 +211,11 @@ export function SetupWizard({
       try {
         const view = await api.post<SetupView>("/api/setup/complete");
         queryClient.setQueryData(queryKeys.setup, view);
+        try {
+          sessionStorage.removeItem(SETUP_STEP_KEY);
+        } catch {
+          // ignore
+        }
         onOpenChange(false);
         navigateToTab("dashboard");
       } catch (err) {
@@ -333,6 +365,7 @@ export function SetupWizard({
                   testResult={smtpTest}
                   testing={testing}
                   onTest={() => void testSmtp()}
+                  errors={errors}
                 />
               ) : null}
               {step === 2 ? (

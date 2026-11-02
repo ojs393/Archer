@@ -119,12 +119,34 @@ function svgDocument(body) {
   return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${CANVAS} ${CANVAS}" role="img" aria-label="Archer">\n${body}\n</svg>\n`;
 }
 
+/** Light-on-dark fills for the Visualizer-style app tile (mark.svg stays dark-on-light for UI). */
+const APP_ICON_FILLS = {
+  "#1E293B": "#115E59",
+  "#334155": "#0D9488",
+  "#5B6B7C": "#2DD4BF",
+  "#0D9488": "#5EEAD4",
+  "#0F172A": "#134E4A",
+  "#0B0F14": "#ECFDF5",
+  "#94A3B8": "#99F6E4",
+};
+
+export function forAppIcon(group) {
+  return group.replace(/fill="(#[0-9A-Fa-f]{6})"/g, (_, hex) => `fill="${APP_ICON_FILLS[hex] ?? hex}"`);
+}
+
 export function appIconSvg(group, placement) {
   return svgDocument(
     [
-      `  <rect width="512" height="512" rx="112" fill="#ffffff"/>`,
-      `  <rect x="6" y="6" width="500" height="500" rx="106" fill="none" stroke="#e4e4e7" stroke-width="4"/>`,
-      `  ${placed(group, placement)}`,
+      `  <defs>`,
+      `    <linearGradient id="archerPlate" x1="0" y1="0" x2="1" y2="1">`,
+      `      <stop offset="0" stop-color="#0F766E"/>`,
+      `      <stop offset="0.55" stop-color="#0B3F3A"/>`,
+      `      <stop offset="1" stop-color="#0A1218"/>`,
+      `    </linearGradient>`,
+      `  </defs>`,
+      `  <rect width="512" height="512" rx="112" fill="url(#archerPlate)"/>`,
+      `  <rect x="28" y="28" width="456" height="456" rx="96" fill="#071014" fill-opacity="0.45"/>`,
+      `  ${placed(forAppIcon(group), placement)}`,
     ].join("\n"),
   );
 }
@@ -132,10 +154,12 @@ export function appIconSvg(group, placement) {
 export const MASKABLE_SCALE = 0.85;
 export const MARK_OPTICAL_OFFSET_Y = 34;
 
-export function fullBleedIconSvg(group, placement) {
-  return svgDocument([`  <rect width="512" height="512" fill="#ffffff"/>`, `  ${placed(group, placement)}`].join("\n"));
+export function fullBleedIconSvg(group, placement, { dark = false } = {}) {
+  const mark = dark ? forAppIcon(group) : group;
+  const fill = dark ? "#0A1218" : "#ffffff";
+  return svgDocument([`  <rect width="512" height="512" fill="${fill}"/>`, `  ${placed(mark, placement)}`].join("\n"));
 }
 
 export function maskableIconSvg(group) {
-  return fullBleedIconSvg(group, { translateY: MARK_OPTICAL_OFFSET_Y, scale: MASKABLE_SCALE });
+  return fullBleedIconSvg(group, { translateY: MARK_OPTICAL_OFFSET_Y, scale: MASKABLE_SCALE }, { dark: true });
 }

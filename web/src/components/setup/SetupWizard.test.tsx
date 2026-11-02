@@ -87,12 +87,13 @@ async function waitReady() {
 }
 
 async function fillOperatorAndNext() {
-  fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Oliver" } });
+  fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Alex" } });
   fireEvent.click(screen.getByRole("button", { name: "Next" }));
   expect(await screen.findByRole("heading", { name: "Provider" })).toBeInTheDocument();
 }
 
 beforeEach(() => {
+  sessionStorage.clear();
   settingsState = structuredClone(baseSettings);
   setupState = structuredClone(incompleteSetup);
   healthState = structuredClone(healthOk);
@@ -186,6 +187,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  sessionStorage.clear();
   vi.unstubAllGlobals();
 });
 
@@ -220,17 +222,17 @@ describe("SetupWizard", () => {
   it("Next saves via api.put and advances; Previous goes back", async () => {
     renderWizard();
     await waitReady();
-    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Oliver" } });
+    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Alex" } });
     fireEvent.change(screen.getByLabelText("Organization"), { target: { value: "Acme" } });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
 
     await waitFor(() => expect(putBodies.length).toBe(1));
-    expect(putBodies[0]).toMatchObject({ operatorName: "Oliver", organization: "Acme" });
+    expect(putBodies[0]).toMatchObject({ operatorName: "Alex", organization: "Acme" });
     expect(await screen.findByRole("heading", { name: "Provider" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Previous" }));
     expect(await screen.findByRole("heading", { name: "Welcome to Archer" })).toBeInTheDocument();
-    expect(screen.getByLabelText("Your name")).toHaveValue("Oliver");
+    expect(screen.getByLabelText("Your name")).toHaveValue("Alex");
   });
 
   it("switches SES vs SMTP fields", async () => {
@@ -286,7 +288,7 @@ describe("SetupWizard", () => {
   it("surfaces 409 missing steps from complete", async () => {
     settingsState = {
       ...baseSettings,
-      operatorName: "Oliver",
+      operatorName: "Alex",
       organization: "Acme",
       provider: "ses",
       sesRegion: "us-east-1",
@@ -335,7 +337,7 @@ describe("SetupWizard", () => {
   it("Finish succeeds, calls complete, and closes", async () => {
     settingsState = {
       ...baseSettings,
-      operatorName: "Oliver",
+      operatorName: "Alex",
       organization: "Acme",
       provider: "ses",
       sesRegion: "us-east-1",
@@ -367,7 +369,7 @@ describe("SetupWizard", () => {
     const dialog = screen.getByRole("dialog");
     expect(dialog.textContent ?? "").not.toMatch(EMOJI_RE);
     // Spot-check other steps briefly
-    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Oliver" } });
+    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Alex" } });
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     await screen.findByRole("heading", { name: "Provider" });
     expect(screen.getByRole("dialog").textContent ?? "").not.toMatch(EMOJI_RE);

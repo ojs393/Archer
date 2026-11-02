@@ -70,6 +70,9 @@ describe("AudiencePanel", () => {
     const file = new File(["email,first_name\na@x.com,Alex\n"], "people.csv", { type: "text/csv" });
     fireEvent.change(within(dialog).getByTestId("import-file"), { target: { files: [file] } });
     await within(dialog).findByText("a@example.com");
+    fireEvent.change(within(dialog).getByLabelText("Consent attestation"), {
+      target: { value: "Waitlist signup confirmed." },
+    });
     fireEvent.click(within(dialog).getByLabelText(/consented to receive email/i));
     fireEvent.click(within(dialog).getByRole("button", { name: "Import" }));
     const result = await within(dialog).findByTestId("import-result");

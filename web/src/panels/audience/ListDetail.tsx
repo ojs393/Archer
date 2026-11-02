@@ -18,6 +18,7 @@ import {
 } from "@/components/ui/dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/components/ui/sonner";
+import { isEmail } from "@/components/setup/draft";
 import { isApiError } from "@/lib/api";
 import { formatDateTime, formatNumber } from "@/lib/format";
 import { isFolderTag } from "@/lib/folders";
@@ -71,8 +72,16 @@ export function ListDetail({ listId }: { listId: number }) {
   const total = page?.total ?? 0;
 
   async function saveMeta() {
+    if (!name.trim()) {
+      toast.error("Enter a list name.");
+      return;
+    }
+    if (!source.trim()) {
+      toast.error("Enter a source label.");
+      return;
+    }
     try {
-      await updateList.mutateAsync({ id: listId, name, source_label: source, tags });
+      await updateList.mutateAsync({ id: listId, name: name.trim(), source_label: source.trim(), tags });
       toast.success("List updated");
     } catch (err) {
       toast.error(isApiError(err) ? err.message : "Could not update list");
@@ -87,8 +96,12 @@ export function ListDetail({ listId }: { listId: number }) {
 
   async function saveContact() {
     if (!edit) return;
+    if (!isEmail(editEmail)) {
+      toast.error("Enter a valid email address.");
+      return;
+    }
     try {
-      await updateContact.mutateAsync({ contactId: edit.id, email: editEmail, fields: editFields });
+      await updateContact.mutateAsync({ contactId: edit.id, email: editEmail.trim(), fields: editFields });
       toast.success("Contact updated");
       setEdit(null);
     } catch (err) {

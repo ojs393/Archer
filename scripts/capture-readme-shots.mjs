@@ -270,23 +270,59 @@ try {
   child = spawnServer();
   await waitReady();
 
-  await page.goto(`${base}/#/dashboard`);
-  await sleep(600);
-  await dismissOverlays(page);
-  await page.waitForSelector("text=Dashboard", { timeout: 15_000 });
+  // New process → new session; drop the pre-seed SPA so setup lock / query cache cannot stick.
+  const cookie2 = await sessionCookie();
+  const setupCheck = await api(cookie2, "GET", "/api/setup");
+  if (!setupCheck.complete) throw new Error(`setup not complete after seed: ${JSON.stringify(setupCheck)}`);
+  const listsCheck = await api(cookie2, "GET", "/api/lists");
+  if (!listsCheck.some((l) => /Autumn newsletter/i.test(l.name))) {
+    throw new Error(`seed list missing after restart: ${JSON.stringify(listsCheck)}`);
+  }
+
+  await context.clearCookies();
+  await page.goto("about:blank");
+  await context.addCookies([
+    {
+      name: "archer_session",
+      value: cookie2.replace(/^archer_session=/, ""),
+      domain: "127.0.0.1",
+      path: "/",
+    },
+  ]);
+
+  async function openTab(hash, heading) {
+    await page.goto(`${base}/${hash}`, { waitUntil: "domcontentloaded" });
+    await page.evaluate(() => {
+      try {
+        sessionStorage.removeItem("archer:setup-step");
+      } catch {
+        // ignore
+      }
+    });
+    await sleep(400);
+    await dismissOverlays(page);
+    await page.waitForFunction(
+      () => fetch("/api/setup").then((r) => r.json()).then((s) => s.complete === true),
+      { timeout: 15_000 },
+    );
+    await dismissOverlays(page);
+    if (heading) {
+      await page.getByRole("heading", { name: heading }).first().waitFor({ timeout: 15_000 });
+    }
+  }
+
+  await openTab("#/dashboard", "Dashboard");
   await page.waitForSelector("text=/Sent|Recipients/i", { timeout: 10_000 });
   await sleep(900);
   await shot(page, "02-dashboard");
 
-  await page.goto(`${base}/#/audience`);
-  await dismissOverlays(page);
-  await page.waitForSelector("text=Autumn newsletter", { timeout: 15_000 });
+  await openTab("#/audience", "Audience");
+  await page.getByText("Autumn newsletter", { exact: true }).waitFor({ timeout: 20_000 });
   await sleep(600);
   await shot(page, "03-audience");
 
-  await page.goto(`${base}/#/templates`);
-  await dismissOverlays(page);
-  await page.waitForSelector("text=Welcome", { timeout: 15_000 });
+  await openTab("#/templates", "Templates");
+  await page.getByText("Welcome", { exact: true }).first().waitFor({ timeout: 15_000 });
   const viewBtn = page.getByRole("button", { name: "View" }).first();
   if (await viewBtn.count()) {
     await viewBtn.click();
@@ -300,20 +336,17 @@ try {
     await shot(page, "04-templates");
   }
 
-  await page.goto(`${base}/#/runs`);
-  await dismissOverlays(page);
-  await page.waitForSelector("text=September newsletter", { timeout: 15_000 });
+  await openTab("#/runs", "Runs");
+  await page.getByText("September newsletter", { exact: true }).first().waitFor({ timeout: 20_000 });
   await sleep(600);
   await shot(page, "05-runs");
 
-  await page.goto(`${base}/#/settings`);
-  await dismissOverlays(page);
+  await openTab("#/settings", "Settings");
   await page.waitForSelector("text=Operator", { timeout: 15_000 });
   await sleep(700);
   await shot(page, "06-settings");
 
-  await page.goto(`${base}/#/runs`);
-  await dismissOverlays(page);
+  await openTab("#/runs", "Runs");
   const newRun = page.getByRole("button", { name: "New run" });
   if (await newRun.count()) {
     await newRun.click();
@@ -329,8 +362,7 @@ try {
     await page.keyboard.press("Escape");
   }
 
-  await page.goto(`${base}/#/campaigns/${ids.campaignId}`);
-  await dismissOverlays(page);
+  await openTab(`#/campaigns/${ids.campaignId}`);
   await page.waitForSelector("text=/September newsletter|Overview|Progress/i", { timeout: 15_000 });
   await sleep(900);
   await shot(page, "08-campaign");
@@ -339,6 +371,14 @@ try {
 } catch (err) {
   console.error(err);
   console.error(stderr.slice(-2000));
+  try {
+    const dump = path.join(outDir, "_debug-fail.png");
+    await page.screenshot({ path: dump, fullPage: true });
+    console.error("debug screenshot:", dump);
+    console.error("page text:\n", (await page.locator("body").innerText()).slice(0, 1500));
+  } catch {
+    // page may already be closed
+  }
   process.exitCode = 1;
 } finally {
   child.kill("SIGTERM");
